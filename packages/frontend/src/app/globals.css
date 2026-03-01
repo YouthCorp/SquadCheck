@@ -1,0 +1,301 @@
+/* ============================================================
+   1. Carbon Design System — full styles (tokens + components)
+   NOTE: Carbon's styles.css compiles with WHITE theme as :root default.
+         We override vars below per theme via data-carbon-theme attribute.
+   ============================================================ */
+@import '@carbon/styles/css/styles.css';
+
+/* ============================================================
+   2. Tailwind — utilities only (preflight disabled in config)
+   ============================================================ */
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   3. Theme tokens
+   Light (white) = reinforce Carbon defaults + our --sc-* semantic vars
+   Dark  (g100)  = override ALL Carbon --cds-* vars + --sc-* semantic vars
+   ============================================================ */
+
+:root,
+[data-carbon-theme="white"] {
+  /* Surface */
+  --cds-background:                  #ffffff;
+  --cds-background-hover:            rgba(141,141,141,0.12);
+  --cds-background-active:           rgba(141,141,141,0.50);
+  --cds-background-selected:         rgba(141,141,141,0.20);
+  --cds-background-inverse:          #393939;
+  /* Layers */
+  --cds-layer-01:                    #f4f4f4;
+  --cds-layer-02:                    #e0e0e0;
+  --cds-layer-03:                    #d1d1d1;
+  --cds-layer-accent-01:             #e0e0e0;
+  --cds-layer-hover-01:              #e8e8e8;
+  --cds-layer-hover-02:              #d1d1d1;
+  --cds-layer-selected-01:           #e0e0e0;
+  --cds-layer-selected-hover-01:     #d1d1d1;
+  --cds-layer-selected-inverse:      #161616;
+  /* Borders */
+  --cds-border-subtle-00:            #e0e0e0;
+  --cds-border-subtle-01:            #c6c6c6;
+  --cds-border-strong-01:            #8d8d8d;
+  --cds-border-interactive:          #0f62fe;
+  --cds-border-inverse:              #161616;
+  /* Text */
+  --cds-text-primary:                #161616;
+  --cds-text-secondary:              #525252;
+  --cds-text-helper:                 #6f6f6f;
+  --cds-text-placeholder:            #a8a8a8;
+  --cds-text-error:                  #da1e28;
+  --cds-text-inverse:                #ffffff;
+  --cds-text-on-color:               #ffffff;
+  /* Links */
+  --cds-link-primary:                #0f62fe;
+  --cds-link-primary-hover:          #0043ce;
+  --cds-link-visited:                #8a3ffc;
+  /* Interactive */
+  --cds-interactive:                 #0f62fe;
+  --cds-focus:                       #0f62fe;
+  --cds-focus-inset:                 #ffffff;
+  /* ContentSwitcher component tokens */
+  --cds-content-switcher-background:       #e0e0e0;
+  --cds-content-switcher-background-hover: #d1d1d1;
+  --cds-content-switcher-selected:         #ffffff;
+  /* Icons */
+  --cds-icon-primary:                #161616;
+  --cds-icon-secondary:              #525252;
+  --cds-icon-inverse:                #ffffff;
+  /* Buttons */
+  --cds-button-primary:              #0f62fe;
+  --cds-button-secondary:            #6f6f6f;
+  --cds-button-tertiary:             #0f62fe;
+  --cds-button-disabled:             rgba(141,141,141,0.30);
+  /* Support/Status */
+  --cds-support-error:               #da1e28;
+  --cds-support-success:             #198038;
+  --cds-support-warning:             #f1c21b;
+  --cds-support-info:                #0043ce;
+  --cds-support-caution-major:       #bc4b01;
+  /* Misc */
+  --cds-overlay:                     rgba(22,22,22,0.50);
+  --cds-shadow:                      rgba(0,0,0,0.30);
+  --cds-skeleton-background:         #e8e8e8;
+  --cds-skeleton-element:            #c6c6c6;
+  /* SquadCheck semantic colors */
+  --sc-green:   #198038;
+  --sc-red:     #da1e28;
+  --sc-yellow:  #8a6a00;
+  --sc-orange:  #c45500;
+  --sc-blue:    #0043ce;
+  --sc-gray:    #525252;
+}
+
+[data-carbon-theme="g100"] {
+  /* Surface */
+  --cds-background:                  #161616;
+  --cds-background-hover:            rgba(141,141,141,0.16);
+  --cds-background-active:           rgba(141,141,141,0.40);
+  --cds-background-selected:         rgba(141,141,141,0.24);
+  --cds-background-inverse:          #f4f4f4;
+  /* Layers */
+  --cds-layer-01:                    #262626;
+  --cds-layer-02:                    #393939;
+  --cds-layer-03:                    #525252;
+  --cds-layer-accent-01:             #353535;
+  --cds-layer-hover-01:              #333333;
+  --cds-layer-hover-02:              #474747;
+  --cds-layer-selected-01:           #393939;
+  --cds-layer-selected-hover-01:     #474747;
+  --cds-layer-selected-inverse:      #f4f4f4;
+  /* Borders */
+  --cds-border-subtle-00:            #393939;
+  --cds-border-subtle-01:            #393939;
+  --cds-border-strong-01:            #6f6f6f;
+  --cds-border-interactive:          #4589ff;
+  --cds-border-inverse:              #f4f4f4;
+  /* Text */
+  --cds-text-primary:                #f4f4f4;
+  --cds-text-secondary:              #c6c6c6;
+  --cds-text-helper:                 #8d8d8d;
+  --cds-text-placeholder:            #6f6f6f;
+  --cds-text-error:                  #ff8389;
+  --cds-text-inverse:                #161616;
+  --cds-text-on-color:               #ffffff;
+  /* Links */
+  --cds-link-primary:                #78a9ff;
+  --cds-link-primary-hover:          #a6c8ff;
+  --cds-link-visited:                #be95ff;
+  /* Interactive */
+  --cds-interactive:                 #4589ff;
+  --cds-focus:                       #ffffff;
+  --cds-focus-inset:                 #161616;
+  /* ContentSwitcher component tokens */
+  --cds-content-switcher-background:       rgba(0,0,0,0);
+  --cds-content-switcher-background-hover: rgba(141,141,141,0.12);
+  --cds-content-switcher-selected:         rgba(141,141,141,0.24);
+  /* Icons */
+  --cds-icon-primary:                #f4f4f4;
+  --cds-icon-secondary:              #c6c6c6;
+  --cds-icon-inverse:                #161616;
+  /* Buttons */
+  --cds-button-primary:              #0f62fe;
+  --cds-button-secondary:            #6f6f6f;
+  --cds-button-tertiary:             #ffffff;
+  --cds-button-disabled:             rgba(141,141,141,0.30);
+  /* Support/Status */
+  --cds-support-error:               #fa4d56;
+  --cds-support-success:             #42be65;
+  --cds-support-warning:             #f1c21b;
+  --cds-support-info:                #4589ff;
+  --cds-support-caution-major:       #ff832b;
+  /* Misc */
+  --cds-overlay:                     rgba(0,0,0,0.65);
+  --cds-shadow:                      rgba(0,0,0,0.80);
+  --cds-skeleton-background:         #292929;
+  --cds-skeleton-element:            #393939;
+  /* SquadCheck semantic colors */
+  --sc-green:   #42be65;
+  --sc-red:     #ff8389;
+  --sc-yellow:  #f1c21b;
+  --sc-orange:  #ff832b;
+  --sc-blue:    #78a9ff;
+  --sc-gray:    #a8a8a8;
+}
+
+/* ============================================================
+   4. App-level base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--cds-background);
+  color: var(--cds-text-primary);
+  font-family: var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================
+   5. SquadCheck utility classes
+   ============================================================ */
+
+.sc-tile {
+  background-color: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle-01);
+  padding: 1rem;
+}
+
+.sc-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  color: var(--cds-text-helper);
+}
+
+.sc-mono {
+  font-family: var(--font-plex-mono), 'IBM Plex Mono', monospace;
+}
+
+/* Tags — use CSS vars so they adapt to both themes */
+.sc-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16px;
+  padding: 0 0.5rem;
+  height: 1.25rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+.sc-tag--red    { background: color-mix(in srgb, var(--sc-red)    18%, transparent); color: var(--sc-red); }
+.sc-tag--orange { background: color-mix(in srgb, var(--sc-orange) 18%, transparent); color: var(--sc-orange); }
+.sc-tag--yellow { background: color-mix(in srgb, var(--sc-yellow) 18%, transparent); color: var(--sc-yellow); }
+.sc-tag--gray   { background: color-mix(in srgb, var(--sc-gray)   15%, transparent); color: var(--sc-gray); }
+.sc-tag--blue   { background: color-mix(in srgb, var(--sc-blue)   15%, transparent); color: var(--sc-blue); }
+.sc-tag--green  { background: color-mix(in srgb, var(--sc-green)  18%, transparent); color: var(--sc-green); }
+
+/* Form badges */
+.sc-form-w { background: color-mix(in srgb, var(--sc-green)  22%, transparent); color: var(--sc-green);  font-size: 0.6875rem; font-weight: 700; }
+.sc-form-d { background: color-mix(in srgb, var(--sc-yellow) 20%, transparent); color: var(--sc-yellow); font-size: 0.6875rem; font-weight: 700; }
+.sc-form-l { background: color-mix(in srgb, var(--sc-red)    22%, transparent); color: var(--sc-red);    font-size: 0.6875rem; font-weight: 700; }
+
+/* ============================================================
+   6. Carbon SideNav
+   ============================================================ */
+.cds--side-nav {
+  width: 16rem !important;
+  max-width: 16rem !important;
+  background-color: var(--cds-background) !important;
+}
+.cds--side-nav--expanded { width: 16rem !important; }
+.cds--side-nav__items { padding-top: 0 !important; }
+
+/* ============================================================
+   7. Hover utility classes (server components — no JS handlers)
+   ============================================================ */
+.sc-tile-hover {
+  background-color: var(--cds-layer-01);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.sc-tile-hover:hover { background-color: var(--cds-layer-hover-01); }
+
+.sc-row-hover { transition: background 0.1s; }
+.sc-row-hover:hover td,
+.sc-row-hover:hover { background-color: var(--cds-layer-hover-01) !important; }
+
+/* ============================================================
+   8. Theme toggle — sliding pill with icon-in-thumb
+   ============================================================ */
+.sc-toggle-pill {
+  position: relative;
+  width: 3.5rem;
+  height: 1.875rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+  outline: none;
+}
+.sc-toggle-pill:focus-visible { box-shadow: 0 0 0 2px var(--cds-focus); }
+.sc-toggle-pill--dark  { background: #252535; }
+.sc-toggle-pill--light { background: #b8cad8; }
+
+.sc-toggle-knob {
+  position: absolute;
+  top: 4px;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease, box-shadow 0.3s ease;
+}
+.sc-toggle-knob--dark {
+  left: 4px;
+  background: #1a1a2c;
+  box-shadow: 0 0 7px 2px rgba(140, 170, 240, 0.5);
+}
+.sc-toggle-knob--light {
+  left: calc(100% - 26px);
+  background: #fff4cc;
+  box-shadow: 0 0 7px 2px rgba(245, 158, 11, 0.55);
+}
+
+.sc-toggle-icon--moon { color: #a0b8ec; filter: drop-shadow(0 0 2px rgba(160, 184, 236, 0.9)); }
+.sc-toggle-icon--sun  { color: #f59e0b; filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.9)); }
+
+/* ============================================================
+   9. Carbon Content Switcher — language selector tweaks
+   ============================================================ */
+.cds--content-switcher { width: 100%; }
+.cds--content-switcher-btn { flex: 1; }

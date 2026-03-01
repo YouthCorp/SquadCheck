@@ -1,0 +1,16 @@
+{
+  "name": "@squadcheck/analysis",
+  "version": "2.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@squadcheck/database": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

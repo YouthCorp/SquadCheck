@@ -1,0 +1,504 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CORE ENTITIES
+// ============================================================
+
+model League {
+  id            Int       @id @default(autoincrement())
+  apiFootballId Int       @unique @map("api_football_id")
+  name          String
+  type          String    // "League" or "Cup"
+  country       String
+  countryCode   String?   @map("country_code")
+  logo          String?
+  flag          String?
+
+  seasons    Season[]
+  fixtures   Fixture[]
+  standings  Standing[]
+  injuries   Injury[]
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("leagues")
+}
+
+model Season {
+  id        Int       @id @default(autoincrement())
+  leagueId  Int       @map("league_id")
+  year      Int
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+  current   Boolean   @default(false)
+
+  covFixtureEvents      Boolean @default(false) @map("cov_fixture_events")
+  covFixtureLineups     Boolean @default(false) @map("cov_fixture_lineups")
+  covFixtureStats       Boolean @default(false) @map("cov_fixture_stats")
+  covFixturePlayerStats Boolean @default(false) @map("cov_fixture_player_stats")
+  covStandings          Boolean @default(false) @map("cov_standings")
+  covPlayers            Boolean @default(false) @map("cov_players")
+  covInjuries           Boolean @default(false) @map("cov_injuries")
+  covPredictions        Boolean @default(false) @map("cov_predictions")
+
+  league            League              @relation(fields: [leagueId], references: [id])
+  playerSeasonStats PlayerSeasonStats[]
+  teamSeasonStats   TeamSeasonStats[]
+  standingEntries   StandingEntry[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([leagueId, year])
+  @@map("seasons")
+}
+
+model Team {
+  id            Int    @id @default(autoincrement())
+  apiFootballId Int    @unique @map("api_football_id")
+  name          String
+  code          String?
+  country       String?
+  founded       Int?
+  logo          String?
+
+  venueName     String? @map("venue_name")
+  venueCity     String? @map("venue_city")
+  venueCapacity Int?    @map("venue_capacity")
+  venueImage    String? @map("venue_image")
+
+  homeFixtures    Fixture[]            @relation("HomeTeam")
+  awayFixtures    Fixture[]            @relation("AwayTeam")
+  injuries        Injury[]
+  fixtureStats    FixtureStatistics[]
+  fixtureLineups  FixtureLineup[]
+  standingEntries StandingEntry[]
+  teamSeasonStats TeamSeasonStats[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("teams")
+}
+
+model Player {
+  id            Int       @id @default(autoincrement())
+  apiFootballId Int       @unique @map("api_football_id")
+  name          String
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  nationality   String?
+  birthDate     DateTime? @map("birth_date")
+  height        String?
+  weight        String?
+  photo         String?
+  position      String?
+
+  injuries       Injury[]
+  seasonStats    PlayerSeasonStats[]
+  fixtureStats   FixturePlayerStats[]
+  lineupPlayers  FixtureLineupPlayer[]
+  eventsAsPlayer FixtureEvent[]        @relation("EventPlayer")
+  eventsAsAssist FixtureEvent[]        @relation("EventAssist")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("players")
+}
+
+// ============================================================
+// FIXTURES
+// ============================================================
+
+model Fixture {
+  id            Int      @id @default(autoincrement())
+  apiFootballId Int      @unique @map("api_football_id")
+  leagueId      Int      @map("league_id")
+  season        Int
+  round         String?
+  date          DateTime
+  timestamp     Int
+  referee       String?
+  status        String   // "FT", "NS", "1H", etc.
+  statusLong    String?  @map("status_long")
+  elapsed       Int?
+
+  homeTeamId Int @map("home_team_id")
+  awayTeamId Int @map("away_team_id")
+
+  goalsHome   Int? @map("goals_home")
+  goalsAway   Int? @map("goals_away")
+  goalsHtHome Int? @map("goals_ht_home")
+  goalsHtAway Int? @map("goals_ht_away")
+
+  venueName String? @map("venue_name")
+  venueCity String? @map("venue_city")
+
+  league   League @relation(fields: [leagueId], references: [id])
+  homeTeam Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team   @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  statistics  FixtureStatistics[]
+  lineups     FixtureLineup[]
+  events      FixtureEvent[]
+  playerStats FixturePlayerStats[]
+  injuries    Injury[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([leagueId, season])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([date])
+  @@index([season, status])
+  @@map("fixtures")
+}
+
+model FixtureStatistics {
+  id        Int @id @default(autoincrement())
+  fixtureId Int @map("fixture_id")
+  teamId    Int @map("team_id")
+
+  shotsOnGoal     Int?   @map("shots_on_goal")
+  shotsOffGoal    Int?   @map("shots_off_goal")
+  totalShots      Int?   @map("total_shots")
+  blockedShots    Int?   @map("blocked_shots")
+  shotsInsideBox  Int?   @map("shots_inside_box")
+  shotsOutsideBox Int?   @map("shots_outside_box")
+  fouls           Int?
+  cornerKicks     Int?   @map("corner_kicks")
+  offsides        Int?
+  possession      Float?
+  yellowCards     Int?   @map("yellow_cards")
+  redCards        Int?   @map("red_cards")
+  goalkeeperSaves Int?   @map("goalkeeper_saves")
+  totalPasses     Int?   @map("total_passes")
+  passesAccurate  Int?   @map("passes_accurate")
+  passPercent     Float? @map("pass_percent")
+  expectedGoals   Float? @map("expected_goals")
+  goalsPrevented  Float? @map("goals_prevented")
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id])
+  team    Team    @relation(fields: [teamId], references: [id])
+
+  @@unique([fixtureId, teamId])
+  @@map("fixture_statistics")
+}
+
+model FixtureLineup {
+  id        Int     @id @default(autoincrement())
+  fixtureId Int     @map("fixture_id")
+  teamId    Int     @map("team_id")
+  formation String?
+  coachId   Int?    @map("coach_id")
+  coachName String? @map("coach_name")
+
+  fixture Fixture               @relation(fields: [fixtureId], references: [id])
+  team    Team                  @relation(fields: [teamId], references: [id])
+  players FixtureLineupPlayer[]
+
+  @@unique([fixtureId, teamId])
+  @@map("fixture_lineups")
+}
+
+model FixtureLineupPlayer {
+  id         Int     @id @default(autoincrement())
+  lineupId   Int     @map("lineup_id")
+  playerId   Int     @map("player_id")
+  playerName String  @map("player_name")
+  number     Int?
+  position   String?
+  grid       String?
+  isStarting Boolean @default(true) @map("is_starting")
+
+  lineup FixtureLineup @relation(fields: [lineupId], references: [id])
+  player Player        @relation(fields: [playerId], references: [id])
+
+  @@index([lineupId])
+  @@index([playerId])
+  @@map("fixture_lineup_players")
+}
+
+model FixtureEvent {
+  id          Int     @id @default(autoincrement())
+  fixtureId   Int     @map("fixture_id")
+  teamId      Int?    @map("team_id")
+  playerId    Int?    @map("player_id")
+  assistId    Int?    @map("assist_id")
+  type        String
+  detail      String?
+  comments    String?
+  timeElapsed Int     @map("time_elapsed")
+  timeExtra   Int?    @map("time_extra")
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id])
+  player  Player? @relation("EventPlayer", fields: [playerId], references: [id])
+  assist  Player? @relation("EventAssist", fields: [assistId], references: [id])
+
+  @@index([fixtureId])
+  @@index([playerId])
+  @@index([type])
+  @@map("fixture_events")
+}
+
+model FixturePlayerStats {
+  id        Int  @id @default(autoincrement())
+  fixtureId Int  @map("fixture_id")
+  playerId  Int  @map("player_id")
+  teamId    Int? @map("team_id")
+
+  minutes    Int?
+  position   String?
+  rating     Float?
+  captain    Boolean @default(false)
+  substitute Boolean @default(false)
+
+  shotsTotal    Int? @map("shots_total")
+  shotsOn       Int? @map("shots_on")
+  goalsTotal    Int? @map("goals_total")
+  goalsConceded Int? @map("goals_conceded")
+  assists       Int?
+  saves         Int?
+
+  passesTotal    Int? @map("passes_total")
+  passesKey      Int? @map("passes_key")
+  passesAccuracy Int? @map("passes_accuracy")
+
+  tacklesTotal  Int? @map("tackles_total")
+  tacklesBlocks Int? @map("tackles_blocks")
+  interceptions Int?
+
+  duelsTotal Int? @map("duels_total")
+  duelsWon   Int? @map("duels_won")
+
+  dribblesAttempts Int? @map("dribbles_attempts")
+  dribblesSuccess  Int? @map("dribbles_success")
+  dribblesPast     Int? @map("dribbles_past")
+
+  foulsDrawn     Int? @map("fouls_drawn")
+  foulsCommitted Int? @map("fouls_committed")
+
+  yellowCards Int? @map("yellow_cards")
+  redCards    Int? @map("red_cards")
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id])
+  player  Player  @relation(fields: [playerId], references: [id])
+
+  @@unique([fixtureId, playerId])
+  @@index([playerId])
+  @@index([fixtureId])
+  @@map("fixture_player_stats")
+}
+
+// ============================================================
+// STANDINGS
+// ============================================================
+
+model Standing {
+  id        Int      @id @default(autoincrement())
+  leagueId  Int      @map("league_id")
+  season    Int
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  league  League          @relation(fields: [leagueId], references: [id])
+  entries StandingEntry[]
+
+  @@unique([leagueId, season])
+  @@map("standings")
+}
+
+model StandingEntry {
+  id         Int     @id @default(autoincrement())
+  standingId Int     @map("standing_id")
+  teamId     Int     @map("team_id")
+  seasonId   Int     @map("season_id")
+  rank       Int
+  points     Int
+  goalsDiff  Int     @map("goals_diff")
+  form       String?
+  description String?
+
+  played       Int
+  wins         Int
+  draws        Int
+  losses       Int
+  goalsFor     Int @map("goals_for")
+  goalsAgainst Int @map("goals_against")
+
+  homePlayed       Int @map("home_played")
+  homeWins         Int @map("home_wins")
+  homeDraws        Int @map("home_draws")
+  homeLosses       Int @map("home_losses")
+  homeGoalsFor     Int @map("home_goals_for")
+  homeGoalsAgainst Int @map("home_goals_against")
+
+  awayPlayed       Int @map("away_played")
+  awayWins         Int @map("away_wins")
+  awayDraws        Int @map("away_draws")
+  awayLosses       Int @map("away_losses")
+  awayGoalsFor     Int @map("away_goals_for")
+  awayGoalsAgainst Int @map("away_goals_against")
+
+  standing Standing @relation(fields: [standingId], references: [id])
+  team     Team     @relation(fields: [teamId], references: [id])
+  season   Season   @relation(fields: [seasonId], references: [id])
+
+  @@unique([standingId, teamId])
+  @@index([teamId])
+  @@map("standing_entries")
+}
+
+// ============================================================
+// INJURIES
+// ============================================================
+
+model Injury {
+  id        Int      @id @default(autoincrement())
+  playerId  Int      @map("player_id")
+  teamId    Int      @map("team_id")
+  leagueId  Int      @map("league_id")
+  fixtureId Int      @map("fixture_id")
+  season    Int
+
+  type        String
+  reason      String
+  fixtureDate DateTime @map("fixture_date")
+
+  player  Player  @relation(fields: [playerId], references: [id])
+  team    Team    @relation(fields: [teamId], references: [id])
+  league  League  @relation(fields: [leagueId], references: [id])
+  fixture Fixture @relation(fields: [fixtureId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([playerId, fixtureId])
+  @@index([teamId, season])
+  @@index([playerId, season])
+  @@index([fixtureId])
+  @@index([reason])
+  @@index([fixtureDate])
+  @@map("injuries")
+}
+
+// ============================================================
+// AGGREGATED STATS
+// ============================================================
+
+model PlayerSeasonStats {
+  id           Int    @id @default(autoincrement())
+  playerId     Int    @map("player_id")
+  teamId       Int    @map("team_id")
+  seasonId     Int    @map("season_id")
+  leagueApiId  Int    @map("league_api_id")
+
+  appearances    Int?
+  lineups        Int?
+  minutes        Int?
+  position       String?
+  rating         Float?
+
+  goalsTotal     Int?   @map("goals_total")
+  assists        Int?
+  shotsTotal     Int?   @map("shots_total")
+  shotsOn        Int?   @map("shots_on")
+
+  passesTotal    Int?   @map("passes_total")
+  passesKey      Int?   @map("passes_key")
+  passesAccuracy Int?   @map("passes_accuracy")
+
+  tacklesTotal   Int?   @map("tackles_total")
+  tacklesBlocks  Int?   @map("tackles_blocks")
+  interceptions  Int?
+
+  duelsTotal     Int?   @map("duels_total")
+  duelsWon       Int?   @map("duels_won")
+
+  dribblesAttempts Int? @map("dribbles_attempts")
+  dribblesSuccess  Int? @map("dribbles_success")
+
+  foulsDrawn     Int?   @map("fouls_drawn")
+  foulsCommitted Int?   @map("fouls_committed")
+
+  yellowCards    Int?   @map("yellow_cards")
+  redCards       Int?   @map("red_cards")
+
+  penaltyScored  Int?   @map("penalty_scored")
+  penaltyMissed  Int?   @map("penalty_missed")
+
+  player  Player @relation(fields: [playerId], references: [id])
+  season  Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([playerId, seasonId, leagueApiId])
+  @@index([teamId, seasonId])
+  @@map("player_season_stats")
+}
+
+model TeamSeasonStats {
+  id       Int @id @default(autoincrement())
+  teamId   Int @map("team_id")
+  seasonId Int @map("season_id")
+
+  avgPossession    Float? @map("avg_possession")
+  avgXg            Float? @map("avg_xg")
+  avgXgAgainst     Float? @map("avg_xg_against")
+  avgShots         Float? @map("avg_shots")
+  avgShotsOnTarget Float? @map("avg_shots_on_target")
+  avgPasses        Float? @map("avg_passes")
+  avgPassAccuracy  Float? @map("avg_pass_accuracy")
+  totalGoals       Int?   @map("total_goals")
+  totalConceded    Int?   @map("total_conceded")
+  cleanSheets      Int?   @map("clean_sheets")
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([teamId, seasonId])
+  @@map("team_season_stats")
+}
+
+// ============================================================
+// INGESTION TRACKING
+// ============================================================
+
+enum IngestionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  PAUSED
+}
+
+model IngestionJob {
+  id              Int             @id @default(autoincrement())
+  jobType         String          @map("job_type")
+  leagueApiId     Int?            @map("league_api_id")
+  season          Int?
+  endpoint        String?
+  status          IngestionStatus @default(PENDING)
+
+  totalItems      Int    @default(0) @map("total_items")
+  processedItems  Int    @default(0) @map("processed_items")
+  failedItems     Int    @default(0) @map("failed_items")
+  apiCallsUsed    Int    @default(0) @map("api_calls_used")
+
+  lastProcessedId String?  @map("last_processed_id")
+  errorMessage    String?  @map("error_message")
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([jobType, leagueApiId, season])
+  @@map("ingestion_jobs")
+}

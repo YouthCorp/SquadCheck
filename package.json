@@ -1,0 +1,22 @@
+{
+  "name": "squadcheck",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Football injury-based squad analysis platform",
+  "workspaces": [
+    "packages/database",
+    "packages/ingestion",
+    "packages/api",
+    "packages/analysis",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "db:migrate": "npm run migrate -w packages/database",
+    "db:generate": "npm run generate -w packages/database",
+    "db:seed": "npm run seed -w packages/ingestion",
+    "db:sync": "npm run sync -w packages/ingestion",
+    "dev:api": "npm run dev -w packages/api",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "build": "npm run build -w packages/database && npm run build -w packages/analysis && npm run build -w packages/ingestion && npm run build -w packages/api && npm run build -w packages/frontend"
+  }
+}

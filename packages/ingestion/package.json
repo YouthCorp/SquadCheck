@@ -1,0 +1,24 @@
+{
+  "name": "@squadcheck/ingestion",
+  "version": "2.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "seed": "ts-node src/index.ts seed",
+    "sync": "ts-node src/index.ts sync",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@squadcheck/database": "*",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "node-cron": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
+  }
+}
