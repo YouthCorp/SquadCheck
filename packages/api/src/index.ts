@@ -41,7 +41,7 @@ app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '2.0.1', timestamp: new Date().toISOString() });
 });
 
 // Error handler
