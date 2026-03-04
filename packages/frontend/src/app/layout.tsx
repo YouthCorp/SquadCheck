@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
-import { Sidebar } from '@/components/sidebar';
+import { LayoutShell } from '@/components/layout-shell';
 import { getLocale } from '@/lib/locale';
 import { getTheme } from '@/lib/theme';
 
@@ -34,18 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${plexSans.variable} ${plexMono.variable}`}
     >
       <body>
-        <div className="flex min-h-screen">
-          <Sidebar locale={locale} />
-          <main
-            className="flex-1 overflow-auto"
-            style={{
-              background: 'var(--cds-background, #161616)',
-              padding: '2rem',
-            }}
-          >
-            {children}
-          </main>
-        </div>
+        <LayoutShell locale={locale}>{children}</LayoutShell>
       </body>
     </html>
   );

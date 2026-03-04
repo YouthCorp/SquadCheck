@@ -191,22 +191,10 @@ export class Orchestrator {
       for (const f of recentFixtures) {
         console.log(`  [Sync] Fixture details for ${f.apiFootballId}`);
         try {
-          await this.fixtureDetailCollector.collectStatistics(
-            f.apiFootballId,
-            f.id,
-          );
-          await this.fixtureDetailCollector.collectLineups(
-            f.apiFootballId,
-            f.id,
-          );
-          await this.fixtureDetailCollector.collectEvents(
-            f.apiFootballId,
-            f.id,
-          );
-          await this.fixtureDetailCollector.collectPlayerStats(
-            f.apiFootballId,
-            f.id,
-          );
+          await this.fixtureDetailCollector.collectStatistics(f.apiFootballId, f.id);
+          await this.fixtureDetailCollector.collectLineups(f.apiFootballId, f.id);
+          await this.fixtureDetailCollector.collectEvents(f.apiFootballId, f.id);
+          await this.fixtureDetailCollector.collectPlayerStats(f.apiFootballId, f.id);
         } catch (err) {
           console.error(`  [Sync] Error on fixture ${f.apiFootballId}:`, err);
         }
@@ -367,22 +355,10 @@ export class Orchestrator {
         let processed = 0;
         for (const f of fixtures) {
           try {
-            await this.fixtureDetailCollector.collectStatistics(
-              f.apiFootballId,
-              f.id,
-            );
-            await this.fixtureDetailCollector.collectLineups(
-              f.apiFootballId,
-              f.id,
-            );
-            await this.fixtureDetailCollector.collectEvents(
-              f.apiFootballId,
-              f.id,
-            );
-            await this.fixtureDetailCollector.collectPlayerStats(
-              f.apiFootballId,
-              f.id,
-            );
+            await this.fixtureDetailCollector.collectStatistics(f.apiFootballId, f.id);
+            await this.fixtureDetailCollector.collectLineups(f.apiFootballId, f.id);
+            await this.fixtureDetailCollector.collectEvents(f.apiFootballId, f.id);
+            await this.fixtureDetailCollector.collectPlayerStats(f.apiFootballId, f.id);
             processed++;
 
             // Update checkpoint every 10 fixtures

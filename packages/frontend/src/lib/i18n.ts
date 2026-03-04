@@ -107,6 +107,14 @@ const translations = {
     lineup_default_formation: 'Default formation',
 
     // home
+    home_hero_title: 'Live Football Intelligence',
+    upcoming_fixtures: 'Upcoming Fixtures',
+    standings_preview: 'Standings',
+    injury_watch: 'Injury Watch',
+    view_all_fixtures: 'View all fixtures →',
+    view_full_standings: 'Full standings →',
+    view_team: 'View team →',
+    power_loss_pct: '{n}% power loss',
     home_subtitle: "Analyze how injuries impact team performance across Europe's top leagues. Select a league to get started.",
     how_it_works: 'How It Works',
     step1_title: '1. Player Weights',
@@ -229,6 +237,14 @@ const translations = {
     lineup_default_formation: '기본 포메이션',
 
     // home
+    home_hero_title: '실시간 축구 분석',
+    upcoming_fixtures: '예정 경기',
+    standings_preview: '순위 미리보기',
+    injury_watch: '부상 모니터',
+    view_all_fixtures: '전체 경기 보기 →',
+    view_full_standings: '전체 순위 보기 →',
+    view_team: '팀 분석 →',
+    power_loss_pct: '전력 {n}% 손실',
     home_subtitle: '유럽 주요 리그의 부상이 팀 성적에 미치는 영향을 분석합니다. 리그를 선택해 시작하세요.',
     how_it_works: '분석 방법',
     step1_title: '1. 선수 가중치',

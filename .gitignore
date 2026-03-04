@@ -3,3 +3,5 @@ dist/
 .env
 .next/
 *.log
+
+.vercel

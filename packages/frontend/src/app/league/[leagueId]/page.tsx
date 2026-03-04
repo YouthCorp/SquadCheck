@@ -36,7 +36,7 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
       </div>
 
       {standing?.entries ? (
-        <div className="cds--data-table-container">
+        <div className="cds--data-table-container sc-table-scroll">
           <table
             className="cds--data-table cds--data-table--zebra"
             style={{ width: '100%', borderCollapse: 'collapse' }}

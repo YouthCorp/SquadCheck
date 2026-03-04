@@ -36,5 +36,11 @@ export const LEAGUE_NAMES: Record<number, string> = {
   61: 'Ligue 1',
 };
 
+export const LEAGUE_API_ID_BY_NAME: Record<string, number> = {
+  'Premier League': 39, 'La Liga': 140, 'Serie A': 135,
+  'Bundesliga': 78,     'Ligue 1': 61,
+};
+
+
 export const POS_GROUP_ORDER: Array<'GK' | 'DEF' | 'MID' | 'FWD'> = ['GK', 'DEF', 'MID', 'FWD'];
 export const POS_GROUP_LABEL: Record<string, string> = { GK: 'GK', DEF: 'DEF', MID: 'MID', FWD: 'FWD' };

@@ -87,7 +87,7 @@ export default async function TeamPage({
               {impact.season}/{impact.season + 1} {t(locale, 'season')}
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)', marginBottom: '1.5rem' }}>
+          <div className="sc-grid-4col">
             <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>
               <div style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{impact.injuredPlayers.length}</div>
               <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'players_out')}</div>
@@ -163,6 +163,7 @@ export default async function TeamPage({
             <span className="sc-label">{t(locale, 'squad')}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>{impact?.season} {t(locale, 'season')}</span>
           </div>
+          <div className="sc-table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--cds-layer-01, #262626)' }}>
             <thead>
               <tr style={{ background: 'var(--cds-layer-02, #393939)' }}>
@@ -202,6 +203,7 @@ export default async function TeamPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

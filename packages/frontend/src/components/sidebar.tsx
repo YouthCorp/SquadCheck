@@ -8,18 +8,20 @@ import { ThemeToggle } from './theme-toggle';
 import { t, type Locale } from '@/lib/i18n';
 
 const leagues = [
-  { id: 39,  name: 'Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-  { id: 140, name: 'La Liga',        flag: '🇪🇸' },
-  { id: 135, name: 'Serie A',        flag: '🇮🇹' },
-  { id: 78,  name: 'Bundesliga',     flag: '🇩🇪' },
-  { id: 61,  name: 'Ligue 1',        flag: '🇫🇷' },
+  { id: 39,  name: 'Premier League' },
+  { id: 140, name: 'La Liga' },
+  { id: 135, name: 'Serie A' },
+  { id: 78,  name: 'Bundesliga' },
+  { id: 61,  name: 'Ligue 1' },
 ];
 
 interface SidebarProps {
   locale: Locale;
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ locale }: SidebarProps) {
+export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
@@ -60,6 +62,8 @@ export function Sidebar({ locale }: SidebarProps) {
 
   return (
     <aside
+      data-sidebar=""
+      data-mobile-open={String(mobileOpen ?? false)}
       style={{
         width: '16rem',
         minWidth: '16rem',
@@ -68,8 +72,6 @@ export function Sidebar({ locale }: SidebarProps) {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        position: 'sticky',
-        top: 0,
       }}
     >
       {/* Brand header */}
@@ -77,6 +79,10 @@ export function Sidebar({ locale }: SidebarProps) {
         style={{
           padding: '1.25rem 1rem',
           borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
         }}
       >
         <Link href="/" style={{ textDecoration: 'none' }}>
@@ -114,6 +120,32 @@ export function Sidebar({ locale }: SidebarProps) {
             Injury Impact Analysis
           </div>
         </Link>
+
+        {/* Close button — only visible on mobile via CSS */}
+        <button
+          className="sc-sidebar-close"
+          onClick={onClose}
+          aria-label="Close navigation"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--cds-text-secondary, #c6c6c6)',
+            padding: '0.25rem',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M13.5 4.5L4.5 13.5M4.5 4.5l9 9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Navigation */}

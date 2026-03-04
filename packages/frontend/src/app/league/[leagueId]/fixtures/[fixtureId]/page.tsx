@@ -528,13 +528,7 @@ export default async function FixtureDetailPage({
           <span className="sc-label">{t(locale, 'injury_comparison')}</span>
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '1rem',
-          }}
-        >
+        <div className="sc-grid-2col">
           <InjuryColumn impact={homeImpact} locale={locale} side="home" />
           <InjuryColumn impact={awayImpact} locale={locale} side="away" />
         </div>
@@ -554,13 +548,7 @@ export default async function FixtureDetailPage({
         >
           <span className="sc-label">{t(locale, 'predicted_lineups')}</span>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '1rem',
-          }}
-        >
+        <div className="sc-grid-2col">
           <LineupColumn lineup={homeLineup} locale={locale} />
           <LineupColumn lineup={awayLineup} locale={locale} />
         </div>

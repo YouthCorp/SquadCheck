@@ -110,20 +110,22 @@ export class FixtureDetailCollector {
         ...item.substitutes.map((p) => ({ ...p, isStarting: false })),
       ];
 
-      for (const p of allPlayers) {
-        const player = await this.ensurePlayer(p.player.id, p.player.name);
-        await this.prisma.fixtureLineupPlayer.create({
-          data: {
-            lineupId: lineup.id,
-            playerId: player.id,
-            playerName: p.player.name,
-            number: p.player.number,
-            position: p.player.pos,
-            grid: p.player.grid,
-            isStarting: p.isStarting,
-          },
-        });
-      }
+      // Resolve all players in parallel, then batch-insert
+      const resolved = await Promise.all(
+        allPlayers.map((p) => this.ensurePlayer(p.player.id, p.player.name).then((player) => ({ p, player }))),
+      );
+
+      await this.prisma.fixtureLineupPlayer.createMany({
+        data: resolved.map(({ p, player }) => ({
+          lineupId: lineup.id,
+          playerId: player.id,
+          playerName: p.player.name,
+          number: p.player.number,
+          position: p.player.pos,
+          grid: p.player.grid,
+          isStarting: p.isStarting,
+        })),
+      });
     }
   }
 
@@ -133,24 +135,31 @@ export class FixtureDetailCollector {
     // Delete existing and re-insert
     await this.prisma.fixtureEvent.deleteMany({ where: { fixtureId: fixtureDbId } });
 
-    for (const item of res.response) {
-      const playerId = item.player.id ? (await this.ensurePlayer(item.player.id, item.player.name || '')).id : null;
-      const assistId = item.assist.id ? (await this.ensurePlayer(item.assist.id, item.assist.name || '')).id : null;
+    // Resolve all players/teams in parallel, then batch-insert
+    const resolved = await Promise.all(
+      res.response.map(async (item) => {
+        const [playerId, assistId, team] = await Promise.all([
+          item.player.id ? this.ensurePlayer(item.player.id, item.player.name || '').then((p) => p.id) : Promise.resolve(null),
+          item.assist.id ? this.ensurePlayer(item.assist.id, item.assist.name || '').then((p) => p.id) : Promise.resolve(null),
+          this.prisma.team.findUnique({ where: { apiFootballId: item.team.id } }),
+        ]);
+        return { item, playerId, assistId, teamId: team?.id };
+      }),
+    );
 
-      await this.prisma.fixtureEvent.create({
-        data: {
-          fixtureId: fixtureDbId,
-          teamId: (await this.prisma.team.findUnique({ where: { apiFootballId: item.team.id } }))?.id,
-          playerId,
-          assistId,
-          type: item.type,
-          detail: item.detail,
-          comments: item.comments,
-          timeElapsed: item.time.elapsed,
-          timeExtra: item.time.extra,
-        },
-      });
-    }
+    await this.prisma.fixtureEvent.createMany({
+      data: resolved.map(({ item, playerId, assistId, teamId }) => ({
+        fixtureId: fixtureDbId,
+        teamId,
+        playerId,
+        assistId,
+        type: item.type,
+        detail: item.detail,
+        comments: item.comments,
+        timeElapsed: item.time.elapsed,
+        timeExtra: item.time.extra,
+      })),
+    });
   }
 
   async collectPlayerStats(fixtureApiId: number, fixtureDbId: number): Promise<void> {
@@ -159,8 +168,12 @@ export class FixtureDetailCollector {
     for (const teamData of res.response) {
       const team = await this.prisma.team.findUnique({ where: { apiFootballId: teamData.team.id } });
 
-      for (const p of teamData.players) {
-        const player = await this.ensurePlayer(p.player.id, p.player.name);
+      // Resolve all players in parallel
+      const playerEntries = await Promise.all(
+        teamData.players.map((p) => this.ensurePlayer(p.player.id, p.player.name).then((player) => ({ p, player }))),
+      );
+
+      for (const { p, player } of playerEntries) {
         const s = p.statistics[0];
         if (!s) continue;
 

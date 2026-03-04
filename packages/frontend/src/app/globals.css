@@ -299,3 +299,204 @@ html, body {
    ============================================================ */
 .cds--content-switcher { width: 100%; }
 .cds--content-switcher-btn { flex: 1; }
+
+/* ============================================================
+   10. Responsive layout
+   ============================================================ */
+
+/* Sidebar sticky position (was inline style — moved here so media query can override) */
+aside[data-sidebar] {
+  position: sticky;
+  top: 0;
+}
+
+/* Close button inside sidebar — hidden on desktop */
+.sc-sidebar-close {
+  display: none;
+}
+
+/* Mobile top bar — hidden on desktop */
+.sc-mobile-header {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 3.5rem;
+  background: var(--cds-background, #161616);
+  border-bottom: 1px solid var(--cds-border-subtle-01, #393939);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  gap: 0.75rem;
+}
+
+.sc-hamburger {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--cds-text-primary, #f4f4f4);
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+.sc-hamburger:hover { background: var(--cds-layer-hover-01, #2e2e2e); }
+
+.sc-mobile-brand {
+  font-size: 1.125rem;
+  letter-spacing: -0.5px;
+}
+
+/* Layout row */
+.sc-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Main content area */
+.sc-main {
+  flex: 1;
+  overflow: auto;
+  background: var(--cds-background, #161616);
+  padding: 2rem;
+  min-width: 0; /* prevent flex overflow */
+}
+
+/* Backdrop overlay (mobile sidebar open) */
+.sc-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 150;
+}
+
+/* ── Responsive grid helpers ───────────────────────────────── */
+
+.sc-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.sc-grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.sc-grid-4col {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--cds-border-subtle-01, #393939);
+  margin-bottom: 1.5rem;
+}
+
+/* Horizontal scroll wrapper for wide tables */
+.sc-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Tablet / mobile: sidebar becomes a drawer (< 1024px) ── */
+@media (max-width: 1023px) {
+  .sc-mobile-header {
+    display: flex;
+  }
+
+  .sc-layout {
+    min-height: calc(100vh - 3.5rem);
+  }
+
+  .sc-main {
+    padding: 1.25rem;
+  }
+
+  aside[data-sidebar] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 200;
+  }
+
+  aside[data-sidebar][data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+
+  .sc-sidebar-close {
+    display: flex;
+  }
+}
+
+/* ── Small mobile: single-column layouts (< 640px) ── */
+@media (max-width: 639px) {
+  .sc-main {
+    padding: 1rem;
+  }
+
+  .sc-grid-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-grid-3col {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .sc-grid-4col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sc-grid-injury-watch {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   11. Home page layout
+   ============================================================ */
+
+/* 3fr:2fr main grid (fixtures left, standings right) */
+.sc-grid-home-main {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1rem;
+}
+
+/* Injury Watch 4-col card grid */
+.sc-grid-injury-watch {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+/* League tab button (Standings + Injury Watch shared) */
+.sc-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.625rem;
+  font-size: 1rem;
+  border: 1px solid var(--cds-border-subtle-01, #393939);
+  background: var(--cds-layer-01, #262626);
+  color: var(--cds-text-primary, #f4f4f4);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.sc-tab-btn:hover { background: var(--cds-layer-hover-01, #333333); }
+.sc-tab-btn--active {
+  border-color: var(--cds-interactive, #4589ff);
+  background: color-mix(in srgb, var(--cds-interactive, #4589ff) 12%, transparent);
+}
+
+@media (max-width: 1023px) {
+  .sc-grid-home-main    { grid-template-columns: 1fr; }
+  .sc-grid-injury-watch { grid-template-columns: repeat(2, 1fr); }
+}

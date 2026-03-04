@@ -96,6 +96,28 @@ export interface FormationSlotInfo {
   pitchY: number;
 }
 
+export interface InjurySummaryEntry {
+  team: { id: number; name: string; logo: string | null } | undefined;
+  injuryCount: number;
+}
+
+export interface StandingEntry {
+  rank: number; points: number; played: number;
+  wins: number; draws: number; losses: number;
+  goalsFor: number; goalsAgainst: number; goalsDiff: number;
+  form: string | null;
+  team: { id: number; name: string; logo: string | null; code: string | null };
+}
+
+export interface Standing {
+  id: number;
+  entries: StandingEntry[];
+}
+
+export interface FixtureWithLeague extends Fixture {
+  league: { id: number; name: string; logo: string | null } | null;
+}
+
 export interface PredictedLineup {
   teamId: number;
   teamName: string;
