@@ -4,7 +4,7 @@ import { getPrisma } from '../lib/prisma';
 export const fixturesRouter = Router();
 
 // GET /api/fixtures/upcoming?league=39&limit=10
-// GET /api/fixtures/upcoming?league=39&all=true  — returns all NS fixtures (no limit, no date filter)
+// GET /api/fixtures/upcoming?league=39&all=true  — returns all upcoming NS fixtures across all leagues (no limit)
 fixturesRouter.get('/upcoming', async (req, res, next) => {
   try {
     const prisma = getPrisma(req);
@@ -12,10 +12,8 @@ fixturesRouter.get('/upcoming', async (req, res, next) => {
     const fetchAll = req.query.all === 'true';
     const limit = fetchAll ? 500 : (parseInt(req.query.limit as string) || 10);
 
-    const where: any = { status: 'NS' };
-    if (!fetchAll) {
-      where.date = { gte: new Date() };
-    }
+    // Always filter by date >= now so stale NS fixtures (not yet synced after match day) don't appear
+    const where: any = { status: 'NS', date: { gte: new Date() } };
 
     if (leagueApiId) {
       const league = await prisma.league.findUnique({ where: { apiFootballId: leagueApiId } });
