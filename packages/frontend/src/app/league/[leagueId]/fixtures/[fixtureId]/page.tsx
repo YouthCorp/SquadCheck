@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n';
 import { LEAGUE_NAMES } from '@/lib/constants';
-import type { Fixture, InjuryImpact, PredictedLineup } from '@/lib/types';
+import type { Fixture, InjuryImpact, PredictedLineup, Standing } from '@/lib/types';
 import { formatRoundLabel, parseRoundNumber } from '@/lib/format';
 import { ClientMatchDateTime } from '@/components/client-date';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
@@ -310,6 +310,7 @@ export default async function FixtureDetailPage({
   let awayImpact: InjuryImpact | null = null;
   let homeLineup: PredictedLineup | null = null;
   let awayLineup: PredictedLineup | null = null;
+  let rankMap: Record<number, number> = {};
 
   try {
     fixture = await fetchApi<Fixture>(`/api/fixtures/${fixtureId}`);
@@ -317,12 +318,17 @@ export default async function FixtureDetailPage({
 
   if (fixture) {
     try {
-      [homeImpact, awayImpact, homeLineup, awayLineup] = await Promise.all([
+      const [hi, ai, hl, al, standing] = await Promise.all([
         fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${fixture.homeTeam.id}`),
         fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${fixture.awayTeam.id}`),
         fetchApi<PredictedLineup>(`/api/analysis/predicted-lineup/${fixture.homeTeam.id}`).catch(() => null),
         fetchApi<PredictedLineup>(`/api/analysis/predicted-lineup/${fixture.awayTeam.id}`).catch(() => null),
+        fetchApi<Standing>(`/api/standings?league=${leagueId}&season=2025`).catch(() => null),
       ]);
+      homeImpact = hi; awayImpact = ai; homeLineup = hl; awayLineup = al;
+      if (standing) {
+        for (const e of standing.entries) rankMap[e.team.id] = e.rank;
+      }
     } catch {}
   }
 
@@ -418,19 +424,26 @@ export default async function FixtureDetailPage({
                 style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', flexShrink: 0 }}
               />
             )}
-            <h1
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: 'var(--cds-text-primary, #f4f4f4)',
-                margin: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {fixture.homeTeam.name}
-            </h1>
+            <div style={{ minWidth: 0 }}>
+              <h1
+                style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                  color: 'var(--cds-text-primary, #f4f4f4)',
+                  margin: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {fixture.homeTeam.name}
+              </h1>
+              {rankMap[fixture.homeTeam.id] && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                  #{rankMap[fixture.homeTeam.id]}
+                </span>
+              )}
+            </div>
           </Link>
 
           <div
@@ -457,20 +470,26 @@ export default async function FixtureDetailPage({
               textDecoration: 'none',
             }}
           >
-            <h1
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: 'var(--cds-text-primary, #f4f4f4)',
-                margin: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                textAlign: 'right',
-              }}
-            >
-              {fixture.awayTeam.name}
-            </h1>
+            <div style={{ minWidth: 0, textAlign: 'right' }}>
+              <h1
+                style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                  color: 'var(--cds-text-primary, #f4f4f4)',
+                  margin: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {fixture.awayTeam.name}
+              </h1>
+              {rankMap[fixture.awayTeam.id] && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                  #{rankMap[fixture.awayTeam.id]}
+                </span>
+              )}
+            </div>
             {fixture.awayTeam.logo && (
               <img
                 src={fixture.awayTeam.logo}

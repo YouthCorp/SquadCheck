@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES } from '@/lib/constants';
-import type { Fixture } from '@/lib/types';
+import type { Fixture, Standing } from '@/lib/types';
 import { parseRoundNumberForSort, formatRoundLabel } from '@/lib/format';
 import { ClientMatchDate } from '@/components/client-date';
 
@@ -18,8 +18,16 @@ export default async function FixturesPage({
   const locale = getLocale();
 
   let fixtures: Fixture[] = [];
+  let rankMap: Record<number, number> = {};
   try {
-    fixtures = await fetchApi<Fixture[]>(`/api/fixtures/upcoming?league=${leagueId}&all=true`);
+    const [fixtureData, standing] = await Promise.all([
+      fetchApi<Fixture[]>(`/api/fixtures/upcoming?league=${leagueId}&all=true`),
+      fetchApi<Standing>(`/api/standings?league=${leagueId}&season=2025`).catch(() => null),
+    ]);
+    fixtures = fixtureData;
+    if (standing) {
+      for (const e of standing.entries) rankMap[e.team.id] = e.rank;
+    }
   } catch {}
 
   // Group by round, sorted by round number
@@ -247,18 +255,23 @@ export default async function FixturesPage({
                       </span>
                     </div>
 
-                    {/* VS */}
+                    {/* VS + rank */}
                     <div
                       style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: 'var(--cds-text-helper, #8d8d8d)',
-                        letterSpacing: '0.5px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.25rem',
                         flexShrink: 0,
                         padding: '0 0.25rem',
                       }}
                     >
-                      vs
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.5px' }}>vs</span>
+                      {rankMap[fix.homeTeam.id] && rankMap[fix.awayTeam.id] && (
+                        <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', whiteSpace: 'nowrap' }}>
+                          #{rankMap[fix.homeTeam.id]} · #{rankMap[fix.awayTeam.id]}
+                        </span>
+                      )}
                     </div>
 
                     {/* Away team */}
