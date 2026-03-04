@@ -14,6 +14,7 @@ interface SeedOptions {
   leagues?: number[];
   seasons?: number[];
   skipPhases?: string[];
+  forcePhases?: string[];  // Re-run even if already COMPLETED
 }
 
 export class Orchestrator {
@@ -39,7 +40,8 @@ export class Orchestrator {
   async fullSeed(options: SeedOptions = {}): Promise<void> {
     const leagues = options.leagues || TARGET_LEAGUES;
     const seasons = options.seasons || TARGET_SEASONS;
-    const skip = new Set(options.skipPhases || []);
+    const skip  = new Set(options.skipPhases || []);
+    const force = new Set(options.forcePhases || []);
 
     console.log("═══════════════════════════════════════════");
     console.log(" SquadCheck Full Seed");
@@ -49,7 +51,7 @@ export class Orchestrator {
 
     // Phase 1: Leagues & Seasons
     if (!skip.has("leagues")) {
-      await this.runPhase("leagues", null, null, async () => {
+      await this.runPhase("leagues", null, null, force.has("leagues"), async () => {
         await this.leagueCollector.collect();
       });
     }
@@ -58,7 +60,7 @@ export class Orchestrator {
     if (!skip.has("teams")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("teams", leagueId, season, async () => {
+          await this.runPhase("teams", leagueId, season, force.has("teams"), async () => {
             await this.teamCollector.collect(leagueId, season);
           });
         }
@@ -69,7 +71,7 @@ export class Orchestrator {
     if (!skip.has("standings")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("standings", leagueId, season, async () => {
+          await this.runPhase("standings", leagueId, season, force.has("standings"), async () => {
             await this.collectStandings(leagueId, season);
           });
         }
@@ -80,7 +82,7 @@ export class Orchestrator {
     if (!skip.has("fixtures")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("fixtures", leagueId, season, async () => {
+          await this.runPhase("fixtures", leagueId, season, force.has("fixtures"), async () => {
             await this.fixtureCollector.collect(leagueId, season);
           });
         }
@@ -91,7 +93,7 @@ export class Orchestrator {
     if (!skip.has("injuries")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("injuries", leagueId, season, async () => {
+          await this.runPhase("injuries", leagueId, season, force.has("injuries"), async () => {
             await this.injuryCollector.collect(leagueId, season);
           });
         }
@@ -102,7 +104,7 @@ export class Orchestrator {
     if (!skip.has("players")) {
       for (const leagueApiId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("players", leagueApiId, season, async () => {
+          await this.runPhase("players", leagueApiId, season, force.has("players"), async () => {
             const league = await this.prisma.league.findUnique({
               where: { apiFootballId: leagueApiId },
             });
@@ -137,12 +139,12 @@ export class Orchestrator {
 
     // Phase 7–10: Fixture details (statistics, lineups, events, player_stats)
     if (!skip.has("fixture_details")) {
-      await this.collectAllFixtureDetails(leagues, seasons);
+      await this.collectAllFixtureDetails(leagues, seasons, force.has("fixture_details"));
     }
 
     // Phase 11: Aggregate team season stats
     if (!skip.has("aggregates")) {
-      await this.runPhase("aggregates", null, null, async () => {
+      await this.runPhase("aggregates", null, null, force.has("aggregates"), async () => {
         await this.computeTeamSeasonStats(leagues, seasons);
       });
     }
@@ -213,9 +215,10 @@ export class Orchestrator {
     jobType: string,
     leagueApiId: number | null,
     season: number | null,
+    forceRun: boolean,
     fn: () => Promise<void>,
   ): Promise<void> {
-    // Check if already completed
+    // Check if already completed (skip unless forced)
     const existing = await this.prisma.ingestionJob.findFirst({
       where: {
         jobType,
@@ -225,11 +228,18 @@ export class Orchestrator {
       },
     });
 
-    if (existing) {
+    if (existing && !forceRun) {
       console.log(
         `[Skip] ${jobType} league=${leagueApiId} season=${season} — already completed`,
       );
       return;
+    }
+
+    if (existing && forceRun) {
+      console.log(
+        `[Force] ${jobType} league=${leagueApiId} season=${season} — re-running`,
+      );
+      await this.prisma.ingestionJob.delete({ where: { id: existing.id } });
     }
 
     const job = await this.prisma.ingestionJob.create({
@@ -279,6 +289,7 @@ export class Orchestrator {
   private async collectAllFixtureDetails(
     leagues: number[],
     seasons: number[],
+    forceRun = false,
   ): Promise<void> {
     for (const leagueApiId of leagues) {
       const league = await this.prisma.league.findUnique({
@@ -298,11 +309,17 @@ export class Orchestrator {
             status: IngestionStatus.COMPLETED,
           },
         });
-        if (existingJob) {
+        if (existingJob && !forceRun) {
           console.log(
             `[Skip] fixture_details league=${leagueApiId} season=${season} — already completed`,
           );
           continue;
+        }
+        if (existingJob && forceRun) {
+          console.log(
+            `[Force] fixture_details league=${leagueApiId} season=${season} — re-running`,
+          );
+          await this.prisma.ingestionJob.delete({ where: { id: existingJob.id } });
         }
 
         // Find last checkpoint for resume

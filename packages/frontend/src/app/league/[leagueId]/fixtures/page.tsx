@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES } from '@/lib/constants';
-import type { Team, Fixture } from '@/lib/types';
-import { parseRoundNumberForSort, formatMatchDate, formatRoundLabel } from '@/lib/format';
+import type { Fixture } from '@/lib/types';
+import { parseRoundNumberForSort, formatRoundLabel } from '@/lib/format';
+import { ClientMatchDate } from '@/components/client-date';
 
 export default async function FixturesPage({
   params,
@@ -310,7 +311,7 @@ export default async function FixturesPage({
                         fontFamily: 'var(--font-plex-mono, monospace)',
                       }}
                     >
-                      {formatMatchDate(fix.date, locale)}
+                      <ClientMatchDate dateStr={fix.date} locale={locale} />
                     </div>
                     {fix.venueName && (
                       <div

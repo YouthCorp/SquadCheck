@@ -4,7 +4,8 @@ import { getLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n';
 import { LEAGUE_NAMES } from '@/lib/constants';
 import type { Fixture, InjuryImpact, PredictedLineup } from '@/lib/types';
-import { formatMatchDateTime, formatRoundLabel, parseRoundNumber } from '@/lib/format';
+import { formatRoundLabel, parseRoundNumber } from '@/lib/format';
+import { ClientMatchDateTime } from '@/components/client-date';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
 import { PitchLineup } from '@/components/pitch-lineup';
 
@@ -399,13 +400,15 @@ export default async function FixtureDetailPage({
             marginTop: '0.5rem',
           }}
         >
-          <div
+          <Link
+            href={`/team/${fixture.homeTeam.id}?league=${leagueId}`}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.625rem',
               flex: 1,
               minWidth: 0,
+              textDecoration: 'none',
             }}
           >
             {fixture.homeTeam.logo && (
@@ -428,7 +431,7 @@ export default async function FixtureDetailPage({
             >
               {fixture.homeTeam.name}
             </h1>
-          </div>
+          </Link>
 
           <div
             style={{
@@ -442,7 +445,8 @@ export default async function FixtureDetailPage({
             vs
           </div>
 
-          <div
+          <Link
+            href={`/team/${fixture.awayTeam.id}?league=${leagueId}`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -450,6 +454,7 @@ export default async function FixtureDetailPage({
               flex: 1,
               justifyContent: 'flex-end',
               minWidth: 0,
+              textDecoration: 'none',
             }}
           >
             <h1
@@ -473,7 +478,7 @@ export default async function FixtureDetailPage({
                 style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', flexShrink: 0 }}
               />
             )}
-          </div>
+          </Link>
         </div>
 
         {/* Match meta */}
@@ -502,7 +507,7 @@ export default async function FixtureDetailPage({
               fontFamily: 'var(--font-plex-mono, monospace)',
             }}
           >
-            {formatMatchDateTime(fixture.date, locale)}
+            <ClientMatchDateTime dateStr={fixture.date} locale={locale} />
           </span>
           {fixture.venueName && (
             <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>

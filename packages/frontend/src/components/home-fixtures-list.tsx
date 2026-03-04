@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import type { Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
@@ -80,8 +82,8 @@ export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
                     </span>
                   </div>
 
-                  {/* Date */}
-                  <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {/* Date — rendered client-side for local timezone */}
+                  <span suppressHydrationWarning style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {formatDate(fix.date, locale)}
                   </span>
                 </div>

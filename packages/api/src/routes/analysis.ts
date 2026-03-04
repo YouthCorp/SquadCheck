@@ -38,13 +38,21 @@ async function resolveSeasonChain(
 }
 
 async function resolveTeamLeague(prisma: PrismaClient, teamId: number): Promise<number | null> {
-  // Find leagueId from a standing entry or season stats
-  const entry = await prisma.playerSeasonStats.findFirst({
+  // Primary: find leagueId from player season stats
+  const statsEntry = await prisma.playerSeasonStats.findFirst({
     where: { teamId },
     select: { season: { select: { leagueId: true } } },
     orderBy: { seasonId: 'desc' },
   });
-  return entry?.season.leagueId ?? null;
+  if (statsEntry) return statsEntry.season.leagueId;
+
+  // Fallback: find leagueId from standing entries (covers leagues without player stats seeded)
+  const standingEntry = await prisma.standingEntry.findFirst({
+    where: { teamId },
+    select: { standing: { select: { leagueId: true } } },
+    orderBy: { id: 'desc' },
+  });
+  return standingEntry?.standing.leagueId ?? null;
 }
 
 // ── GET /api/analysis/team-power/:teamId?season=2024 ────────
