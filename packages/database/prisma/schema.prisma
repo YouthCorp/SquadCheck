@@ -74,13 +74,14 @@ model Team {
   venueCapacity Int?    @map("venue_capacity")
   venueImage    String? @map("venue_image")
 
-  homeFixtures    Fixture[]            @relation("HomeTeam")
-  awayFixtures    Fixture[]            @relation("AwayTeam")
-  injuries        Injury[]
-  fixtureStats    FixtureStatistics[]
-  fixtureLineups  FixtureLineup[]
-  standingEntries StandingEntry[]
-  teamSeasonStats TeamSeasonStats[]
+  homeFixtures     Fixture[]            @relation("HomeTeam")
+  awayFixtures     Fixture[]            @relation("AwayTeam")
+  injuries         Injury[]
+  fixtureStats     FixtureStatistics[]
+  fixtureLineups   FixtureLineup[]
+  standingEntries  StandingEntry[]
+  teamSeasonStats  TeamSeasonStats[]
+  recoverySignals  RecoverySignal[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -101,12 +102,14 @@ model Player {
   photo         String?
   position      String?
 
-  injuries       Injury[]
-  seasonStats    PlayerSeasonStats[]
-  fixtureStats   FixturePlayerStats[]
-  lineupPlayers  FixtureLineupPlayer[]
-  eventsAsPlayer FixtureEvent[]        @relation("EventPlayer")
-  eventsAsAssist FixtureEvent[]        @relation("EventAssist")
+  injuries             Injury[]
+  seasonStats          PlayerSeasonStats[]
+  fixtureStats         FixturePlayerStats[]
+  lineupPlayers        FixtureLineupPlayer[]
+  eventsAsPlayer       FixtureEvent[]        @relation("EventPlayer")
+  eventsAsAssist       FixtureEvent[]        @relation("EventAssist")
+  recoverySignals      RecoverySignal[]
+  playerAvailabilities PlayerAvailability[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -146,11 +149,12 @@ model Fixture {
   homeTeam Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam Team   @relation("AwayTeam", fields: [awayTeamId], references: [id])
 
-  statistics  FixtureStatistics[]
-  lineups     FixtureLineup[]
-  events      FixtureEvent[]
-  playerStats FixturePlayerStats[]
-  injuries    Injury[]
+  statistics           FixtureStatistics[]
+  lineups              FixtureLineup[]
+  events               FixtureEvent[]
+  playerStats          FixturePlayerStats[]
+  injuries             Injury[]
+  playerAvailabilities PlayerAvailability[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -501,4 +505,87 @@ model IngestionJob {
   @@index([status])
   @@index([jobType, leagueApiId, season])
   @@map("ingestion_jobs")
+}
+
+// ============================================================
+// RECOVERY SIGNAL INTELLIGENCE
+// ============================================================
+
+model RssFeedSource {
+  id          Int       @id @default(autoincrement())
+  name        String
+  url         String    @unique
+  language    String    @default("en")
+  reliability Float     @default(0.5)
+  active      Boolean   @default(true)
+  lastFetched DateTime? @map("last_fetched")
+
+  signals RecoverySignal[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("rss_feed_sources")
+}
+
+model RecoverySignal {
+  id       Int @id @default(autoincrement())
+  playerId Int @map("player_id")
+  teamId   Int @map("team_id")
+  sourceId Int @map("source_id")
+
+  articleUrl       String   @map("article_url")
+  articleTitle     String   @map("article_title")
+  publishedAt      DateTime @map("published_at")
+
+  // NLP classification results
+  signalStage      String  @map("signal_stage")
+  // partial_training | full_training | available | expected_to_start
+  recoveryScore    Float   @map("recovery_score")
+  confidence       Float
+  classifiedBy     String  @map("classified_by") // "keyword" | "claude"
+
+  extractedSnippet String? @map("extracted_snippet") @db.Text
+
+  player Player        @relation(fields: [playerId], references: [id])
+  team   Team          @relation(fields: [teamId], references: [id])
+  source RssFeedSource @relation(fields: [sourceId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([playerId, articleUrl])
+  @@index([playerId, createdAt])
+  @@index([teamId, createdAt])
+  @@map("recovery_signals")
+}
+
+model PlayerAvailability {
+  id        Int @id @default(autoincrement())
+  playerId  Int @map("player_id")
+  teamId    Int @map("team_id")
+  fixtureId Int @map("fixture_id")
+
+  // Official status from Football API (canonical)
+  officialStatus        String  @default("injured") @map("official_status")
+  // "injured" | "doubtful" | "available"
+
+  // Signal-derived scores
+  recoverySignalScore   Float   @default(0) @map("recovery_signal_score")
+  predictedAvailability Float   @default(0) @map("predicted_availability")
+  confidenceLevel       Float   @default(0) @map("confidence_level")
+
+  latestSignalStage String?   @map("latest_signal_stage")
+  lastSignalAt      DateTime? @map("last_signal_at")
+  signalCount       Int       @default(0) @map("signal_count")
+  expired           Boolean   @default(false)
+
+  player  Player  @relation(fields: [playerId], references: [id])
+  fixture Fixture @relation(fields: [fixtureId], references: [id])
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([playerId, fixtureId])
+  @@index([teamId, expired])
+  @@index([fixtureId])
+  @@map("player_availability")
 }

@@ -135,7 +135,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       // Fetch current-season stats directly — avoids showing prior-season
       // goals/assists for players who were injured all current season.
       const playerIds = rich.enrichedInjuredPlayers.map(p => p.playerId);
-      const [players, currentSeasonStats] = await Promise.all([
+      const [players, currentSeasonStats, availabilities] = await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
           select: { id: true, name: true, photo: true, position: true },
@@ -144,9 +144,26 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
           where: { playerId: { in: playerIds }, teamId, seasonId: chain.ids[0] },
           select: { playerId: true, goalsTotal: true, assists: true, minutes: true, appearances: true },
         }),
+        prisma.playerAvailability.findMany({
+          where: { playerId: { in: playerIds }, expired: false },
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            playerId: true,
+            predictedAvailability: true,
+            confidenceLevel: true,
+            latestSignalStage: true,
+            lastSignalAt: true,
+            signalCount: true,
+          },
+        }),
       ]);
       const photoMap = new Map(players.map(p => [p.id, p]));
       const currentStatsMap = new Map(currentSeasonStats.map(s => [s.playerId, s]));
+      // Take only the first (most recent) availability record per player
+      const availMap = new Map<number, typeof availabilities[number]>();
+      for (const a of availabilities) {
+        if (!availMap.has(a.playerId)) availMap.set(a.playerId, a);
+      }
 
       return {
         team,
@@ -160,6 +177,8 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
         severitySummary: rich.severitySummary,
         injuredPlayers: rich.enrichedInjuredPlayers.map(p => {
           const cs = currentStatsMap.get(p.playerId);
+          const avail = availMap.get(p.playerId);
+          const hasSignal = avail && avail.signalCount > 0;
           return {
             player: photoMap.get(p.playerId) || { id: p.playerId, name: p.playerName, photo: null, position: p.position },
             weight: p.weight,
@@ -180,6 +199,12 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
               minutes: cs?.minutes ?? 0,
               appearances: cs?.appearances ?? 0,
             },
+            recoverySignal: hasSignal ? {
+              predictedAvailability: avail!.predictedAvailability,
+              confidenceLevel: avail!.confidenceLevel,
+              latestSignalStage: avail!.latestSignalStage,
+              lastSignalAt: avail!.lastSignalAt?.toISOString() ?? null,
+            } : undefined,
           };
         }),
         injuryTypes: rich.injuryTypes,
@@ -481,6 +506,98 @@ analysisRouter.get('/matchup', async (req, res, next) => {
       homeForm,
       awayForm,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/analysis/recovery-signals/:teamId?season=2025 ──
+analysisRouter.get('/recovery-signals/:teamId', async (req, res, next) => {
+  try {
+    const prisma = getPrisma(req);
+    const teamId = parseInt(req.params.teamId);
+    const season = await resolveSeason(prisma, req.query.season as string);
+
+    const cacheKey = `analysis:recovery-signals:${teamId}:${season}`;
+
+    const result = await cached(cacheKey, 120, async () => {
+      const team = await prisma.team.findUnique({ where: { id: teamId } });
+      if (!team) return null;
+
+      // Get upcoming fixture for this team (to find active availability rows)
+      const now = new Date();
+      const upcomingFixture = await prisma.fixture.findFirst({
+        where: {
+          season,
+          status: { notIn: ['FT', 'AET', 'PEN', 'CANC', 'ABD'] },
+          date: { gte: now },
+          OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+        },
+        orderBy: { date: 'asc' },
+        select: { id: true, date: true },
+      });
+
+      // Get all active availability rows for this team
+      const availabilities = await prisma.playerAvailability.findMany({
+        where: {
+          teamId,
+          expired: false,
+          ...(upcomingFixture ? { fixtureId: upcomingFixture.id } : {}),
+        },
+        include: {
+          player: { select: { id: true, name: true, photo: true, position: true } },
+        },
+        orderBy: { predictedAvailability: 'desc' },
+      });
+
+      // Get recent signals for this team (last 7 days)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const recentSignals = await prisma.recoverySignal.findMany({
+        where: {
+          teamId,
+          publishedAt: { gte: sevenDaysAgo },
+        },
+        include: {
+          player: { select: { id: true, name: true, photo: true, position: true } },
+          source: { select: { name: true, reliability: true } },
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: 50,
+      });
+
+      return {
+        team,
+        season,
+        upcomingFixture: upcomingFixture
+          ? { id: upcomingFixture.id, date: upcomingFixture.date }
+          : null,
+        playerAvailabilities: availabilities.map(a => ({
+          player: a.player,
+          officialStatus: a.officialStatus,
+          recoverySignalScore: a.recoverySignalScore,
+          predictedAvailability: a.predictedAvailability,
+          confidenceLevel: a.confidenceLevel,
+          latestSignalStage: a.latestSignalStage,
+          lastSignalAt: a.lastSignalAt,
+          signalCount: a.signalCount,
+        })),
+        recentSignals: recentSignals.map(s => ({
+          player: s.player,
+          source: s.source.name,
+          sourceReliability: s.source.reliability,
+          articleTitle: s.articleTitle,
+          articleUrl: s.articleUrl,
+          publishedAt: s.publishedAt,
+          signalStage: s.signalStage,
+          recoveryScore: s.recoveryScore,
+          confidence: s.confidence,
+          classifiedBy: s.classifiedBy,
+        })),
+      };
+    });
+
+    if (!result) return res.status(404).json({ error: 'Team not found' });
+    res.json(result);
   } catch (err) {
     next(err);
   }

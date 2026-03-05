@@ -32,6 +32,13 @@ export interface InjuredPlayer {
   positionGroup: string;
   dataSource: string;
   stats?: { goals: number | null; assists: number | null; minutes: number | null; appearances: number | null };
+  /** Present when at least one recovery signal exists for the player */
+  recoverySignal?: {
+    predictedAvailability: number;
+    confidenceLevel: number;
+    latestSignalStage: string | null;
+    lastSignalAt: string | null;
+  };
 }
 
 export interface InjuryImpact {
@@ -75,6 +82,13 @@ export interface PredictedPlayer {
   pitchY: number;
   positionAffinity: number;
   recentStarterFrequency: number;
+  /** Only present for players moved from injured → available via recovery signal */
+  signalRecovered?: {
+    predictedAvailability: number;
+    latestSignalStage: string | null;
+    lastSignalAt: string | null;
+    confidenceLevel: number;
+  };
 }
 
 export interface UnavailablePlayer {

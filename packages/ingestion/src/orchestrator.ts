@@ -6,6 +6,8 @@ import { FixtureCollector } from "./collectors/fixture.collector";
 import { InjuryCollector } from "./collectors/injury.collector";
 import { PlayerCollector } from "./collectors/player.collector";
 import { FixtureDetailCollector } from "./collectors/fixture-detail.collector";
+import { RecoverySignalCollector } from "./collectors/recovery-signal.collector";
+import { computePlayerAvailability } from "./aggregators/availability-aggregator";
 
 const TARGET_LEAGUES = [39, 140, 135, 78, 61];
 const TARGET_SEASONS = [2023, 2024, 2025];
@@ -24,6 +26,7 @@ export class Orchestrator {
   private injuryCollector: InjuryCollector;
   private playerCollector: PlayerCollector;
   private fixtureDetailCollector: FixtureDetailCollector;
+  private recoverySignalCollector: RecoverySignalCollector;
 
   constructor(
     private api: ApiFootballClient,
@@ -35,6 +38,7 @@ export class Orchestrator {
     this.injuryCollector = new InjuryCollector(api, prisma);
     this.playerCollector = new PlayerCollector(api, prisma);
     this.fixtureDetailCollector = new FixtureDetailCollector(api, prisma);
+    this.recoverySignalCollector = new RecoverySignalCollector(prisma);
   }
 
   async fullSeed(options: SeedOptions = {}): Promise<void> {
@@ -206,7 +210,98 @@ export class Orchestrator {
       await this.collectStandings(leagueApiId, year);
     }
 
+    // Mark expired PlayerAvailability rows for fixtures that are now completed
+    await this.expireCompletedFixtureAvailability();
+
     console.log("\n[Sync] Incremental sync complete");
+  }
+
+  /**
+   * Standalone recovery signal collection cycle.
+   * Called independently from the signal scheduler (odd-hour cron).
+   * Does NOT consume Football API quota.
+   */
+  /** Ensures RSS feed sources exist in DB (idempotent, runs once on first cycle). */
+  private async ensureRssSources(): Promise<void> {
+    const count = await this.prisma.rssFeedSource.count();
+    if (count > 0) return;
+
+    console.log("[Signals] Seeding RSS feed sources...");
+    const sources = [
+      { name: 'BBC Sport Football',    url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',         reliability: 0.85 },
+      { name: 'Sky Sports Football',   url: 'https://www.skysports.com/rss/12040',                      reliability: 0.80 },
+      { name: 'Guardian Football',     url: 'https://www.theguardian.com/football/rss',                  reliability: 0.78 },
+      { name: 'ESPN FC Soccer',        url: 'https://www.espn.com/espn/rss/soccer/news',                reliability: 0.75 },
+      { name: 'The Athletic Football', url: 'https://theathletic.com/rss/feed/?sport=football',          reliability: 0.90 },
+    ];
+    for (const s of sources) {
+      await this.prisma.rssFeedSource.upsert({
+        where: { url: s.url },
+        create: { ...s, language: 'en' },
+        update: { reliability: s.reliability },
+      });
+    }
+    console.log(`[Signals] Seeded ${sources.length} RSS sources`);
+  }
+
+  async collectSignals(): Promise<void> {
+    console.log("[Signals] Starting recovery signal collection...");
+
+    await this.ensureRssSources();
+
+    const currentSeasons = await this.prisma.season.findMany({
+      where: { current: true },
+      select: { year: true },
+    });
+
+    // Collect signals for the most recent current season year
+    const seasonYear = currentSeasons.length > 0
+      ? Math.max(...currentSeasons.map(s => s.year))
+      : 2025;
+
+    const inserted = await this.recoverySignalCollector.collect(seasonYear);
+
+    // After inserting new signals, recompute availability for affected players
+    if (inserted > 0) {
+      await this.recomputeAvailabilityFromRecentSignals(seasonYear);
+    }
+
+    console.log("[Signals] Recovery signal collection complete");
+  }
+
+  /**
+   * Recomputes PlayerAvailability for players who received new signals recently.
+   */
+  private async recomputeAvailabilityFromRecentSignals(season: number): Promise<void> {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    const recentSignals = await this.prisma.recoverySignal.findMany({
+      where: { createdAt: { gte: fiveMinutesAgo } },
+      select: { playerId: true, teamId: true },
+      distinct: ['playerId'],
+    });
+
+    for (const { playerId, teamId } of recentSignals) {
+      try {
+        await computePlayerAvailability(this.prisma, playerId, teamId, season);
+      } catch (err) {
+        console.warn(`[Signals] Availability recompute failed for player ${playerId}:`, err);
+      }
+    }
+  }
+
+  /**
+   * Marks PlayerAvailability rows as expired when their target fixture has completed.
+   * Called at the end of each incremental sync.
+   */
+  private async expireCompletedFixtureAvailability(): Promise<void> {
+    await this.prisma.playerAvailability.updateMany({
+      where: {
+        expired: false,
+        fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
+      },
+      data: { expired: true },
+    });
   }
 
   // ── Phase runner with IngestionJob tracking ──────────────────
@@ -583,11 +678,6 @@ export class Orchestrator {
             return valid.length > 0
               ? valid.reduce((a, b) => a + b, 0) / valid.length
               : null;
-          };
-
-          const sum = (arr: (number | null)[]) => {
-            const valid = arr.filter((v): v is number => v !== null);
-            return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) : null;
           };
 
           const aggData = {

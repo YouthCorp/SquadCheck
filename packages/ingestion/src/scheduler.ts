@@ -8,6 +8,8 @@ import { ApiFootballClient } from './client/api-football';
 import { Orchestrator } from './orchestrator';
 
 const CRON_SCHEDULE = process.env.SYNC_CRON_SCHEDULE || '0 0,6,12,18 * * *';
+// Signal collection runs on odd hours to avoid overlap with main sync
+const SIGNAL_CRON_SCHEDULE = process.env.SIGNAL_CRON_SCHEDULE || '0 1,3,5,7,9,11,13,15,17,19,21,23 * * *';
 
 const prisma = new PrismaClient();
 const apiKey = process.env.API_FOOTBALL_KEY;
@@ -23,6 +25,7 @@ const api = new ApiFootballClient(apiKey, perMinute, dailyLimit);
 const orchestrator = new Orchestrator(api, prisma);
 
 let isRunning = false;
+let isSignalRunning = false;
 
 async function runSync() {
   if (isRunning) {
@@ -42,8 +45,29 @@ async function runSync() {
   }
 }
 
-console.log(`[Scheduler] Cron scheduled: ${CRON_SCHEDULE}`);
+async function runSignalCollection() {
+  if (isSignalRunning) {
+    console.log('[SignalScheduler] Signal collection already running, skipping');
+    return;
+  }
+
+  isSignalRunning = true;
+  console.log(`[SignalScheduler] Starting signal collection at ${new Date().toISOString()}`);
+
+  try {
+    await orchestrator.collectSignals();
+  } catch (err) {
+    console.error('[SignalScheduler] Signal collection failed:', err);
+  } finally {
+    isSignalRunning = false;
+  }
+}
+
+console.log(`[Scheduler] Main sync cron: ${CRON_SCHEDULE}`);
+console.log(`[Scheduler] Signal collection cron: ${SIGNAL_CRON_SCHEDULE}`);
+
 cron.schedule(CRON_SCHEDULE, runSync);
+cron.schedule(SIGNAL_CRON_SCHEDULE, runSignalCollection);
 
 // Run once immediately on startup
 runSync();

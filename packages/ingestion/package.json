@@ -10,10 +10,12 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
     "@squadcheck/database": "*",
     "axios": "^1.7.0",
     "dotenv": "^16.4.0",
-    "node-cron": "^3.0.0"
+    "node-cron": "^3.0.0",
+    "rss-parser": "^3.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

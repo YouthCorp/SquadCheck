@@ -29,5 +29,19 @@ services:
       db:
         condition: service_healthy
 
+  ingestion:
+    build: .
+    restart: unless-stopped
+    environment:
+      SERVICE_MODE: scheduler
+      DATABASE_URL: postgresql://squadcheck:squadcheck@db:5432/squadcheck
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY}
+      API_FOOTBALL_PER_MINUTE: ${API_FOOTBALL_PER_MINUTE:-280}
+      API_FOOTBALL_DAILY_LIMIT: ${API_FOOTBALL_DAILY_LIMIT:-7500}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:

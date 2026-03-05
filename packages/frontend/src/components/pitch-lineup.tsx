@@ -5,6 +5,18 @@ import type { PredictedLineup, PredictedPlayer } from '@/lib/types';
 
 function PlayerNode({ player }: { player: PredictedPlayer }) {
   const isRotation = player.role === 'rotation' || player.role === 'bench';
+  const isSignalRecovered = !!player.signalRecovered;
+
+  // Border: signal-recovered (blue dashed) > recentReturn (orange) > default (white)
+  const photoBorder = isSignalRecovered
+    ? '2px dashed #4589ff'
+    : player.recentReturn
+    ? '2px solid #ff832b'
+    : '2px solid rgba(255,255,255,0.7)';
+
+  const availabilityPct = isSignalRecovered
+    ? Math.round(player.signalRecovered!.predictedAvailability * 100)
+    : null;
 
   return (
     <div
@@ -37,15 +49,20 @@ function PlayerNode({ player }: { player: PredictedPlayer }) {
 
       {/* Player photo */}
       <div
+        title={
+          isSignalRecovered
+            ? `Signal return: ${availabilityPct}% availability (${player.signalRecovered!.latestSignalStage?.replace(/_/g, ' ') ?? ''})`
+            : player.recentReturn
+            ? 'Recently returned from injury'
+            : undefined
+        }
         style={{
           position: 'relative',
           width: '2rem',
           height: '2rem',
           borderRadius: '50%',
           overflow: 'hidden',
-          border: player.recentReturn
-            ? '2px solid #ff832b'
-            : '2px solid rgba(255,255,255,0.7)',
+          border: photoBorder,
           background: 'rgba(0,0,0,0.5)',
           flexShrink: 0,
         }}

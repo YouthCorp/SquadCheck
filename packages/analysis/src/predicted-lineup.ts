@@ -8,6 +8,11 @@ import {
   type FormationSlot,
   type SpecificPosition,
 } from './formation-templates';
+import {
+  applyRecoverySignals,
+  findUpcomingFixtureId,
+  type SignalRecoveredInfo,
+} from './recovery-signal-integration';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -38,6 +43,13 @@ export interface PredictedPlayer {
   pitchY: number;          // 0-100, GK(0)→attack(100)
   positionAffinity: number;
   recentStarterFrequency: number;
+  // Signal-based recovery (optional — only set when player was moved from injured → available)
+  signalRecovered?: {
+    predictedAvailability: number;
+    latestSignalStage: string | null;
+    lastSignalAt: Date | null;
+    confidenceLevel: number;
+  };
 }
 
 export interface UnavailablePlayer {
@@ -542,11 +554,21 @@ export async function computePredictedLineup(
 
   const injuredIds = new Set(latestInjuryByPlayer.keys());
 
+  // 7b. Apply recovery signals: move high-confidence recovery players to available pool
+  const upcomingFixtureId = await findUpcomingFixtureId(prisma, teamId, season);
+  const { adjustedInjuredIds, signalRecovered } = await applyRecoverySignals(
+    prisma,
+    injuredIds,
+    upcomingFixtureId,
+  );
+  // Use adjusted set from here on (immutable — original injuredIds preserved above)
+  const effectiveInjuredIds = adjustedInjuredIds;
+
   // 8. Detect recently-returned players
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const recentReturnIds = new Set<number>();
   for (const inj of injuries) {
-    if (!injuredIds.has(inj.playerId) && inj.fixtureDate >= thirtyDaysAgo) {
+    if (!effectiveInjuredIds.has(inj.playerId) && inj.fixtureDate >= thirtyDaysAgo) {
       recentReturnIds.add(inj.playerId);
     }
   }
@@ -568,7 +590,7 @@ export async function computePredictedLineup(
       role: 'bench' as StarterRole,
     };
 
-    const isInjured = injuredIds.has(pw.playerId);
+    const isInjured = effectiveInjuredIds.has(pw.playerId);
 
     if (!isInjured) {
       if (sp.starterCount === 0) continue;
@@ -614,6 +636,11 @@ export async function computePredictedLineup(
         injuryReason: injury?.reason ?? 'Unknown',
       });
     } else {
+      // If signal-recovered, attach signal info to scored player
+      const sigInfo = signalRecovered.get(pw.playerId);
+      if (sigInfo) {
+        (scored as ScoredPlayer & { signalRecoveredInfo?: SignalRecoveredInfo }).signalRecoveredInfo = sigInfo;
+      }
       availablePlayers.push(scored);
     }
   }
@@ -661,24 +688,35 @@ export async function computePredictedLineup(
     return a.slot.pitchX - b.slot.pitchX;
   });
 
-  const finalStarters: PredictedPlayer[] = sortedAssignments.map(a => ({
-    playerId: a.player.playerId,
-    playerName: a.player.playerName,
-    photo: photoMap.get(a.player.playerId) ?? null,
-    position: a.player.position,
-    positionGroup: a.slot.positionGroup,
-    weight: a.player.weight,
-    starterFrequency: a.player.starterFrequency,
-    compositeScore: a.player.compositeScore,
-    role: a.player.role,
-    recentReturn: a.player.recentReturn,
-    slotPosition: a.slot.specificPosition,
-    slotLabel: a.slot.displayLabel,
-    pitchX: a.slot.pitchX,
-    pitchY: a.slot.pitchY,
-    positionAffinity: round(a.affinity),
-    recentStarterFrequency: a.player.recentStarterFrequency,
-  }));
+  const finalStarters: PredictedPlayer[] = sortedAssignments.map(a => {
+    const sigInfo = (a.player as ScoredPlayer & { signalRecoveredInfo?: SignalRecoveredInfo }).signalRecoveredInfo;
+    return {
+      playerId: a.player.playerId,
+      playerName: a.player.playerName,
+      photo: photoMap.get(a.player.playerId) ?? null,
+      position: a.player.position,
+      positionGroup: a.slot.positionGroup,
+      weight: a.player.weight,
+      starterFrequency: a.player.starterFrequency,
+      compositeScore: a.player.compositeScore,
+      role: a.player.role,
+      recentReturn: a.player.recentReturn,
+      slotPosition: a.slot.specificPosition,
+      slotLabel: a.slot.displayLabel,
+      pitchX: a.slot.pitchX,
+      pitchY: a.slot.pitchY,
+      positionAffinity: round(a.affinity),
+      recentStarterFrequency: a.player.recentStarterFrequency,
+      ...(sigInfo && {
+        signalRecovered: {
+          predictedAvailability: sigInfo.predictedAvailability,
+          latestSignalStage: sigInfo.latestSignalStage,
+          lastSignalAt: sigInfo.lastSignalAt,
+          confidenceLevel: sigInfo.confidenceLevel,
+        },
+      }),
+    };
+  });
 
   // 14. Build unavailable list with wouldHaveStarted
   const finalUnavailable: UnavailablePlayer[] = injuredWithScores.map(p => {

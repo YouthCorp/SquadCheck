@@ -103,6 +103,26 @@ export function InjuredPlayerCard({
       {!isHigh && triggerDays <= 7 && !disciplinary && !isLongTerm && (
         <span className="sc-tag sc-tag--blue">{t(locale, 'new_badge')}</span>
       )}
+      {ip.recoverySignal && ip.recoverySignal.confidenceLevel >= 0.5 && (
+        <span
+          className="sc-tag"
+          title={`${locale === 'ko' ? '복귀 신호' : 'Return signal'}: ${Math.round(ip.recoverySignal.predictedAvailability * 100)}% ${locale === 'ko' ? '가용성' : 'availability'}${ip.recoverySignal.latestSignalStage ? ` (${ip.recoverySignal.latestSignalStage.replace(/_/g, ' ')})` : ''}`}
+          style={{
+            background: ip.recoverySignal.predictedAvailability >= 0.7
+              ? 'rgba(36,161,72,0.18)'
+              : 'rgba(214,158,46,0.18)',
+            color: ip.recoverySignal.predictedAvailability >= 0.7
+              ? '#42be65'
+              : '#f1c21b',
+            border: `1px solid ${ip.recoverySignal.predictedAvailability >= 0.7 ? 'rgba(66,190,101,0.35)' : 'rgba(241,194,27,0.35)'}`,
+          }}
+        >
+          {ip.recoverySignal.predictedAvailability >= 0.7
+            ? (locale === 'ko' ? '복귀 임박' : 'Return signal')
+            : (locale === 'ko' ? '복귀 중' : 'In recovery')}
+          {' '}{Math.round(ip.recoverySignal.predictedAvailability * 100)}%
+        </span>
+      )}
     </div>
   );
 
