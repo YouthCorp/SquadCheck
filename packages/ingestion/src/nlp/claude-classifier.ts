@@ -69,7 +69,11 @@ Does this article contain a positive injury return signal for this player?`;
     if (content.type !== 'text') return null;
     rawText = content.text.trim();
 
-    const parsed = JSON.parse(rawText) as {
+    // Strip markdown code fences if Claude wraps the JSON (e.g. ```json ... ```)
+    const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonText = fenceMatch ? fenceMatch[1].trim() : rawText;
+
+    const parsed = JSON.parse(jsonText) as {
       stage: string;
       recoveryScore: number;
       confidence: number;
