@@ -121,6 +121,9 @@ export class RecoverySignalCollector {
     let snippet: string | undefined;
 
     if (usesClaude) {
+      // If ANTHROPIC_API_KEY is not configured, skip Claude-dependent articles silently
+      if (!process.env.ANTHROPIC_API_KEY) return false;
+
       // Lazy import to avoid loading Claude SDK when not needed
       const { classifyWithClaude } = await import('../nlp/claude-classifier');
       snippet = text.slice(0, 500);

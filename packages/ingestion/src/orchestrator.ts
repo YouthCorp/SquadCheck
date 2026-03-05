@@ -221,27 +221,23 @@ export class Orchestrator {
    * Called independently from the signal scheduler (odd-hour cron).
    * Does NOT consume Football API quota.
    */
-  /** Ensures RSS feed sources exist in DB (idempotent, runs once on first cycle). */
+  /** Syncs RSS feed sources (upsert on every startup — idempotent). */
   private async ensureRssSources(): Promise<void> {
-    const count = await this.prisma.rssFeedSource.count();
-    if (count > 0) return;
-
-    console.log("[Signals] Seeding RSS feed sources...");
     const sources = [
-      { name: 'BBC Sport Football',    url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',         reliability: 0.85 },
-      { name: 'Sky Sports Football',   url: 'https://www.skysports.com/rss/12040',                      reliability: 0.80 },
-      { name: 'Guardian Football',     url: 'https://www.theguardian.com/football/rss',                  reliability: 0.78 },
-      { name: 'ESPN FC Soccer',        url: 'https://www.espn.com/espn/rss/soccer/news',                reliability: 0.75 },
-      { name: 'The Athletic Football', url: 'https://theathletic.com/rss/feed/?sport=football',          reliability: 0.90 },
+      { name: 'BBC Sport Football',    url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',  reliability: 0.85, active: true  },
+      { name: 'Sky Sports Football',   url: 'https://www.skysports.com/rss/12040',               reliability: 0.80, active: true  },
+      { name: 'Guardian Football',     url: 'https://www.theguardian.com/football/rss',           reliability: 0.78, active: true  },
+      { name: 'ESPN FC Soccer',        url: 'https://www.espn.com/espn/rss/soccer/news',         reliability: 0.75, active: true  },
+      // The Athletic has no public RSS — disabled
+      { name: 'The Athletic Football', url: 'https://theathletic.com/rss/feed/?sport=football',  reliability: 0.90, active: false },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({
         where: { url: s.url },
         create: { ...s, language: 'en' },
-        update: { reliability: s.reliability },
+        update: { reliability: s.reliability, active: s.active },
       });
     }
-    console.log(`[Signals] Seeded ${sources.length} RSS sources`);
   }
 
   async collectSignals(): Promise<void> {
