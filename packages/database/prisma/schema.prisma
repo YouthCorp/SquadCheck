@@ -559,6 +559,21 @@ model RecoverySignal {
   @@map("recovery_signals")
 }
 
+model RssArticle {
+  id          Int       @id @default(autoincrement())
+  source      String
+  url         String
+  urlHash     String    @unique @map("url_hash")
+  guid        String?
+  title       String
+  publishedAt DateTime? @map("published_at")
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  processedAt DateTime? @map("processed_at")
+
+  @@index([source, firstSeenAt])
+  @@map("rss_articles")
+}
+
 model PlayerAvailability {
   id        Int @id @default(autoincrement())
   playerId  Int @map("player_id")
