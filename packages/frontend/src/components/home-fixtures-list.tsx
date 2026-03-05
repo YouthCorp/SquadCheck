@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
@@ -22,6 +23,9 @@ function formatDate(dateStr: string, locale: Locale): string {
 }
 
 export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const sectionLabel: React.CSSProperties = {
     fontSize: '0.6875rem',
     fontWeight: 600,
@@ -84,7 +88,7 @@ export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
 
                   {/* Date — rendered client-side for local timezone */}
                   <span suppressHydrationWarning style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    {formatDate(fix.date, locale)}
+                    {mounted ? formatDate(fix.date, locale) : ''}
                   </span>
                 </div>
               </Link>
