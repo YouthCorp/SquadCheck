@@ -71,3 +71,4 @@ cron.schedule(SIGNAL_CRON_SCHEDULE, runSignalCollection);
 
 // Run once immediately on startup
 runSync();
+runSignalCollection();
