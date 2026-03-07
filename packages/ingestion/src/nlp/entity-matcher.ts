@@ -208,10 +208,12 @@ function matchTeamInText(text: string, teamName: string, aliasesOnly: boolean): 
 
   const aliases = TEAM_ALIASES[normalizedTeam];
   if (!aliases) return false;
-  // Skip exact match (already checked), filter short aliases to avoid false positives
+  // Skip exact match (already checked).
+  // Allow >=3 chars: acronyms like 'psg', 'bvb', 'hsv' are team-specific — team+player
+  // co-occurrence requirement prevents false positives from 3-letter strings.
   return aliases.some(alias => {
     const a = normalizeName(alias);
-    return a !== normalizedTeam && a.length >= 4 && containsToken(text, a);
+    return a !== normalizedTeam && a.length >= 3 && containsToken(text, a);
   });
 }
 

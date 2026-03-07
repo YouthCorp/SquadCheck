@@ -64,57 +64,188 @@ export const SIGNAL_STAGES = Object.keys(SIGNAL_CONFIG.stageScores) as SignalSta
 
 // ── Team aliases dictionary ──
 // key = normalizeName(team.name) EXACTLY as stored in DB
-// Verified against EPL 2025/26 fixture data (season=2025)
-// Promoted: Burnley, Leeds, Sunderland | Relegated: Ipswich Town, Leicester City, Southampton
+// Verified against season=2025 fixture data across all 5 leagues.
+// Alias length threshold is >=3 in entity-matcher (allows acronyms like 'psg', 'bvb').
 export const TEAM_ALIASES: Record<string, string[]> = {
+  // ── Premier League (EPL) ──
+  // 2025/26: promoted Burnley, Leeds, Sunderland | relegated Ipswich, Leicester, Southampton
   'arsenal':           ['arsenal', 'gunners'],
   'aston villa':       ['aston villa', 'villa', 'villans'],
   'bournemouth':       ['bournemouth', 'cherries', 'afc bournemouth'],
   'brentford':         ['brentford', 'bees'],
-  'brighton':          ['brighton', 'seagulls', 'albion'],     // DB = "Brighton" (not full form)
-  'burnley':           ['burnley', 'clarets'],                  // promoted
+  'brighton':          ['brighton', 'seagulls', 'albion'],
+  'burnley':           ['burnley', 'clarets'],
   'chelsea':           ['chelsea', 'blues'],
   'crystal palace':    ['crystal palace', 'palace', 'eagles'],
   'everton':           ['everton', 'toffees'],
   'fulham':            ['fulham', 'cottagers'],
-  'leeds':             ['leeds', 'whites', 'leeds united'],     // promoted; DB = "Leeds"
+  'leeds':             ['leeds', 'whites', 'leeds united'],
   'liverpool':         ['liverpool', 'reds'],
   'manchester city':   ['manchester city', 'man city', 'citizens'],
   'manchester united': ['manchester united', 'man united', 'man utd', 'red devils'],
-  'newcastle':         ['newcastle', 'magpies', 'toon'],        // DB = "Newcastle"
+  'newcastle':         ['newcastle', 'magpies', 'toon'],
   'nottingham forest': ['nottingham forest', 'forest'],
-  'sunderland':        ['sunderland', 'black cats'],            // promoted
-  'tottenham':         ['tottenham', 'spurs'],                  // DB = "Tottenham"
+  'sunderland':        ['sunderland', 'black cats'],
+  'tottenham':         ['tottenham', 'spurs'],
   'west ham':          ['west ham', 'hammers', 'irons'],
-  'wolves':            ['wolves', 'wolverhampton'],             // DB = "Wolves"
+  'wolves':            ['wolves', 'wolverhampton'],
+
+  // ── La Liga ──
+  'alaves':            ['alaves', 'deportivo alaves'],
+  'athletic club':     ['athletic', 'athletic bilbao', 'bilbao'],
+  'atletico madrid':   ['atletico', 'atleti', 'atletico de madrid'],
+  'barcelona':         ['barcelona', 'barca', 'blaugrana'],
+  'celta vigo':        ['celta'],
+  'elche':             ['elche'],
+  'espanyol':          ['espanyol', 'rcd espanyol'],
+  'getafe':            ['getafe'],
+  'girona':            ['girona'],
+  'levante':           ['levante'],
+  'mallorca':          ['mallorca', 'rcd mallorca'],
+  'osasuna':           ['osasuna'],
+  'oviedo':            ['oviedo', 'real oviedo'],
+  'rayo vallecano':    ['rayo'],
+  'real betis':        ['betis', 'real betis'],
+  'real madrid':       ['real madrid', 'madrid', 'blancos', 'merengues'],
+  'real sociedad':     ['sociedad', 'la real', 'real sociedad'],
+  'sevilla':           ['sevilla'],
+  'valencia':          ['valencia'],
+  'villarreal':        ['villarreal', 'yellow submarine'],
+
+  // ── Serie A ──
+  'ac milan':          ['milan', 'rossoneri', 'ac milan'],       // press writes "Milan" not "AC Milan"
+  'as roma':           ['roma', 'giallorossi', 'as roma'],
+  'atalanta':          ['atalanta', 'la dea'],
+  'bologna':           ['bologna'],
+  'cagliari':          ['cagliari'],
+  'como':              ['como'],
+  'cremonese':         ['cremonese'],
+  'fiorentina':        ['fiorentina', 'viola'],
+  'genoa':             ['genoa'],
+  'hellas verona':     ['verona', 'hellas verona', 'hellas'],
+  'inter':             ['inter', 'inter milan', 'nerazzurri', 'internazionale'],
+  'juventus':          ['juventus', 'juve', 'bianconeri'],
+  'lazio':             ['lazio'],
+  'lecce':             ['lecce'],
+  'napoli':            ['napoli', 'partenopei'],
+  'parma':             ['parma'],
+  'pisa':              ['pisa'],
+  'sassuolo':          ['sassuolo', 'neroverdi'],
+  'torino':            ['torino', 'toro', 'granata'],
+  'udinese':           ['udinese'],
+
+  // ── Bundesliga ──
+  '1  fc heidenheim':       ['heidenheim'],                      // "1. FC Heidenheim" → normalized
+  '1  fc koln':             ['koln', 'cologne', 'fc koln'],      // "1. FC Köln" → normalized
+  '1899 hoffenheim':        ['hoffenheim', 'tsg hoffenheim'],
+  'bayer leverkusen':       ['leverkusen', 'bayer'],
+  'bayern munchen':         ['bayern', 'fcb', 'fc bayern', 'bavarians'], // "Bayern München" → normalized
+  'borussia dortmund':      ['dortmund', 'bvb'],
+  'borussia monchengladbach': ['gladbach', 'bmg'],               // "Borussia Mönchengladbach" → normalized
+  'eintracht frankfurt':    ['frankfurt', 'eintracht', 'sge'],
+  'fc augsburg':            ['augsburg', 'fca'],
+  'fc st  pauli':           ['st pauli', 'fc st pauli'],         // "FC St. Pauli" → normalized
+  'fsv mainz 05':           ['mainz', 'mainz 05'],
+  'hamburger sv':           ['hamburg', 'hsv'],
+  'rb leipzig':             ['leipzig', 'rbl'],
+  'sc freiburg':            ['freiburg'],
+  'union berlin':           ['union', 'union berlin'],
+  'vfb stuttgart':          ['stuttgart', 'vfb'],
+  'vfl wolfsburg':          ['wolfsburg'],
+  'werder bremen':          ['werder', 'bremen'],
+
+  // ── Ligue 1 ──
+  'angers':                 ['angers'],
+  'auxerre':                ['auxerre', 'aja'],
+  'le havre':               ['le havre', 'hac'],
+  'lens':                   ['lens', 'rc lens'],
+  'lille':                  ['lille', 'losc'],
+  'lorient':                ['lorient'],
+  'lyon':                   ['lyon', 'olympique lyonnais'],
+  'marseille':              ['marseille', 'om'],
+  'metz':                   ['metz'],
+  'monaco':                 ['monaco', 'asm'],
+  'nantes':                 ['nantes', 'fc nantes'],
+  'nice':                   ['nice', 'ogcn'],
+  'paris fc':               ['paris fc'],
+  'paris saint germain':    ['psg', 'paris sg', 'paris saint germain'], // 'psg' needs >=3 threshold
+  'rennes':                 ['rennes', 'stade rennais'],
+  'stade brestois 29':      ['brest', 'stade brestois'],         // "Stade Brestois 29" in DB
+  'strasbourg':             ['strasbourg', 'rcsa'],
+  'toulouse':               ['toulouse', 'tfc'],
 };
 
 // ── Player nickname dictionary ──
 // key = normalizeName(player.name) EXACTLY as stored in DB
-// Verified against EPL 2025/26 injury + lineup data.
-// Only includes entries where press alias differs from what last-name auto-indexing already handles.
+// Verified against 2025/26 injury + lineup data across all 5 leagues.
+// Only includes entries where press alias adds value over last-name auto-indexing.
 // Auto-indexing rule: last token of name is indexed if ≥4 chars.
 export const PLAYER_NICKNAMES: Record<string, string[]> = {
-  // ── Last name <4 chars → NOT auto-indexed ──
+  // ════════════════════════════════════════
+  // PREMIER LEAGUE
+  // ════════════════════════════════════════
+
+  // Last name <4 chars → NOT auto-indexed
   'm van de ven':      ['van de ven'],          // Tottenham — last='ven' (3 chars)
 
-  // ── Multi-word compound last names: press uses full compound ──
-  'v van dijk':        ['van dijk'],            // Liverpool — last='dijk' indexed, 'van dijk' is press-natural
-  'm gibbs white':     ['gibbs white'],         // Nottingham Forest — last='white' indexed but ambiguous
-  'j ward prowse':     ['ward prowse'],         // Burnley — last='prowse' indexed, compound form common
+  // Multi-word compound names: press uses full compound
+  'v van dijk':        ['van dijk'],            // Liverpool — last='dijk' indexed, 'van dijk' more natural
+  'm gibbs white':     ['gibbs white'],         // Nottingham Forest — last='white' is ambiguous alone
+  'j ward prowse':     ['ward prowse'],         // Burnley — compound form common in press
 
-  // ── First name used in press (last name already auto-indexed) ──
-  'bruno fernandes':   ['bruno'],               // Manchester United — 'fernandes' indexed
-  'bruno guimaraes':   ['bruno'],               // Newcastle — 'guimaraes' indexed (different team, no conflict)
-  'lisandro martinez': ['lisandro', 'licha'],   // Manchester United — 'martinez' indexed
-  'matheus cunha':     ['matheus'],             // Manchester United — 'cunha' indexed
-  'bernardo silva':    ['bernardo'],            // Manchester City — 'silva' indexed
+  // First name used in press (last name already auto-indexed)
+  'bruno fernandes':   ['bruno'],               // Manchester United
+  'bruno guimaraes':   ['bruno'],               // Newcastle (different team → no conflict)
+  'lisandro martinez': ['lisandro', 'licha'],   // Manchester United
+  'matheus cunha':     ['matheus'],             // Manchester United
+  'bernardo silva':    ['bernardo'],            // Manchester City
 
-  // ── East Asian name conventions: press uses first element ──
-  'hwang hee chan':    ['hwang'],               // Wolves — press uses 'Hwang', last='chan' indexed
+  // East Asian name conventions: press uses first element
+  'hwang hee chan':    ['hwang'],               // Wolves — press writes 'Hwang', last='chan' is indexed
 
-  // ── Press nicknames distinct from full/last name ──
-  'j maddison':        ['madders'],             // Tottenham — 'maddison' indexed
-  'mohamed salah':     ['mo salah'],            // Liverpool — 'salah' indexed, 'mo salah' widely used in press
-  'ruben dias':        ['ruben'],               // Manchester City — 'dias' indexed
+  // Press nicknames
+  'j maddison':        ['madders'],             // Tottenham
+  'mohamed salah':     ['mo salah'],            // Liverpool — 'salah' indexed, 'mo salah' widely used
+  'ruben dias':        ['ruben'],               // Manchester City
+
+  // ════════════════════════════════════════
+  // LA LIGA
+  // ════════════════════════════════════════
+
+  // First name used in press
+  'lamine yamal':      ['yamal'],               // Barcelona — 'yamal' is last name (indexed), also standalone press use
+  'alejandro balde':   ['balde'],               // Barcelona — 'balde' indexed
+  'marcos llorente':   ['llorente'],            // Atletico Madrid — 'llorente' indexed
+
+  // ════════════════════════════════════════
+  // SERIE A
+  // ════════════════════════════════════════
+
+  // Last name <4 chars → NOT auto-indexed
+  // (none found in current injury data)
+
+  // First name / common press name
+  'lautaro martinez':  ['lautaro', 'el toro'],  // Inter — 'martinez' indexed, 'lautaro' widely used
+  'rafael leao':       ['rafa', 'rafa leao'],   // AC Milan — 'leao' indexed, 'rafa' common in press
+
+  // ════════════════════════════════════════
+  // LIGUE 1
+  // ════════════════════════════════════════
+
+  // Last name <4 chars → NOT auto-indexed
+  'lee kang in':       ['kang in', 'lee kang in'], // PSG — last='in' (2 chars), press uses 'Lee Kang-In'
+
+  // East Asian name conventions
+  'hong hyun seok':    ['hong'],                // Nantes — last='seok' (4 chars) indexed, 'hong' also used
+  'kwon hyeok kyu':    ['kwon'],                // Nantes — last='kyu' (3 chars) NOT indexed
+
+  // First name used in press
+  'fabien ruiz':       ['fabien'],              // PSG — 'ruiz' indexed
+
+  // ════════════════════════════════════════
+  // BUNDESLIGA
+  // ════════════════════════════════════════
+
+  // First name used in press
+  'raphael guerreiro': ['guerreiro'],           // Bayern — 'guerreiro' indexed (accent stripped in normalization)
 };
