@@ -4,8 +4,38 @@ import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
 import type { Fixture, Standing } from '@/lib/types';
-import { parseRoundNumberForSort, formatRoundLabel } from '@/lib/format';
+import {
+  parseRoundNumberForSort,
+  formatRoundLabel,
+  formatRoundPill,
+  isKnockoutRound,
+} from '@/lib/format';
 import { ClientMatchDate } from '@/components/client-date';
+
+/* ── Tie type (for knockout grouping) ───────────────────────────────────── */
+interface Tie {
+  key: string;
+  team1: { id: number; name: string; logo: string | null };
+  team2: { id: number; name: string; logo: string | null };
+  legs: Fixture[]; // sorted by date
+}
+
+/** Group fixtures into ties by team pair (supports 1-leg and 2-leg formats). */
+function groupIntoTies(fixtures: Fixture[]): Tie[] {
+  const map = new Map<string, Tie>();
+  const byDate = [...fixtures].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+  for (const fix of byDate) {
+    const ids = [fix.homeTeam.id, fix.awayTeam.id].sort((a, b) => a - b);
+    const key = ids.join('-');
+    if (!map.has(key)) {
+      map.set(key, { key, team1: fix.homeTeam, team2: fix.awayTeam, legs: [] });
+    }
+    map.get(key)!.legs.push(fix);
+  }
+  return Array.from(map.values());
+}
 
 export default async function FixturesPage({
   params,
@@ -51,11 +81,11 @@ export default async function FixturesPage({
   const baseUrl = `/league/${leagueId}/fixtures`;
   const tabBase = isResults ? `${baseUrl}?tab=results` : baseUrl;
 
-  // Determine current round index (default: first for upcoming, last for results)
-  const requestedRoundNum = searchParams.round ? parseInt(searchParams.round) : null;
-  const currentIdx = requestedRoundNum !== null
-    ? Math.max(0, sortedRounds.findIndex(([r]) => parseRoundNumberForSort(r) === requestedRoundNum))
-    : isResults ? 0 : 0; // both default to first in sortedRounds (which is already correct order)
+  // Find current round by exact round string match — avoids 999-collision bug.
+  const requestedRound = searchParams.round ?? null;
+  const currentIdx = requestedRound !== null
+    ? Math.max(0, sortedRounds.findIndex(([r]) => r === requestedRound))
+    : 0;
 
   const currentEntry = sortedRounds[currentIdx] ?? null;
   const prevRound = currentIdx > 0 ? sortedRounds[currentIdx - 1] : null;
@@ -83,6 +113,11 @@ export default async function FixturesPage({
   };
 
   const noDataMsg = isResults ? t(locale, 'no_results') : t(locale, 'no_fixtures');
+
+  function roundHref(round: string) {
+    const sep = tabBase.includes('?') ? '&' : '?';
+    return `${tabBase}${sep}round=${encodeURIComponent(round)}`;
+  }
 
   return (
     <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
@@ -180,36 +215,19 @@ export default async function FixturesPage({
               marginBottom: '1rem',
             }}
           >
-            {/* Prev button */}
             {prevRound ? (
-              <Link
-                href={`${tabBase}${tabBase.includes('?') ? '&' : '?'}round=${parseRoundNumberForSort(prevRound[0])}`}
-                style={navBtnBase}
-              >
+              <Link href={roundHref(prevRound[0])} style={navBtnBase}>
                 ← {formatRoundLabel(prevRound[0], locale)}
               </Link>
             ) : (
               <span style={navBtnDisabled}>← {locale === 'ko' ? '이전' : 'Prev'}</span>
             )}
 
-            {/* Current round label */}
             <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  color: 'var(--cds-interactive, #4589ff)',
-                }}
-              >
+              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--cds-interactive, #4589ff)' }}>
                 {formatRoundLabel(currentEntry[0], locale)}
               </div>
-              <div
-                style={{
-                  fontSize: '0.6875rem',
-                  color: 'var(--cds-text-helper, #8d8d8d)',
-                  marginTop: '0.125rem',
-                }}
-              >
+              <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.125rem' }}>
                 {currentEntry[1].length} {locale === 'ko' ? '경기' : 'matches'}
                 {' · '}
                 {locale === 'ko'
@@ -218,12 +236,8 @@ export default async function FixturesPage({
               </div>
             </div>
 
-            {/* Next button */}
             {nextRound ? (
-              <Link
-                href={`${tabBase}${tabBase.includes('?') ? '&' : '?'}round=${parseRoundNumberForSort(nextRound[0])}`}
-                style={navBtnBase}
-              >
+              <Link href={roundHref(nextRound[0])} style={navBtnBase}>
                 {formatRoundLabel(nextRound[0], locale)} →
               </Link>
             ) : (
@@ -231,30 +245,38 @@ export default async function FixturesPage({
             )}
           </div>
 
-          {/* Match cards grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '1px',
-              background: 'var(--cds-border-subtle-01, #393939)',
-            }}
-          >
-            {currentEntry[1].map((fix: Fixture) => (
-              <Link
-                key={fix.id}
-                href={`/league/${leagueId}/fixtures/${fix.id}`}
-                style={{ textDecoration: 'none', display: 'block' }}
-              >
-                {isResults
-                  ? <ResultCard fix={fix} rankMap={rankMap} locale={locale} />
-                  : <UpcomingCard fix={fix} rankMap={rankMap} locale={locale} />
-                }
-              </Link>
-            ))}
-          </div>
+          {/* Knockout tie view or regular card grid */}
+          {isKnockoutRound(currentEntry[0]) ? (
+            <TiesView
+              ties={groupIntoTies(currentEntry[1])}
+              leagueId={leagueId}
+              locale={locale}
+            />
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '1px',
+                background: 'var(--cds-border-subtle-01, #393939)',
+              }}
+            >
+              {currentEntry[1].map((fix: Fixture) => (
+                <Link
+                  key={fix.id}
+                  href={`/league/${leagueId}/fixtures/${fix.id}`}
+                  style={{ textDecoration: 'none', display: 'block' }}
+                >
+                  {isResults
+                    ? <ResultCard fix={fix} rankMap={rankMap} locale={locale} />
+                    : <UpcomingCard fix={fix} rankMap={rankMap} locale={locale} />
+                  }
+                </Link>
+              ))}
+            </div>
+          )}
 
-          {/* Round index pills */}
+          {/* Round pills */}
           {sortedRounds.length > 1 && (
             <div
               style={{
@@ -266,19 +288,20 @@ export default async function FixturesPage({
               }}
             >
               {sortedRounds.map(([round], idx) => {
-                const roundNum = parseRoundNumberForSort(round);
+                const pill = formatRoundPill(round);
                 const isActive = idx === currentIdx;
                 return (
                   <Link
                     key={round}
-                    href={`${tabBase}${tabBase.includes('?') ? '&' : '?'}round=${roundNum}`}
+                    href={roundHref(round)}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: '2rem',
+                      minWidth: '2rem',
                       height: '2rem',
-                      fontSize: '0.75rem',
+                      padding: '0 0.375rem',
+                      fontSize: '0.6875rem',
                       fontWeight: isActive ? 700 : 400,
                       fontFamily: 'var(--font-plex-mono, monospace)',
                       color: isActive
@@ -293,9 +316,10 @@ export default async function FixturesPage({
                         : 'var(--cds-border-subtle-01, #393939)',
                       textDecoration: 'none',
                       transition: 'background 0.1s, color 0.1s',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    {roundNum}
+                    {pill}
                   </Link>
                 );
               })}
@@ -303,6 +327,149 @@ export default async function FixturesPage({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ── Knockout ties view ─────────────────────────────────────────────────── */
+function TiesView({ ties, leagueId, locale }: { ties: Tie[]; leagueId: number; locale: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+      {ties.map((tie) => (
+        <TieCard key={tie.key} tie={tie} leagueId={leagueId} locale={locale} />
+      ))}
+    </div>
+  );
+}
+
+function TieCard({ tie, leagueId, locale }: { tie: Tie; leagueId: number; locale: string }) {
+  const isTwoLegs = tie.legs.length >= 2;
+  const [leg1, leg2] = tie.legs;
+  const ko = locale === 'ko';
+
+  // Aggregate calculation for two-legged ties
+  let t1Agg: number | null = null;
+  let t2Agg: number | null = null;
+  if (
+    isTwoLegs &&
+    leg1.goalsHome !== null && leg1.goalsAway !== null &&
+    leg2.goalsHome !== null && leg2.goalsAway !== null
+  ) {
+    const leg1T1 = leg1.homeTeam.id === tie.team1.id ? leg1.goalsHome : leg1.goalsAway;
+    const leg1T2 = leg1.homeTeam.id === tie.team2.id ? leg1.goalsHome : leg1.goalsAway;
+    const leg2T1 = leg2.homeTeam.id === tie.team1.id ? leg2.goalsHome : leg2.goalsAway;
+    const leg2T2 = leg2.homeTeam.id === tie.team2.id ? leg2.goalsHome : leg2.goalsAway;
+    t1Agg = leg1T1 + leg2T1;
+    t2Agg = leg1T2 + leg2T2;
+  } else if (!isTwoLegs && leg1.goalsHome !== null && leg1.goalsAway !== null) {
+    t1Agg = leg1.homeTeam.id === tie.team1.id ? leg1.goalsHome : leg1.goalsAway;
+    t2Agg = leg1.homeTeam.id === tie.team2.id ? leg1.goalsHome : leg1.goalsAway;
+  }
+
+  const t1Wins = t1Agg !== null && t2Agg !== null && t1Agg > t2Agg;
+  const t2Wins = t1Agg !== null && t2Agg !== null && t2Agg > t1Agg;
+
+  return (
+    <div style={{ background: 'var(--cds-layer-01, #262626)' }}>
+      {/* Tie header: logos + score */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '1rem', gap: '0.75rem' }}>
+        {/* Team 1 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
+          {tie.team1.logo && (
+            <img src={tie.team1.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', opacity: t2Wins ? 0.4 : 1 }} />
+          )}
+          <span style={{
+            fontSize: '0.8125rem', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
+            color: t2Wins ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
+            overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>
+            {tie.team1.name}
+          </span>
+        </div>
+
+        {/* Aggregate / "vs" */}
+        <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 0.5rem', minWidth: '5rem' }}>
+          {t1Agg !== null && t2Agg !== null ? (
+            <>
+              <div style={{
+                fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-plex-mono, monospace)',
+                color: 'var(--cds-text-primary, #f4f4f4)', letterSpacing: '0.05em',
+              }}>
+                {t1Agg} — {t2Agg}
+              </div>
+              {isTwoLegs && (
+                <div style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.125rem' }}>
+                  {ko ? '합산' : 'AGG'}
+                </div>
+              )}
+            </>
+          ) : (
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)' }}>vs</span>
+          )}
+        </div>
+
+        {/* Team 2 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
+          {tie.team2.logo && (
+            <img src={tie.team2.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', opacity: t1Wins ? 0.4 : 1 }} />
+          )}
+          <span style={{
+            fontSize: '0.8125rem', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
+            color: t1Wins ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
+            overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>
+            {tie.team2.name}
+          </span>
+        </div>
+      </div>
+
+      {/* Leg rows */}
+      <div style={{ display: 'flex', borderTop: '1px solid var(--cds-border-subtle-01, #393939)' }}>
+        {tie.legs.map((leg, i) => {
+          const legScore = leg.goalsHome !== null && leg.goalsAway !== null
+            ? `${leg.goalsHome} — ${leg.goalsAway}` : null;
+          const statusBadge =
+            leg.status === 'AET' ? 'AET' :
+            leg.status === 'PEN' ? 'PEN' :
+            leg.status !== 'NS' ? 'FT' : null;
+
+          return (
+            <Link
+              key={leg.id}
+              href={`/league/${leagueId}/fixtures/${leg.id}`}
+              style={{
+                flex: 1, textDecoration: 'none', padding: '0.625rem 0.75rem',
+                borderRight: i < tie.legs.length - 1 ? '1px solid var(--cds-border-subtle-01, #393939)' : 'none',
+                display: 'flex', flexDirection: 'column', gap: '0.25rem', transition: 'background 0.1s',
+              }}
+              className="sc-tile-hover"
+            >
+              <div style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                {isTwoLegs ? (ko ? `${i + 1}차전` : `Leg ${i + 1}`) : (ko ? '경기' : 'Match')}
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>
+                {leg.homeTeam.name} {ko ? '홈' : '(H)'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                {legScore ? (
+                  <span style={{ fontSize: '0.9375rem', fontWeight: 700, fontFamily: 'var(--font-plex-mono, monospace)', color: 'var(--cds-text-primary, #f4f4f4)' }}>
+                    {legScore}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                    <ClientMatchDate dateStr={leg.date} locale={locale} />
+                  </span>
+                )}
+                {statusBadge && (
+                  <span style={{ fontSize: '0.5rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                    {statusBadge}
+                  </span>
+                )}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -331,28 +498,9 @@ function UpcomingCard({
         transition: 'background 0.1s',
       }}
     >
-      {/* Teams */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
         <TeamBlock name={fix.homeTeam.name} logo={fix.homeTeam.logo} />
-
-        {/* VS + rank */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.25rem',
-            flexShrink: 0,
-            padding: '0 0.25rem',
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', flexShrink: 0, padding: '0 0.25rem' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.5px' }}>vs</span>
           {rankMap[fix.homeTeam.id] && rankMap[fix.awayTeam.id] && (
             <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', whiteSpace: 'nowrap' }}>
@@ -360,11 +508,8 @@ function UpcomingCard({
             </span>
           )}
         </div>
-
         <TeamBlock name={fix.awayTeam.name} logo={fix.awayTeam.logo} />
       </div>
-
-      {/* Date & venue */}
       <div style={{ borderTop: '1px solid var(--cds-border-subtle-01, #393939)', paddingTop: '0.625rem' }}>
         <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
           <ClientMatchDate dateStr={fix.date} locale={locale} />
@@ -393,11 +538,7 @@ function ResultCard({
   const awayGoals = fix.goalsAway ?? 0;
   const homeWon = homeGoals > awayGoals;
   const awayWon = awayGoals > homeGoals;
-
-  const statusLabel =
-    fix.status === 'AET' ? 'AET' :
-    fix.status === 'PEN' ? 'PEN' :
-    'FT';
+  const statusLabel = fix.status === 'AET' ? 'AET' : fix.status === 'PEN' ? 'PEN' : 'FT';
 
   return (
     <div
@@ -413,45 +554,13 @@ function ResultCard({
         transition: 'background 0.1s',
       }}
     >
-      {/* Teams + score */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-        <TeamBlock
-          name={fix.homeTeam.name}
-          logo={fix.homeTeam.logo}
-          dimmed={awayWon}
-        />
-
-        {/* Score block */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.25rem',
-            flexShrink: 0,
-            padding: '0 0.25rem',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '1.25rem',
-              fontWeight: 700,
-              color: 'var(--cds-text-primary, #f4f4f4)',
-              fontFamily: 'var(--font-plex-mono, monospace)',
-              letterSpacing: '0.05em',
-            }}
-          >
+        <TeamBlock name={fix.homeTeam.name} logo={fix.homeTeam.logo} dimmed={awayWon} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', flexShrink: 0, padding: '0 0.25rem' }}>
+          <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)', letterSpacing: '0.05em' }}>
             {homeGoals} — {awayGoals}
           </span>
-          <span
-            style={{
-              fontSize: '0.5625rem',
-              fontWeight: 600,
-              color: 'var(--cds-text-helper, #8d8d8d)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
+          <span style={{ fontSize: '0.5625rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             {statusLabel}
           </span>
           {rankMap[fix.homeTeam.id] && rankMap[fix.awayTeam.id] && (
@@ -460,15 +569,8 @@ function ResultCard({
             </span>
           )}
         </div>
-
-        <TeamBlock
-          name={fix.awayTeam.name}
-          logo={fix.awayTeam.logo}
-          dimmed={homeWon}
-        />
+        <TeamBlock name={fix.awayTeam.name} logo={fix.awayTeam.logo} dimmed={homeWon} />
       </div>
-
-      {/* Date & venue */}
       <div style={{ borderTop: '1px solid var(--cds-border-subtle-01, #393939)', paddingTop: '0.625rem' }}>
         <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
           <ClientMatchDate dateStr={fix.date} locale={locale} />
@@ -484,53 +586,18 @@ function ResultCard({
 }
 
 /* ── Shared team block ───────────────────────────────────────────────────── */
-function TeamBlock({
-  name,
-  logo,
-  dimmed = false,
-}: {
-  name: string;
-  logo: string | null;
-  dimmed?: boolean;
-}) {
+function TeamBlock({ name, logo, dimmed = false }: { name: string; logo: string | null; dimmed?: boolean }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '0.375rem',
-        flex: 1,
-        minWidth: 0,
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', flex: 1, minWidth: 0 }}>
       {logo && (
-        <img
-          src={logo}
-          alt=""
-          style={{
-            width: '2.25rem',
-            height: '2.25rem',
-            objectFit: 'contain',
-            opacity: dimmed ? 0.45 : 1,
-          }}
-        />
+        <img src={logo} alt="" style={{ width: '2.25rem', height: '2.25rem', objectFit: 'contain', opacity: dimmed ? 0.45 : 1 }} />
       )}
-      <span
-        style={{
-          fontSize: '0.8125rem',
-          fontWeight: 600,
-          color: dimmed
-            ? 'var(--cds-text-helper, #8d8d8d)'
-            : 'var(--cds-text-primary, #f4f4f4)',
-          textAlign: 'center',
-          lineHeight: 1.3,
-          overflow: 'hidden',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-        }}
-      >
+      <span style={{
+        fontSize: '0.8125rem', fontWeight: 600,
+        color: dimmed ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
+        textAlign: 'center', lineHeight: 1.3,
+        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+      }}>
         {name}
       </span>
     </div>
