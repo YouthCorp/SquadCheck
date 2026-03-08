@@ -9,7 +9,10 @@ import { FixtureDetailCollector } from "./collectors/fixture-detail.collector";
 import { RecoverySignalCollector } from "./collectors/recovery-signal.collector";
 import { computePlayerAvailability } from "./aggregators/availability-aggregator";
 
-const TARGET_LEAGUES = [39, 140, 135, 78, 61];
+const LEAGUE_LEAGUES = [39, 140, 135, 78, 61]; // EPL, La Liga, Serie A, Bundesliga, Ligue 1
+// prettier-ignore
+export const CUP_LEAGUES = [2, 3, 848, 45, 48, 143, 137, 81, 65]; // UCL, UEL, Conference, FA Cup, EFL Cup, Copa del Rey, Coppa Italia, DFB-Pokal, Coupe de France
+const TARGET_LEAGUES = LEAGUE_LEAGUES; // default: league-only (cups seeded separately via CLI)
 const TARGET_SEASONS = [2023, 2024, 2025];
 
 interface SeedOptions {
@@ -56,7 +59,7 @@ export class Orchestrator {
     // Phase 1: Leagues & Seasons
     if (!skip.has("leagues")) {
       await this.runPhase("leagues", null, null, force.has("leagues"), async () => {
-        await this.leagueCollector.collect();
+        await this.leagueCollector.collect(leagues);
       });
     }
 
@@ -206,8 +209,10 @@ export class Orchestrator {
         }
       }
 
-      // Refresh standings
-      await this.collectStandings(leagueApiId, year);
+      // Refresh standings (cups don't have standings tables)
+      if (season.league.type !== 'Cup') {
+        await this.collectStandings(leagueApiId, year);
+      }
     }
 
     // Mark expired PlayerAvailability rows for fixtures that are now completed

@@ -20,7 +20,7 @@ interface ApiLeague {
   }>;
 }
 
-const TARGET_LEAGUES = [39, 140, 135, 78, 61]; // EPL, La Liga, Serie A, Bundesliga, Ligue 1
+const DEFAULT_LEAGUES = [39, 140, 135, 78, 61]; // EPL, La Liga, Serie A, Bundesliga, Ligue 1
 const TARGET_SEASONS = [2020, 2021, 2022, 2023, 2024, 2025];
 
 export class LeagueCollector {
@@ -29,10 +29,10 @@ export class LeagueCollector {
     private prisma: PrismaClient,
   ) {}
 
-  async collect(): Promise<void> {
+  async collect(leagues: number[] = DEFAULT_LEAGUES): Promise<void> {
     console.log('[LeagueCollector] Collecting leagues and seasons...');
 
-    for (const leagueApiId of TARGET_LEAGUES) {
+    for (const leagueApiId of leagues) {
       const res = await this.api.request<ApiLeague>('/leagues', { id: leagueApiId });
       if (res.results === 0) {
         console.warn(`  League ${leagueApiId} not found, skipping`);
