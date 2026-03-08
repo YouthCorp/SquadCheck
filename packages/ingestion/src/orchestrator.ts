@@ -209,8 +209,8 @@ export class Orchestrator {
         }
       }
 
-      // Refresh standings (cups don't have standings tables)
-      if (season.league.type !== 'Cup') {
+      // Refresh standings only if coverage is available (UCL/UEL/Conference have league phase standings; domestic cups do not)
+      if (season.covStandings) {
         await this.collectStandings(leagueApiId, year);
       }
     }
