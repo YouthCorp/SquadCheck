@@ -38,6 +38,16 @@ interface ApiPlayerResponse {
   }>;
 }
 
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
 export class PlayerCollector {
   constructor(
     private api: ApiFootballClient,
@@ -65,7 +75,7 @@ export class PlayerCollector {
         where: { apiFootballId: item.player.id },
         create: {
           apiFootballId: item.player.id,
-          name: item.player.name,
+          name: decodeHtml(item.player.name),
           firstName: item.player.firstname,
           lastName: item.player.lastname,
           nationality: item.player.nationality,
@@ -76,7 +86,7 @@ export class PlayerCollector {
           position: item.statistics[0]?.games?.position || null,
         },
         update: {
-          name: item.player.name,
+          name: decodeHtml(item.player.name),
           firstName: item.player.firstname,
           lastName: item.player.lastname,
           photo: item.player.photo,

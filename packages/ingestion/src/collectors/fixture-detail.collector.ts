@@ -57,6 +57,16 @@ interface ApiFixturePlayersResponse {
   players: ApiFixturePlayer[];
 }
 
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
 export class FixtureDetailCollector {
   constructor(
     private api: ApiFootballClient,
@@ -119,7 +129,7 @@ export class FixtureDetailCollector {
         data: resolved.map(({ p, player }) => ({
           lineupId: lineup.id,
           playerId: player.id,
-          playerName: p.player.name,
+          playerName: decodeHtml(p.player.name),
           number: p.player.number,
           position: p.player.pos,
           grid: p.player.grid,
@@ -224,7 +234,7 @@ export class FixtureDetailCollector {
   private async ensurePlayer(apiId: number, name: string) {
     return this.prisma.player.upsert({
       where: { apiFootballId: apiId },
-      create: { apiFootballId: apiId, name },
+      create: { apiFootballId: apiId, name: decodeHtml(name) },
       update: {},
     });
   }

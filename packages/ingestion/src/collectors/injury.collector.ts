@@ -8,6 +8,16 @@ interface ApiInjury {
   league: { id: number; season: number; name: string };
 }
 
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
 export class InjuryCollector {
   constructor(
     private api: ApiFootballClient,
@@ -39,7 +49,7 @@ export class InjuryCollector {
             await this.prisma.player.create({
               data: {
                 apiFootballId: item.player.id,
-                name: item.player.name || `Unknown (${item.player.id})`,
+                name: decodeHtml(item.player.name || `Unknown (${item.player.id})`),
                 photo: item.player.photo,
               },
             })
