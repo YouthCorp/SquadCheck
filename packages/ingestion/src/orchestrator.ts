@@ -226,15 +226,34 @@ export class Orchestrator {
    * Called independently from the signal scheduler (odd-hour cron).
    * Does NOT consume Football API quota.
    */
-  /** Syncs RSS feed sources (upsert on every startup — idempotent). */
+  /** Syncs RSS feed sources (upsert on every startup — idempotent).
+   *  All URLs verified working as of 2026-03. Re-test before adding new ones.
+   */
   private async ensureRssSources(): Promise<void> {
     const sources = [
-      { name: 'BBC Sport Football',    url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',  reliability: 0.85, active: true  },
-      { name: 'Sky Sports Football',   url: 'https://www.skysports.com/rss/12040',               reliability: 0.80, active: true  },
-      { name: 'Guardian Football',     url: 'https://www.theguardian.com/football/rss',           reliability: 0.78, active: true  },
-      { name: 'ESPN FC Soccer',        url: 'https://www.espn.com/espn/rss/soccer/news',         reliability: 0.75, active: true  },
-      // The Athletic has no public RSS — disabled
-      { name: 'The Athletic Football', url: 'https://theathletic.com/rss/feed/?sport=football',  reliability: 0.90, active: false },
+      // ── Tier 1: Major national outlets ──
+      { name: 'BBC Sport Football',        url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',         reliability: 0.90, active: true  },
+      { name: 'Guardian Football',         url: 'https://www.theguardian.com/football/rss',                 reliability: 0.85, active: true  },
+      { name: 'Sky Sports Football',       url: 'https://www.skysports.com/rss/12040',                      reliability: 0.82, active: true  },
+      { name: 'ESPN FC Soccer',            url: 'https://www.espn.com/espn/rss/soccer/news',                reliability: 0.80, active: true  },
+      { name: 'The Independent Football',  url: 'https://www.independent.co.uk/sport/football/rss',         reliability: 0.80, active: true  },
+      { name: 'Evening Standard Football', url: 'https://www.standard.co.uk/sport/football/rss',            reliability: 0.78, active: true  },
+      { name: 'Daily Mail Football',       url: 'https://www.dailymail.co.uk/sport/football/index.rss',     reliability: 0.72, active: true  },
+      { name: 'iNews Football',            url: 'https://inews.co.uk/category/sport/football/feed',         reliability: 0.72, active: true  },
+
+      // ── Tier 2: Football-specialist outlets ──
+      { name: 'FourFourTwo',              url: 'https://www.fourfourtwo.com/rss',                           reliability: 0.78, active: true  },
+      { name: 'Football365',              url: 'https://www.football365.com/rss',                           reliability: 0.74, active: true  },
+      { name: 'Sports Mole Football',     url: 'https://sportsmole.co.uk/football/feed.xml',                reliability: 0.72, active: true  },
+      { name: 'CaughtOffside',            url: 'https://www.caughtoffside.com/feed/',                       reliability: 0.68, active: true  },
+      { name: 'Planet Football',          url: 'https://www.planetfootball.com/rss',                        reliability: 0.65, active: true  },
+
+      // ── Tier 3: League-specific outlets ──
+      { name: 'Bundesliga Official',      url: 'https://www.bundesliga.com/en/bundesliga/news.rss',         reliability: 0.80, active: true  },
+      { name: 'Football Italia',          url: 'https://www.football-italia.net/rss.xml',                   reliability: 0.75, active: true  },
+
+      // ── Disabled: no public RSS ──
+      { name: 'The Athletic Football',    url: 'https://theathletic.com/rss/feed/?sport=football',          reliability: 0.90, active: false },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({

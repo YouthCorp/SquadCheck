@@ -17,6 +17,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const routes: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: now, changeFrequency: 'hourly', priority: 1 },
+    { url: `${baseUrl}/leaderboard`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${baseUrl}/matchup`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
   ];
 
   // League + fixtures routes

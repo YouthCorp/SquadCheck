@@ -312,6 +312,29 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
         >
           {t(locale, 'nav_tools')}
         </div>
+        <Link href="/leaderboard" style={{ textDecoration: 'none', display: 'block' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.625rem 1rem',
+              fontSize: '0.875rem',
+              color: pathname?.startsWith('/leaderboard')
+                ? 'var(--cds-text-primary, #f4f4f4)'
+                : 'var(--cds-text-secondary, #c6c6c6)',
+              background: pathname?.startsWith('/leaderboard')
+                ? 'var(--cds-layer-selected-01, #353535)'
+                : 'transparent',
+              borderLeft: pathname?.startsWith('/leaderboard')
+                ? '3px solid var(--cds-interactive, #4589ff)'
+                : '3px solid transparent',
+            }}
+          >
+            <span>🏆</span>
+            <span>{t(locale, 'nav_leaderboard')}</span>
+          </div>
+        </Link>
         <Link href="/matchup" style={{ textDecoration: 'none', display: 'block' }}>
           <div
             style={{

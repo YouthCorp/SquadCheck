@@ -49,10 +49,10 @@ export const LEAGUE_NAMES: Record<number, string> = {
   81: 'DFB-Pokal',
 };
 
-export const LEAGUE_API_ID_BY_NAME: Record<string, number> = {
-  'Premier League': 39, 'La Liga': 140, 'Serie A': 135,
-  'Bundesliga': 78,     'Ligue 1': 61,
-};
+/** All league names → apiFootballId (covers all seeded leagues including cups). */
+export const LEAGUE_API_ID_BY_NAME: Record<string, number> = Object.fromEntries(
+  Object.entries(LEAGUE_NAMES).map(([id, name]) => [name, parseInt(id)])
+);
 
 /** Cup competitions that have a league-phase standings table (UCL/UEL/Conference new format). */
 export const CUP_HAS_STANDINGS = new Set([2, 3, 848]);
