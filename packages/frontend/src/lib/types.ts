@@ -61,6 +61,8 @@ export interface Fixture {
   status: string;
   venueName: string | null;
   venueCity: string | null;
+  goalsHome: number | null;
+  goalsAway: number | null;
   homeTeam: Team;
   awayTeam: Team;
 }
@@ -130,6 +132,63 @@ export interface Standing {
 
 export interface FixtureWithLeague extends Fixture {
   league: { id: number; name: string; logo: string | null } | null;
+}
+
+export interface FixtureTeamStats {
+  team: { id: number; name: string };
+  shotsOnGoal: number | null;
+  shotsOffGoal: number | null;
+  totalShots: number | null;
+  blockedShots: number | null;
+  shotsInsideBox: number | null;
+  shotsOutsideBox: number | null;
+  fouls: number | null;
+  cornerKicks: number | null;
+  offsides: number | null;
+  possession: number | null;
+  yellowCards: number | null;
+  redCards: number | null;
+  goalkeeperSaves: number | null;
+  totalPasses: number | null;
+  passesAccurate: number | null;
+  passPercent: number | null;
+  expectedGoals: number | null;
+  goalsPrevented: number | null;
+}
+
+export interface FixtureLineupPlayer {
+  player: { id: number; name: string; photo: string | null };
+  playerName: string;
+  number: number | null;
+  position: string | null;
+  grid: string | null;
+  isStarting: boolean;
+}
+
+export interface FixtureTeamLineup {
+  team: { id: number; name: string; logo: string | null };
+  formation: string | null;
+  coachName: string | null;
+  players: FixtureLineupPlayer[];
+}
+
+export interface FixtureEvent {
+  id: number;
+  timeElapsed: number;
+  timeExtra: number | null;
+  type: string;
+  detail: string | null;
+  teamId: number | null;
+  player: { id: number; name: string } | null;
+  assist: { id: number; name: string } | null;
+}
+
+export interface FixtureDetail extends Fixture {
+  homeTeam: Team & { logo: string | null; code: string | null };
+  awayTeam: Team & { logo: string | null; code: string | null };
+  statistics: FixtureTeamStats[];
+  lineups: FixtureTeamLineup[];
+  events: FixtureEvent[];
 }
 
 export interface PredictedLineup {

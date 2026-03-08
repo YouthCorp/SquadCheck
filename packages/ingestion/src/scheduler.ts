@@ -64,11 +64,17 @@ async function runSignalCollection() {
 }
 
 console.log(`[Scheduler] Main sync cron: ${CRON_SCHEDULE}`);
-console.log(`[Scheduler] Signal collection cron: ${SIGNAL_CRON_SCHEDULE}`);
-
 cron.schedule(CRON_SCHEDULE, runSync);
-cron.schedule(SIGNAL_CRON_SCHEDULE, runSignalCollection);
+
+if (process.env.ANTHROPIC_API_KEY) {
+  console.log(`[Scheduler] Signal collection cron: ${SIGNAL_CRON_SCHEDULE}`);
+  cron.schedule(SIGNAL_CRON_SCHEDULE, runSignalCollection);
+} else {
+  console.log('[Scheduler] Signal collection disabled (no ANTHROPIC_API_KEY)');
+}
 
 // Run once immediately on startup
 runSync();
-runSignalCollection();
+if (process.env.ANTHROPIC_API_KEY) {
+  runSignalCollection();
+}

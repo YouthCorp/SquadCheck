@@ -2,7 +2,7 @@ import { fetchApi } from '@/lib/api';
 import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
-import { LEAGUE_NAMES } from '@/lib/constants';
+import { LEAGUE_NAMES, CUP_IDS_NO_STANDINGS } from '@/lib/constants';
 
 interface StandingEntry {
   rank: number; points: number; played: number; wins: number; draws: number; losses: number;
@@ -35,7 +35,35 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
         </h1>
       </div>
 
-      {standing?.entries ? (
+      {CUP_IDS_NO_STANDINGS.has(leagueId) ? (
+        /* Knockout cup — no standings by design */
+        <div style={{
+          background: 'var(--cds-layer-01, #262626)',
+          border: '1px solid var(--cds-border-subtle-01, #393939)',
+          padding: '2.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem',
+          textAlign: 'center',
+        }}>
+          <span style={{ fontSize: '2rem' }}>🏆</span>
+          <p style={{ color: 'var(--cds-text-secondary, #c6c6c6)', fontSize: '0.9375rem', margin: 0 }}>
+            {t(locale, 'cup_knockout_notice')}
+          </p>
+          <Link
+            href={`/league/${leagueId}/fixtures`}
+            style={{
+              color: 'var(--cds-interactive, #4589ff)',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+          >
+            {t(locale, 'cup_view_fixtures')}
+          </Link>
+        </div>
+      ) : standing?.entries ? (
         <div className="cds--data-table-container sc-table-scroll">
           <table
             className="cds--data-table cds--data-table--zebra"

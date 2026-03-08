@@ -30,6 +30,7 @@ services:
         condition: service_healthy
 
   ingestion:
+    profiles: [scheduler]
     build: .
     restart: unless-stopped
     environment:
@@ -38,7 +39,7 @@ services:
       API_FOOTBALL_KEY: ${API_FOOTBALL_KEY}
       API_FOOTBALL_PER_MINUTE: ${API_FOOTBALL_PER_MINUTE:-280}
       API_FOOTBALL_DAILY_LIMIT: ${API_FOOTBALL_DAILY_LIMIT:-7500}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # ANTHROPIC_API_KEY 미설정 → 시그널 수집(RSS/Claude) 비활성화, 메인 싱크만 실행
     depends_on:
       db:
         condition: service_healthy

@@ -4,11 +4,15 @@ const translations = {
   en: {
     // nav
     nav_leagues: 'Leagues',
+    nav_european_cups: 'European Cups',
+    nav_domestic_cups: 'Domestic Cups',
     nav_tools: 'Tools',
     nav_matchup: 'Matchup Analysis',
     nav_data: 'Data: API-Football Pro',
     nav_standings: 'Standings',
     nav_fixtures: 'Fixtures',
+    cup_knockout_notice: 'Knockout competition — no standings table.',
+    cup_view_fixtures: 'View Fixtures →',
 
     // common
     season: 'Season',
@@ -89,7 +93,10 @@ const translations = {
 
     // fixtures page
     fixtures_title: 'Fixtures',
+    tab_upcoming: 'Upcoming',
+    tab_results: 'Results',
     no_fixtures: 'No upcoming fixtures available.',
+    no_results: 'No results available for this season.',
     match_detail: 'Match Detail',
     match_venue: 'Venue',
     injury_comparison: 'Injury Comparison',
@@ -105,6 +112,32 @@ const translations = {
     lineup_recently_returned: 'Returned',
     lineup_would_start: 'Would start if fit',
     lineup_default_formation: 'Default formation',
+
+    // result detail page
+    result_detail: 'Match Result',
+    statistics: 'Statistics',
+    match_events: 'Match Events',
+    actual_lineups: 'Lineups',
+    stat_possession: 'Possession',
+    stat_shots: 'Total Shots',
+    stat_on_target: 'On Target',
+    stat_corners: 'Corners',
+    stat_fouls: 'Fouls',
+    stat_offsides: 'Offsides',
+    stat_saves: 'Saves',
+    stat_xg: 'xG',
+    stat_passes: 'Passes',
+    stat_pass_pct: 'Pass Accuracy',
+    coach: 'Coach',
+    bench: 'Bench',
+    no_match_events: 'No event data available.',
+    no_lineups: 'No lineup data available.',
+    no_statistics: 'No statistics available.',
+    event_goal: 'Goal',
+    event_sub: 'Sub',
+    event_yellow: 'Yellow Card',
+    event_red: 'Red Card',
+    events_show_all: 'All Events',
 
     // home
     home_hero_title: 'Live Football Intelligence',
@@ -134,11 +167,15 @@ const translations = {
   ko: {
     // nav
     nav_leagues: '리그',
+    nav_european_cups: '유럽 컵대회',
+    nav_domestic_cups: '국내 컵대회',
     nav_tools: '도구',
     nav_matchup: '매치업 분석',
     nav_data: '데이터: API-Football Pro',
     nav_standings: '순위표',
     nav_fixtures: '일정',
+    cup_knockout_notice: '녹아웃 방식 대회 — 순위표가 없습니다.',
+    cup_view_fixtures: '경기 일정 보기 →',
 
     // common
     season: '시즌',
@@ -219,7 +256,10 @@ const translations = {
 
     // fixtures page
     fixtures_title: '경기 일정',
+    tab_upcoming: '예정 경기',
+    tab_results: '경기 결과',
     no_fixtures: '예정된 경기가 없습니다.',
+    no_results: '이번 시즌 완료된 경기가 없습니다.',
     match_detail: '경기 상세',
     match_venue: '경기장',
     injury_comparison: '부상 비교',
@@ -235,6 +275,32 @@ const translations = {
     lineup_recently_returned: '복귀',
     lineup_would_start: '건강 시 선발',
     lineup_default_formation: '기본 포메이션',
+
+    // result detail page
+    result_detail: '경기 결과',
+    statistics: '통계',
+    match_events: '경기 이벤트',
+    actual_lineups: '라인업',
+    stat_possession: '볼 점유율',
+    stat_shots: '총 슈팅',
+    stat_on_target: '유효슈팅',
+    stat_corners: '코너킥',
+    stat_fouls: '파울',
+    stat_offsides: '오프사이드',
+    stat_saves: '선방',
+    stat_xg: 'xG',
+    stat_passes: '패스',
+    stat_pass_pct: '패스 성공률',
+    coach: '감독',
+    bench: '벤치',
+    no_match_events: '이벤트 데이터가 없습니다.',
+    no_lineups: '라인업 데이터가 없습니다.',
+    no_statistics: '통계 데이터가 없습니다.',
+    event_goal: '득점',
+    event_sub: '교체',
+    event_yellow: '경고',
+    event_red: '퇴장',
+    events_show_all: '전체 이벤트 보기',
 
     // home
     home_hero_title: '실시간 축구 분석',

@@ -28,18 +28,37 @@ export const CTX_KEY: Record<string, TranslationKey> = {
   pre_season_absence: 'ctx_pre_season_absence',
 };
 
+/** Current active season year (start year of the season, e.g. 2025 = 2025/26). Update when new season is seeded. */
+export const CURRENT_SEASON = 2025;
+
 export const LEAGUE_NAMES: Record<number, string> = {
   39: 'Premier League',
   140: 'La Liga',
   135: 'Serie A',
   78: 'Bundesliga',
   61: 'Ligue 1',
+  // European cups
+  2: 'Champions League',
+  3: 'Europa League',
+  848: 'Conference League',
+  // Domestic cups
+  45: 'FA Cup',
+  48: 'EFL Cup',
+  143: 'Copa del Rey',
+  137: 'Coppa Italia',
+  81: 'DFB-Pokal',
 };
 
 export const LEAGUE_API_ID_BY_NAME: Record<string, number> = {
   'Premier League': 39, 'La Liga': 140, 'Serie A': 135,
   'Bundesliga': 78,     'Ligue 1': 61,
 };
+
+/** Cup competitions that have a league-phase standings table (UCL/UEL/Conference new format). */
+export const CUP_HAS_STANDINGS = new Set([2, 3, 848]);
+
+/** All cup competition IDs (no standings = knockout-only). */
+export const CUP_IDS_NO_STANDINGS = new Set([45, 48, 143, 137, 81]);
 
 
 export const POS_GROUP_ORDER: Array<'GK' | 'DEF' | 'MID' | 'FWD'> = ['GK', 'DEF', 'MID', 'FWD'];

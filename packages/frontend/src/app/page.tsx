@@ -2,6 +2,7 @@ import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { fetchApi } from '@/lib/api';
 import type { InjuryImpact, InjurySummaryEntry, Standing, FixtureWithLeague } from '@/lib/types';
+import { CURRENT_SEASON } from '@/lib/constants';
 import { HomeFixturesList } from '@/components/home-fixtures-list';
 import { HomeStandingsPanel } from '@/components/home-standings-panel';
 import { HomeInjuryWatchPanel } from '@/components/home-injury-watch-panel';
@@ -19,16 +20,16 @@ export default async function Home() {
     inj39, inj140, inj135, inj78, inj61,
   ] = await Promise.all([
     fetchApi<FixtureWithLeague[]>('/api/fixtures/upcoming?all=true').catch(() => [] as FixtureWithLeague[]),
-    fetchApi<Standing>('/api/standings?league=39&season=2025').catch(() => null),
-    fetchApi<Standing>('/api/standings?league=140&season=2025').catch(() => null),
-    fetchApi<Standing>('/api/standings?league=135&season=2025').catch(() => null),
-    fetchApi<Standing>('/api/standings?league=78&season=2025').catch(() => null),
-    fetchApi<Standing>('/api/standings?league=61&season=2025').catch(() => null),
-    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=39&season=2025').catch(() => [] as InjurySummaryEntry[]),
-    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=140&season=2025').catch(() => [] as InjurySummaryEntry[]),
-    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=135&season=2025').catch(() => [] as InjurySummaryEntry[]),
-    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=78&season=2025').catch(() => [] as InjurySummaryEntry[]),
-    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=61&season=2025').catch(() => [] as InjurySummaryEntry[]),
+    fetchApi<Standing>('/api/standings?league=39&season=${CURRENT_SEASON}').catch(() => null),
+    fetchApi<Standing>('/api/standings?league=140&season=${CURRENT_SEASON}').catch(() => null),
+    fetchApi<Standing>('/api/standings?league=135&season=${CURRENT_SEASON}').catch(() => null),
+    fetchApi<Standing>('/api/standings?league=78&season=${CURRENT_SEASON}').catch(() => null),
+    fetchApi<Standing>('/api/standings?league=61&season=${CURRENT_SEASON}').catch(() => null),
+    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=39&season=${CURRENT_SEASON}').catch(() => [] as InjurySummaryEntry[]),
+    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=140&season=${CURRENT_SEASON}').catch(() => [] as InjurySummaryEntry[]),
+    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=135&season=${CURRENT_SEASON}').catch(() => [] as InjurySummaryEntry[]),
+    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=78&season=${CURRENT_SEASON}').catch(() => [] as InjurySummaryEntry[]),
+    fetchApi<InjurySummaryEntry[]>('/api/injuries/summary?league=61&season=${CURRENT_SEASON}').catch(() => [] as InjurySummaryEntry[]),
   ]);
 
   const standingsMap: Record<number, Standing | null> = {

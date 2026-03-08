@@ -36,6 +36,47 @@ fixturesRouter.get('/upcoming', async (req, res, next) => {
   }
 });
 
+// GET /api/fixtures/results?league=39&season=2025
+fixturesRouter.get('/results', async (req, res, next) => {
+  try {
+    const prisma = getPrisma(req);
+    const leagueApiId = req.query.league ? parseInt(req.query.league as string) : undefined;
+    const season = req.query.season ? parseInt(req.query.season as string) : 2025;
+
+    const where: any = {
+      status: { in: ['FT', 'AET', 'PEN'] },
+      season,
+    };
+
+    if (leagueApiId) {
+      const league = await prisma.league.findUnique({ where: { apiFootballId: leagueApiId } });
+      if (league) where.leagueId = league.id;
+    }
+
+    const fixtures = await prisma.fixture.findMany({
+      where,
+      select: {
+        id: true,
+        date: true,
+        round: true,
+        status: true,
+        venueName: true,
+        venueCity: true,
+        goalsHome: true,
+        goalsAway: true,
+        homeTeam: { select: { id: true, name: true, logo: true } },
+        awayTeam: { select: { id: true, name: true, logo: true } },
+        league: { select: { id: true, name: true, logo: true } },
+      },
+      orderBy: { date: 'desc' },
+      take: 500,
+    });
+    res.json(fixtures);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/fixtures/:id
 fixturesRouter.get('/:id', async (req, res, next) => {
   try {
