@@ -3,6 +3,34 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n';
 import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { leagueId: string; fixtureId: string };
+}): Promise<Metadata> {
+  const leagueId = parseInt(params.leagueId);
+  const fixtureId = parseInt(params.fixtureId);
+  const leagueName = LEAGUE_NAMES[leagueId] ?? `League ${leagueId}`;
+  try {
+    const fixture = await fetchApi<FixtureDetail>(`/api/fixtures/${fixtureId}`);
+    const matchTitle = `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`;
+    const title = `${matchTitle} — ${leagueName}`;
+    const description = `${matchTitle} match analysis: injury impact comparison, predicted lineups, and Power Loss % in ${leagueName}.`;
+    return {
+      title,
+      description,
+      openGraph: { title: `${title} | SquadCheck`, description },
+      alternates: { canonical: `/league/${leagueId}/fixtures/${fixtureId}` },
+    };
+  } catch {
+    return {
+      title: `Match Analysis — ${leagueName}`,
+      alternates: { canonical: `/league/${leagueId}/fixtures/${fixtureId}` },
+    };
+  }
+}
 import type {
   FixtureDetail,
   FixtureTeamStats,
@@ -420,8 +448,35 @@ export default async function FixtureDetailPage({
   const homeActualLineup = fixture.lineups.find((l) => l.team.id === fixture!.homeTeam.id) ?? null;
   const awayActualLineup = fixture.lineups.find((l) => l.team.id === fixture!.awayTeam.id) ?? null;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.vercel.app';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SportsEvent',
+    name: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
+    sport: 'Association Football',
+    startDate: fixture.date,
+    url: `${siteUrl}/league/${leagueId}/fixtures/${fixtureId}`,
+    description: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name} — ${leagueName} match analysis with injury impact and predicted lineups.`,
+    homeTeam: { '@type': 'SportsTeam', name: fixture.homeTeam.name },
+    awayTeam: { '@type': 'SportsTeam', name: fixture.awayTeam.name },
+    ...(fixture.venueName && {
+      location: {
+        '@type': 'StadiumOrArena',
+        name: fixture.venueName,
+        ...(fixture.venueCity && { address: fixture.venueCity }),
+      },
+    }),
+    ...(isCompleted && {
+      eventStatus: 'https://schema.org/EventScheduled',
+    }),
+  };
+
   return (
     <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back button */}
       <Link
         href={backUrl}

@@ -4,6 +4,35 @@ import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
 import type { Team, InjuryImpact } from '@/lib/types';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
+import { timeAgo } from '@/lib/format';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { teamId: string };
+}): Promise<Metadata> {
+  const teamId = parseInt(params.teamId);
+  try {
+    const impact = await fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${teamId}`);
+    const teamName = impact.team.name;
+    const count = impact.injuredPlayers.length;
+    const powerLoss = impact.powerLossPct.toFixed(1);
+    const title = `${teamName} Injury Report`;
+    const description =
+      count > 0
+        ? `${teamName}: ${count} player${count !== 1 ? 's' : ''} out, Power Loss ${powerLoss}%. See predicted lineup and recovery signals.`
+        : `${teamName} injury report: no current injuries. Full squad available.`;
+    return {
+      title,
+      description,
+      openGraph: { title: `${title} | SquadCheck`, description },
+      alternates: { canonical: `/team/${teamId}` },
+    };
+  } catch {
+    return { title: 'Team Injury Report' };
+  }
+}
 interface PlayerEntry {
   player: { id: number; name: string; photo: string | null; position: string | null; nationality: string | null };
   minutes: number | null; rating: number | null; goalsTotal: number | null; assists: number | null; appearances: number | null;
@@ -46,6 +75,13 @@ export default async function TeamPage({
   const highImpact = impact?.injuredPlayers.filter(p => p.severity === 'critical' || p.severity === 'high') ?? [];
   const otherInjured = impact?.injuredPlayers.filter(p => p.severity === 'moderate' || p.severity === 'low') ?? [];
 
+  // Most recent recovery signal timestamp across all injured players
+  const latestSignalAt = impact?.injuredPlayers
+    .map(p => p.recoverySignal?.lastSignalAt)
+    .filter((s): s is string => !!s)
+    .sort()
+    .at(-1) ?? null;
+
   const tile: React.CSSProperties = { background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)', padding: '1.25rem 1rem', marginBottom: '1px' };
   const col: React.CSSProperties = { padding: '0.625rem 1rem', textAlign: 'left' };
   const colC: React.CSSProperties = { ...col, textAlign: 'center' };
@@ -83,9 +119,16 @@ export default async function TeamPage({
         <div style={{ marginBottom: '1px' }}>
           <div style={{ ...tile, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
             <div className="sc-label">{t(locale, 'injury_status')}</div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
-              {impact.season}/{impact.season + 1} {t(locale, 'season')}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {latestSignalAt && (
+                <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                  {locale === 'ko' ? '신호' : 'Signal'} {timeAgo(latestSignalAt, locale)}
+                </span>
+              )}
+              <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                {impact.season}/{impact.season + 1} {t(locale, 'season')}
+              </span>
+            </div>
           </div>
           <div className="sc-grid-4col">
             <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>

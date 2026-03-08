@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { t, tPos, tInjury, type Locale } from '@/lib/i18n';
 import { SEV_TAG, SEV_KEY, ROLE_KEY, CTX_KEY } from '@/lib/constants';
-import { isDisciplinaryReason, fmtDate, daysAgo } from '@/lib/format';
+import { isDisciplinaryReason, fmtDate, daysAgo, timeAgo } from '@/lib/format';
 import type { InjuredPlayer } from '@/lib/types';
 
 interface InjuredPlayerCardProps {
@@ -121,6 +121,11 @@ export function InjuredPlayerCard({
             ? (locale === 'ko' ? '복귀 임박' : 'Return signal')
             : (locale === 'ko' ? '복귀 중' : 'In recovery')}
           {' '}{Math.round(ip.recoverySignal.predictedAvailability * 100)}%
+          {ip.recoverySignal.lastSignalAt && (
+            <span style={{ opacity: 0.65, marginLeft: '0.25rem' }}>
+              · {timeAgo(ip.recoverySignal.lastSignalAt, locale)}
+            </span>
+          )}
         </span>
       )}
     </div>

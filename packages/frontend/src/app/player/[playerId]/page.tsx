@@ -3,6 +3,30 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
 import { isDisciplinaryReason, fmtDate, fmtRound } from '@/lib/format';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { playerId: string };
+}): Promise<Metadata> {
+  const playerId = parseInt(params.playerId);
+  try {
+    const player = await fetchApi<Player>(`/api/players/${playerId}`);
+    const title = player.name;
+    const pos = player.position ?? '';
+    const nat = player.nationality ?? '';
+    const description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — injury history, season stats, and recovery status across European leagues.`;
+    return {
+      title,
+      description,
+      openGraph: { title: `${player.name} | SquadCheck`, description },
+      alternates: { canonical: `/player/${playerId}` },
+    };
+  } catch {
+    return { title: 'Player Profile' };
+  }
+}
 
 interface Player {
   id: number; name: string; firstName: string | null; lastName: string | null;

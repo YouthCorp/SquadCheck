@@ -3,6 +3,29 @@ import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES, CUP_IDS_NO_STANDINGS } from '@/lib/constants';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { leagueId: string };
+}): Promise<Metadata> {
+  const leagueId = parseInt(params.leagueId);
+  const leagueName = LEAGUE_NAMES[leagueId] ?? `League ${leagueId}`;
+  const isCup = CUP_IDS_NO_STANDINGS.has(leagueId);
+  const title = isCup ? leagueName : `${leagueName} Standings`;
+  const description = isCup
+    ? `${leagueName} fixtures and results with injury impact analysis.`
+    : `${leagueName} standings with injury-aware team power analysis. See Power Loss % for every club this season.`;
+  return {
+    title,
+    description,
+    openGraph: { title: `${title} | SquadCheck`, description },
+    alternates: {
+      canonical: `/league/${leagueId}`,
+    },
+  };
+}
 
 interface StandingEntry {
   rank: number; points: number; played: number; wins: number; draws: number; losses: number;

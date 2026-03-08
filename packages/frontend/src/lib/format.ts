@@ -14,6 +14,19 @@ export function daysAgo(d: string): number {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
 
+/** "Xm ago" / "Xh ago" / "Xd ago" 형식의 상대 시간. */
+export function timeAgo(d: string, locale?: string): string {
+  const ko = locale === 'ko';
+  const diff = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return ko ? '방금 전' : 'just now';
+  if (mins < 60) return ko ? `${mins}분 전` : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return ko ? `${hrs}시간 전` : `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return ko ? `${days}일 전` : `${days}d ago`;
+}
+
 /** 경기 상세 페이지용 전체 날짜+시간. "Friday, 28 February 2026 · 20:00" */
 export function formatMatchDateTime(dateStr: string, locale: string): string {
   const d = new Date(dateStr);

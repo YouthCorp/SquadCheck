@@ -79,8 +79,22 @@ export default async function Home() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 10);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.vercel.app';
+  const websiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'SquadCheck',
+    url: siteUrl,
+    description:
+      'Football injury impact analysis across top European leagues. Track Power Loss %, predicted lineups, and recovery signals.',
+  };
+
   return (
     <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       {/* Hero */}
       <div style={{ marginBottom: '1.5rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', margin: '0 0 0.25rem', letterSpacing: '-0.5px' }}>

@@ -4,6 +4,24 @@ import { getLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
 import type { Fixture, Standing } from '@/lib/types';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { leagueId: string };
+}): Promise<Metadata> {
+  const leagueId = parseInt(params.leagueId);
+  const leagueName = LEAGUE_NAMES[leagueId] ?? `League ${leagueId}`;
+  const title = `${leagueName} Fixtures & Results`;
+  const description = `${leagueName} upcoming fixtures and past results. Injury impact analysis and predicted lineups before every match.`;
+  return {
+    title,
+    description,
+    openGraph: { title: `${title} | SquadCheck`, description },
+    alternates: { canonical: `/league/${leagueId}/fixtures` },
+  };
+}
 import {
   parseRoundNumberForSort,
   formatRoundLabel,
