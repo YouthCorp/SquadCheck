@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { LangSelector } from './lang-selector';
 import { ThemeToggle } from './theme-toggle';
 import { t, type Locale } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 interface CompetitionItem { id: number; name: string; hasStandings: boolean; }
 interface CompetitionSection { labelKey: 'nav_leagues' | 'nav_european_cups' | 'nav_domestic_cups'; items: CompetitionItem[]; }
@@ -45,11 +46,10 @@ const allItems = sections.flatMap((s) => s.items);
 
 interface SidebarProps {
   locale: Locale;
-  mobileOpen?: boolean;
   onClose?: () => void;
 }
 
-export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
+export function Sidebar({ locale, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
@@ -68,129 +68,57 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
     setExpanded((prev) => ({ ...prev, [leagueId]: !prev[leagueId] }));
   }
 
-  const subLinkStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    padding: '0.4375rem 1rem 0.4375rem 2.75rem',
-    fontSize: '0.8125rem',
-    color: active
-      ? 'var(--cds-text-primary, #f4f4f4)'
-      : 'var(--cds-text-secondary, #c6c6c6)',
-    background: active
-      ? 'var(--cds-layer-selected-01, #353535)'
-      : 'transparent',
-    borderLeft: active
-      ? '3px solid var(--cds-interactive, #4589ff)'
-      : '3px solid transparent',
-    transition: 'background 0.1s, color 0.1s',
-    cursor: 'pointer',
-    textDecoration: 'none',
-  });
+  const navItemCls = (active: boolean) =>
+    cn(
+      'flex items-center gap-3 px-4 py-2.5 text-sm border-l-2 transition-colors duration-150 cursor-pointer select-none',
+      active
+        ? 'border-primary bg-accent text-foreground'
+        : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
+    );
+
+  const subItemCls = (active: boolean) =>
+    cn(
+      'flex items-center gap-2 pl-11 pr-4 py-[0.4375rem] text-[0.8125rem] border-l-2 transition-colors duration-150',
+      active
+        ? 'border-primary bg-accent text-foreground'
+        : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
+    );
 
   return (
-    <aside
-      data-sidebar=""
-      data-mobile-open={String(mobileOpen ?? false)}
-      style={{
-        width: '16rem',
-        minWidth: '16rem',
-        background: 'var(--cds-background, #161616)',
-        borderRight: '1px solid var(--cds-border-subtle-01, #393939)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-      }}
-    >
+    <div className="w-64 min-w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
       {/* Brand header */}
-      <div
-        style={{
-          padding: '1.25rem 1rem',
-          borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
-        }}
-      >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-            <span
-              style={{
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--cds-interactive, #4589ff)',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              Squad
-            </span>
-            <span
-              style={{
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--cds-text-primary, #f4f4f4)',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              Check
-            </span>
+      <div className="px-4 py-5 border-b border-sidebar-border flex items-start justify-between gap-2">
+        <Link href="/" className="no-underline">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-lg font-semibold text-primary tracking-tight">Squad</span>
+            <span className="text-lg font-semibold text-foreground tracking-tight">Check</span>
           </div>
-          <div
-            style={{
-              fontSize: '0.6875rem',
-              color: 'var(--cds-text-helper, #8d8d8d)',
-              letterSpacing: '0.32px',
-              textTransform: 'uppercase',
-              marginTop: '2px',
-            }}
-          >
+          <div className="text-[0.6875rem] text-muted-foreground tracking-wider uppercase mt-0.5">
             Injury Impact Analysis
           </div>
         </Link>
 
         {/* Close button — only visible on mobile via CSS */}
         <button
-          className="sc-sidebar-close"
+          className="sc-sidebar-close items-center justify-center shrink-0 p-1 text-muted-foreground hover:text-foreground bg-transparent border-0 cursor-pointer"
           onClick={onClose}
           aria-label="Close navigation"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--cds-text-secondary, #c6c6c6)',
-            padding: '0.25rem',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <path
-              d="M13.5 4.5L4.5 13.5M4.5 4.5l9 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <path d="M13.5 4.5L4.5 13.5M4.5 4.5l9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0' }}>
+      <nav className="flex-1 overflow-y-auto py-2">
         {sections.map((section, sIdx) => (
           <div key={section.labelKey}>
             {/* Section header */}
-            <div
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                letterSpacing: '0.32px',
-                textTransform: 'uppercase',
-                color: 'var(--cds-text-helper, #8d8d8d)',
-                padding: sIdx === 0 ? '0.75rem 1rem 0.25rem' : '1rem 1rem 0.25rem',
-              }}
-            >
+            <div className={cn(
+              'text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground px-4 pb-1',
+              sIdx === 0 ? 'pt-3' : 'pt-4'
+            )}>
               {t(locale, section.labelKey)}
             </div>
 
@@ -213,39 +141,17 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.625rem 1rem',
-                      fontSize: '0.875rem',
-                      color: isActive
-                        ? 'var(--cds-text-primary, #f4f4f4)'
-                        : 'var(--cds-text-secondary, #c6c6c6)',
-                      background: isActive ? 'var(--cds-layer-hover-01, #2e2e2e)' : 'transparent',
-                      borderLeft: '3px solid transparent',
-                      transition: 'background 0.1s, color 0.1s',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = 'var(--cds-layer-hover-01, #2e2e2e)';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = isActive ? 'var(--cds-layer-hover-01, #2e2e2e)' : 'transparent';
-                    }}
+                    className={navItemCls(!!isActive)}
                   >
-                    <span style={{ flex: 1 }}>{item.name}</span>
+                    <span className="flex-1">{item.name}</span>
                     <svg
                       width="16" height="16" viewBox="0 0 24 24"
                       fill="none" stroke="currentColor"
                       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{
-                        color: 'var(--cds-text-helper, #8d8d8d)',
-                        transition: 'transform 0.15s',
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        flexShrink: 0,
-                      }}
+                      className={cn(
+                        'text-muted-foreground shrink-0 transition-transform duration-150',
+                        isExpanded ? 'rotate-180' : 'rotate-0'
+                      )}
                     >
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
@@ -254,40 +160,17 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
                   {/* Submenu */}
                   {isExpanded && (
                     <div>
-                      {/* Standings — only for competitions with a standings table */}
                       {item.hasStandings && (
-                        <Link href={base} style={{ textDecoration: 'none', display: 'block' }}>
-                          <div
-                            style={subLinkStyle(!!isStandingsActive)}
-                            onMouseEnter={(e) => {
-                              if (!isStandingsActive)
-                                (e.currentTarget as HTMLDivElement).style.background = 'var(--cds-layer-hover-01, #2e2e2e)';
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isStandingsActive)
-                                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-                            }}
-                          >
-                            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>≡</span>
+                        <Link href={base} className="no-underline block">
+                          <div className={subItemCls(!!isStandingsActive)}>
+                            <span className="text-xs opacity-70">≡</span>
                             <span>{t(locale, 'nav_standings')}</span>
                           </div>
                         </Link>
                       )}
-
-                      {/* Fixtures */}
-                      <Link href={`${base}/fixtures`} style={{ textDecoration: 'none', display: 'block' }}>
-                        <div
-                          style={subLinkStyle(!!isFixturesActive)}
-                          onMouseEnter={(e) => {
-                            if (!isFixturesActive)
-                              (e.currentTarget as HTMLDivElement).style.background = 'var(--cds-layer-hover-01, #2e2e2e)';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isFixturesActive)
-                              (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-                          }}
-                        >
-                          <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>◷</span>
+                      <Link href={`${base}/fixtures`} className="no-underline block">
+                        <div className={subItemCls(!!isFixturesActive)}>
+                          <span className="text-xs opacity-70">◷</span>
                           <span>{t(locale, 'nav_fixtures')}</span>
                         </div>
                       </Link>
@@ -300,60 +183,17 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
         ))}
 
         {/* Tools section */}
-        <div
-          style={{
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            letterSpacing: '0.32px',
-            textTransform: 'uppercase',
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            padding: '1rem 1rem 0.25rem',
-          }}
-        >
+        <div className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground px-4 pt-4 pb-1">
           {t(locale, 'nav_tools')}
         </div>
-        <Link href="/leaderboard" style={{ textDecoration: 'none', display: 'block' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.625rem 1rem',
-              fontSize: '0.875rem',
-              color: pathname?.startsWith('/leaderboard')
-                ? 'var(--cds-text-primary, #f4f4f4)'
-                : 'var(--cds-text-secondary, #c6c6c6)',
-              background: pathname?.startsWith('/leaderboard')
-                ? 'var(--cds-layer-selected-01, #353535)'
-                : 'transparent',
-              borderLeft: pathname?.startsWith('/leaderboard')
-                ? '3px solid var(--cds-interactive, #4589ff)'
-                : '3px solid transparent',
-            }}
-          >
+        <Link href="/leaderboard" className="no-underline block">
+          <div className={navItemCls(!!pathname?.startsWith('/leaderboard'))}>
             <span>🏆</span>
             <span>{t(locale, 'nav_leaderboard')}</span>
           </div>
         </Link>
-        <Link href="/matchup" style={{ textDecoration: 'none', display: 'block' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.625rem 1rem',
-              fontSize: '0.875rem',
-              color: pathname === '/matchup'
-                ? 'var(--cds-text-primary, #f4f4f4)'
-                : 'var(--cds-text-secondary, #c6c6c6)',
-              background: pathname === '/matchup'
-                ? 'var(--cds-layer-selected-01, #353535)'
-                : 'transparent',
-              borderLeft: pathname === '/matchup'
-                ? '3px solid var(--cds-interactive, #4589ff)'
-                : '3px solid transparent',
-            }}
-          >
+        <Link href="/matchup" className="no-underline block">
+          <div className={navItemCls(pathname === '/matchup')}>
             <span>⚔</span>
             <span>{t(locale, 'nav_matchup')}</span>
           </div>
@@ -361,26 +201,13 @@ export function Sidebar({ locale, mobileOpen, onClose }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div
-        style={{
-          borderTop: '1px solid var(--cds-border-subtle-01, #393939)',
-          padding: '0.75rem 0',
-        }}
-      >
+      <div className="border-t border-sidebar-border py-3 space-y-2.5">
         <ThemeToggle />
-        <div style={{ height: '0.625rem' }} />
         <LangSelector />
-        <div
-          style={{
-            fontSize: '0.6875rem',
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            padding: '0.25rem 1rem 0',
-            letterSpacing: '0.16px',
-          }}
-        >
+        <p className="text-[0.6875rem] text-muted-foreground px-4 tracking-wide">
           {t(locale, 'nav_data')}
-        </div>
+        </p>
       </div>
-    </aside>
+    </div>
   );
 }

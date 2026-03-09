@@ -4,8 +4,14 @@ import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
 import type { Team, InjuryImpact } from '@/lib/types';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
+import { PowerLossGauge } from '@/components/power-loss-gauge';
+import { SectionHeader } from '@/components/section-header';
+import { StatCard } from '@/components/stat-card';
 import { timeAgo } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import type { Metadata } from 'next';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { TeamLogo } from '@/components/team-logo';
 
 export async function generateMetadata({
   params,
@@ -33,22 +39,11 @@ export async function generateMetadata({
     return { title: 'Team Injury Report' };
   }
 }
+
 interface PlayerEntry {
   player: { id: number; name: string; photo: string | null; position: string | null; nationality: string | null };
   minutes: number | null; rating: number | null; goalsTotal: number | null; assists: number | null; appearances: number | null;
 }
-
-
-const backLinkStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '0.375rem',
-  fontSize: '0.8125rem',
-  color: 'var(--cds-text-helper, #8d8d8d)',
-  textDecoration: 'none',
-  marginBottom: '1rem',
-  transition: 'color 0.1s',
-};
 
 export default async function TeamPage({
   params,
@@ -75,95 +70,70 @@ export default async function TeamPage({
   const highImpact = impact?.injuredPlayers.filter(p => p.severity === 'critical' || p.severity === 'high') ?? [];
   const otherInjured = impact?.injuredPlayers.filter(p => p.severity === 'moderate' || p.severity === 'low') ?? [];
 
-  // Most recent recovery signal timestamp across all injured players
   const latestSignalAt = impact?.injuredPlayers
     .map(p => p.recoverySignal?.lastSignalAt)
     .filter((s): s is string => !!s)
     .sort()
     .at(-1) ?? null;
 
-  const tile: React.CSSProperties = { background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)', padding: '1.25rem 1rem', marginBottom: '1px' };
-  const col: React.CSSProperties = { padding: '0.625rem 1rem', textAlign: 'left' };
-  const colC: React.CSSProperties = { ...col, textAlign: 'center' };
+  const playerLinkSuffix = `?team=${teamId}${backLeagueId ? `&league=${backLeagueId}` : ''}`;
 
   return (
-    <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
+    <div className="max-w-[72rem] mx-auto">
       {/* Back button */}
       {backLeagueId && (
-        <Link href={`/league/${backLeagueId}`} style={backLinkStyle}>
+        <Link
+          href={`/league/${backLeagueId}`}
+          className="inline-flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground no-underline hover:text-foreground transition-colors mb-4"
+        >
           ← {t(locale, 'nav_standings')}
         </Link>
       )}
 
       {/* Team header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
-        {team?.logo && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '3.5rem', height: '3.5rem', flexShrink: 0 }}>
-            <img src={team.logo} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-          </span>
-        )}
+      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-border">
+        <TeamLogo logo={team?.logo} size="xl" />
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', margin: 0 }}>
-            {team?.name ?? `Team ${teamId}`}
-          </h1>
+          <h1 className="text-3xl font-light text-foreground m-0">{team?.name ?? `Team ${teamId}`}</h1>
           {team?.country && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', margin: '0.25rem 0 0', letterSpacing: '0.32px' }}>
+            <p className="text-xs text-muted-foreground mt-1 tracking-wide m-0">
               {team.country}{team.founded ? ` · ${t(locale, 'founded')} ${team.founded}` : ''}
             </p>
           )}
         </div>
+        {impact && (
+          <div className="ml-auto">
+            <PowerLossGauge value={impact.powerLossPct} size="lg" />
+          </div>
+        )}
       </div>
 
-      {/* Injury status overview */}
-      {impact && (
-        <div style={{ marginBottom: '1px' }}>
-          <div style={{ ...tile, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-            <div className="sc-label">{t(locale, 'injury_status')}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {latestSignalAt && (
-                <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
-                  {locale === 'ko' ? '신호' : 'Signal'} {timeAgo(latestSignalAt, locale)}
-                </span>
-              )}
-              <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
-                {impact.season}/{impact.season + 1} {t(locale, 'season')}
-              </span>
-            </div>
-          </div>
-          <div className="sc-grid-4col">
-            <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{impact.injuredPlayers.length}</div>
-              <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'players_out')}</div>
-            </div>
-            {ss && ss.critical + ss.high > 0 && (
-              <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--sc-red)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{ss.critical + ss.high}</div>
-                <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'key_players')}</div>
-              </div>
-            )}
-            {ss && ss.moderate > 0 && (
-              <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--sc-yellow)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{ss.moderate}</div>
-                <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'moderate')}</div>
-              </div>
-            )}
-            {ss && ss.low > 0 && (
-              <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '1.25rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 300, color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{ss.low}</div>
-                <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'low_impact')}</div>
-              </div>
-            )}
-          </div>
+      {/* Stat grid */}
+      {impact && ss && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <StatCard
+            label={t(locale, 'players_out')}
+            value={impact.injuredPlayers.length}
+            severity="neutral"
+            subtext={latestSignalAt ? `Signal ${timeAgo(latestSignalAt, locale)}` : undefined}
+          />
+          {ss.critical + ss.high > 0 && (
+            <StatCard label={t(locale, 'key_players')} value={ss.critical + ss.high} severity="critical" />
+          )}
+          {ss.moderate > 0 && (
+            <StatCard label={t(locale, 'moderate')} value={ss.moderate} severity="moderate" />
+          )}
+          {ss.low > 0 && (
+            <StatCard label={t(locale, 'low_impact')} value={ss.low} severity="low" />
+          )}
         </div>
       )}
 
       {/* Key injuries */}
       {highImpact.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1px', padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)' }}>
-            <span className="sc-label" style={{ color: '#ff8389' }}>{t(locale, 'key_absences')}</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+        <div className="mb-6">
+          <SectionHeader label={t(locale, 'key_absences')} count={highImpact.length} accent="destructive" />
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
             {highImpact.map((ip) => (
               <InjuredPlayerCard
                 key={ip.player.id}
@@ -171,7 +141,7 @@ export default async function TeamPage({
                 locale={locale}
                 variant="team"
                 severity="high"
-                playerLinkSuffix={`?team=${teamId}${backLeagueId ? `&league=${backLeagueId}` : ''}`}
+                playerLinkSuffix={playerLinkSuffix}
               />
             ))}
           </div>
@@ -180,11 +150,9 @@ export default async function TeamPage({
 
       {/* Other injuries */}
       {otherInjured.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label">{t(locale, 'other_injuries')}</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+        <div className="mb-6">
+          <SectionHeader label={t(locale, 'other_injuries')} count={otherInjured.length} />
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
             {otherInjured.map((ip) => (
               <InjuredPlayerCard
                 key={ip.player.id}
@@ -192,7 +160,7 @@ export default async function TeamPage({
                 locale={locale}
                 variant="team"
                 severity="other"
-                playerLinkSuffix={`?team=${teamId}${backLeagueId ? `&league=${backLeagueId}` : ''}`}
+                playerLinkSuffix={playerLinkSuffix}
               />
             ))}
           </div>
@@ -202,50 +170,63 @@ export default async function TeamPage({
       {/* Squad table */}
       {players.length > 0 && (
         <div>
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="sc-label">{t(locale, 'squad')}</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>{impact?.season} {t(locale, 'season')}</span>
-          </div>
-          <div className="sc-table-scroll">
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--cds-layer-01, #262626)' }}>
-            <thead>
-              <tr style={{ background: 'var(--cds-layer-02, #393939)' }}>
-                {[
-                  { l: t(locale, 'player'), s: col },
-                  { l: t(locale, 'position'), s: colC },
-                  { l: t(locale, 'app'), s: colC },
-                  { l: t(locale, 'min'), s: colC },
-                  { l: t(locale, 'rating'), s: colC },
-                  { l: t(locale, 'goals'), s: colC },
-                  { l: t(locale, 'assists'), s: colC },
-                ].map((h) => (
-                  <th key={h.l} style={{ ...h.s, fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.32px', textTransform: 'uppercase', color: 'var(--cds-text-secondary, #c6c6c6)', borderBottom: '1px solid var(--cds-border-strong-01, #6f6f6f)' }}>{h.l}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {players.slice(0, 30).map((p, idx) => (
-                <tr key={p.player.id} style={{ borderBottom: '1px solid var(--cds-border-subtle-01, #393939)', background: idx % 2 === 0 ? 'var(--cds-layer-01, #262626)' : 'var(--cds-layer-accent-01, #2e2e2e)' }}>
-                  <td style={col}>
-                    <Link href={`/player/${p.player.id}?team=${teamId}${backLeagueId ? `&league=${backLeagueId}` : ''}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {p.player.photo && <img src={p.player.photo} alt="" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />}
-                      <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-primary, #f4f4f4)' }}>{p.player.name}</span>
-                    </Link>
-                  </td>
-                  <td style={{ ...colC, fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>{tPos(locale, p.player.position)}</td>
-                  <td style={{ ...colC, fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{p.appearances ?? '—'}</td>
-                  <td style={{ ...colC, fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{p.minutes ?? '—'}</td>
-                  <td style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem' }}>
-                    {p.rating ? (
-                      <span style={{ color: p.rating >= 7 ? 'var(--sc-green)' : p.rating >= 6.5 ? 'var(--sc-yellow)' : 'var(--cds-text-secondary)' }}>{p.rating.toFixed(2)}</span>
-                    ) : '—'}
-                  </td>
-                  <td style={{ ...colC, fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{p.goalsTotal ?? '—'}</td>
-                  <td style={{ ...colC, fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{p.assists ?? '—'}</td>
+          <SectionHeader
+            label={t(locale, 'squad')}
+            count={players.length}
+          />
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full border-collapse bg-card text-[0.8125rem]">
+              <thead>
+                <tr className="bg-muted/50">
+                  {[t(locale, 'player'), t(locale, 'position'), t(locale, 'app'), t(locale, 'min'), t(locale, 'rating'), t(locale, 'goals'), t(locale, 'assists')].map((h, i) => (
+                    <th
+                      key={h}
+                      className={cn(
+                        'py-2.5 text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground border-b border-border',
+                        i === 0 ? 'px-4 text-left' : 'px-3 text-center'
+                      )}
+                    >{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {players.slice(0, 30).map((p, idx) => (
+                  <tr
+                    key={p.player.id}
+                    className={cn(
+                      'border-b border-border hover:bg-accent/50 transition-colors',
+                      idx % 2 === 1 ? 'bg-muted/20' : ''
+                    )}
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/player/${p.player.id}${playerLinkSuffix}`}
+                        className="no-underline flex items-center gap-2"
+                      >
+                        <Avatar size="sm">
+                          {p.player.photo && <AvatarImage src={p.player.photo} alt="" />}
+                          <AvatarFallback>{p.player.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-foreground">{p.player.name}</span>
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{tPos(locale, p.player.position)}</td>
+                    <td className="px-3 py-2.5 text-center text-foreground/80 font-mono">{p.appearances ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-center text-foreground/80 font-mono">{p.minutes ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-center font-mono">
+                      {p.rating ? (
+                        <span className={
+                          p.rating >= 7 ? 'text-[var(--sc-green)]' :
+                          p.rating >= 6.5 ? 'text-[var(--sc-yellow)]' : 'text-foreground/80'
+                        }>{p.rating.toFixed(2)}</span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-center text-foreground/80 font-mono">{p.goalsTotal ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-center text-foreground/80 font-mono">{p.assists ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

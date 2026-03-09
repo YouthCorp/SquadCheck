@@ -4,6 +4,10 @@ import { getLocale } from '@/lib/locale';
 import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
 import type { InjurySummaryEntry, InjuryImpact } from '@/lib/types';
 import type { Metadata } from 'next';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { LeaderboardSortTabs } from './leaderboard-sort-tabs';
+import { TeamLogo } from '@/components/team-logo';
 
 export const metadata: Metadata = {
   title: 'Season Injury Leaderboard',
@@ -15,14 +19,14 @@ export const metadata: Metadata = {
   alternates: { canonical: '/leaderboard' },
 };
 
-export const revalidate = 600; // 10 minutes
+export const revalidate = 600;
 
 const LEAGUE_IDS = [39, 140, 135, 78, 61] as const;
 
 function powerLossColor(pct: number): string {
-  if (pct >= 20) return '#fa4d56';
-  if (pct >= 10) return '#f1c21b';
-  return '#42be65';
+  if (pct >= 20) return 'text-[var(--sc-red)]';
+  if (pct >= 10) return 'text-[var(--sc-yellow)]';
+  return 'text-[var(--sc-green)]';
 }
 
 export default async function LeaderboardPage({
@@ -34,7 +38,6 @@ export default async function LeaderboardPage({
   const sortBy = (searchParams.sort === 'power') ? 'power' : 'count';
   const leagueFilter = searchParams.league ? parseInt(searchParams.league) : null;
 
-  // 1. Fetch injury summaries for all leagues (or filtered)
   const leaguesToFetch = leagueFilter ? [leagueFilter as (typeof LEAGUE_IDS)[number]] : [...LEAGUE_IDS];
   const summaryResults = await Promise.all(
     leaguesToFetch.map((id) =>
@@ -44,12 +47,10 @@ export default async function LeaderboardPage({
     )
   );
 
-  // 2. Combine + filter teams with injuries
   const allEntries = summaryResults.flat().filter(
     (e) => e.team != null && e.injuryCount > 0
   ) as ((InjurySummaryEntry & { leagueId: number }) & { team: NonNullable<InjurySummaryEntry['team']> })[];
 
-  // Deduplicate by team id (team may appear in multiple leagues)
   const uniqueByTeam = new Map<number, typeof allEntries[0]>();
   for (const e of allEntries) {
     const existing = uniqueByTeam.get(e.team.id);
@@ -58,7 +59,6 @@ export default async function LeaderboardPage({
     }
   }
 
-  // 3. Fetch injury impact for top 20 teams by count
   const sortedByCount = Array.from(uniqueByTeam.values())
     .sort((a, b) => b.injuryCount - a.injuryCount)
     .slice(0, 20);
@@ -70,194 +70,152 @@ export default async function LeaderboardPage({
     )
   );
 
-  // 4. Build combined records
-  // currentOut = impact.injuredPlayers.length (현재 결장 선수 수, injury-impact 기준)
-  // seasonAbsences = injuryCount from summary (시즌 누적 결장 기록 수 — 선수×경기 단위)
   const records = sortedByCount.map((e, i) => ({
     team: e.team,
     leagueId: e.leagueId,
-    seasonAbsences: e.injuryCount,   // injuries 테이블 행 수 (누적)
-    currentOut: impactResults[i]?.injuredPlayers.length ?? 0,  // 현재 결장 선수 수
+    seasonAbsences: e.injuryCount,
+    currentOut: impactResults[i]?.injuredPlayers.length ?? 0,
     impact: impactResults[i],
     powerLossPct: impactResults[i]?.powerLossPct ?? 0,
-    severitySummary: impactResults[i]?.severitySummary ?? null,
     topPlayers: impactResults[i]?.injuredPlayers
       .filter((p) => p.severity === 'critical' || p.severity === 'high')
       .slice(0, 2)
       .map((p) => p.player.name) ?? [],
   }));
 
-  // 5. Sort: 'count' = 현재 결장자 수, 'power' = 전력 손실 %
   const sorted = [...records].sort((a, b) =>
     sortBy === 'power' ? b.powerLossPct - a.powerLossPct : b.currentOut - a.currentOut
   );
 
-  const tile: React.CSSProperties = {
-    background: 'var(--cds-layer-01, #262626)',
-    border: '1px solid var(--cds-border-subtle-01, #393939)',
-  };
-
-  const tabBase: React.CSSProperties = {
-    padding: '0.375rem 0.875rem',
-    fontSize: '0.8125rem',
-    border: '1px solid var(--cds-border-subtle-01, #393939)',
-    cursor: 'pointer',
-    textDecoration: 'none',
-    display: 'inline-block',
-  };
-  const tabActive: React.CSSProperties = {
-    ...tabBase,
-    background: 'var(--cds-layer-selected-01, #393939)',
-    color: 'var(--cds-text-primary, #f4f4f4)',
-  };
-  const tabInactive: React.CSSProperties = {
-    ...tabBase,
-    background: 'transparent',
-    color: 'var(--cds-text-secondary, #c6c6c6)',
-  };
-
   return (
-    <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1rem' }}>
+    <div className="max-w-[72rem] mx-auto">
       {/* Header */}
-      <div style={{ padding: '1.5rem 0 1rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', margin: '0 0 0.25rem' }}>
+      <div className="mb-6 pb-4 border-b border-border">
+        <h1 className="text-3xl font-light text-foreground m-0 mb-1">
           {locale === 'ko' ? '시즌 부상 리더보드' : 'Season Injury Leaderboard'}
         </h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--cds-text-helper, #8d8d8d)', margin: '0 0 1rem' }}>
+        <p className="text-sm text-muted-foreground m-0">
           {CURRENT_SEASON}/{CURRENT_SEASON + 1} · {locale === 'ko' ? '이번 시즌 부상 타격 순위' : 'Teams hit hardest by injuries this season'}
         </p>
+      </div>
 
-        {/* Sort + league filter */}
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Sort tabs */}
-          <div style={{ display: 'flex' }}>
-            <Link
-              href={`/leaderboard?sort=count${leagueFilter ? `&league=${leagueFilter}` : ''}`}
-              style={sortBy === 'count' ? tabActive : tabInactive}
-            >
-              {locale === 'ko' ? '결장 선수 수' : 'Players Out'}
-            </Link>
-            <Link
-              href={`/leaderboard?sort=power${leagueFilter ? `&league=${leagueFilter}` : ''}`}
-              style={sortBy === 'power' ? tabActive : tabInactive}
-            >
-              {locale === 'ko' ? '전력 손실 %' : 'Power Loss %'}
-            </Link>
-          </div>
+      {/* Sort + league filter */}
+      <div className="flex gap-3 flex-wrap items-center mb-6">
+        {/* Sort tabs (client component) */}
+        <LeaderboardSortTabs
+          sortBy={sortBy}
+          leagueFilter={leagueFilter}
+          countLabel={locale === 'ko' ? '결장 선수 수' : 'Players Out'}
+          powerLabel={locale === 'ko' ? '전력 손실 %' : 'Power Loss %'}
+        />
 
-          {/* League filter */}
-          <div style={{ display: 'flex', gap: '0px', flexWrap: 'wrap' }}>
+        {/* League filter */}
+        <div className="flex flex-wrap gap-1">
+          <Link
+            href={`/leaderboard?sort=${sortBy}`}
+            className={cn(
+              'px-2.5 py-1 text-xs border rounded no-underline transition-colors',
+              !leagueFilter
+                ? 'border-primary bg-primary/15 text-primary font-semibold'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+            )}
+          >
+            {locale === 'ko' ? '전체' : 'All'}
+          </Link>
+          {LEAGUE_IDS.map((id) => (
             <Link
-              href={`/leaderboard?sort=${sortBy}`}
-              style={!leagueFilter ? tabActive : tabInactive}
+              key={id}
+              href={`/leaderboard?sort=${sortBy}&league=${id}`}
+              className={cn(
+                'px-2.5 py-1 text-xs border rounded no-underline transition-colors',
+                leagueFilter === id
+                  ? 'border-primary bg-primary/15 text-primary font-semibold'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+              )}
             >
-              {locale === 'ko' ? '전체' : 'All Leagues'}
+              {LEAGUE_NAMES[id]}
             </Link>
-            {LEAGUE_IDS.map((id) => (
-              <Link
-                key={id}
-                href={`/leaderboard?sort=${sortBy}&league=${id}`}
-                style={leagueFilter === id ? tabActive : { ...tabInactive, fontSize: '0.75rem' }}
-              >
-                {LEAGUE_NAMES[id]}
-              </Link>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Table */}
       {sorted.length === 0 ? (
-        <div style={{ ...tile, padding: '3rem', textAlign: 'center', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+        <Card className="p-12 text-center text-sm text-muted-foreground items-center justify-center">
           {locale === 'ko' ? '데이터 없음' : 'No data available'}
-        </div>
+        </Card>
       ) : (
-        <div style={{ ...tile }}>
+        <Card className="p-0 gap-0">
           {/* Table header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '2.5rem 1fr 5rem 6rem 1fr',
-            gap: '0.5rem',
-            padding: '0.625rem 1rem',
-            borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
-            alignItems: 'center',
-          }}>
-            <span className="sc-label">#</span>
-            <span className="sc-label">{locale === 'ko' ? '팀' : 'Team'}</span>
-            <span className="sc-label" style={{ textAlign: 'center' }}>{locale === 'ko' ? '결장' : 'Out'}</span>
-            <span className="sc-label" style={{ textAlign: 'right' }}>{locale === 'ko' ? '전력 손실' : 'Power Loss'}</span>
-            <span className="sc-label">{locale === 'ko' ? '주요 결장자' : 'Key Absentees'}</span>
+          <div className="grid grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-2.5 border-b border-border bg-muted/30 items-center">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">#</span>
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {locale === 'ko' ? '팀' : 'Team'}
+            </span>
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground text-center">
+              {locale === 'ko' ? '결장' : 'Out'}
+            </span>
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground text-right">
+              {locale === 'ko' ? '전력 손실' : 'Power Loss'}
+            </span>
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {locale === 'ko' ? '주요 결장자' : 'Key Absentees'}
+            </span>
           </div>
 
-          {/* Rows */}
           {sorted.map((r, idx) => (
             <Link
               key={r.team.id}
               href={`/team/${r.team.id}`}
-              className="sc-tile-hover"
-              style={{ textDecoration: 'none', display: 'block' }}
+              className="no-underline block hover:bg-accent transition-colors"
             >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2.5rem 1fr 5rem 6rem 1fr',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  borderBottom: idx < sorted.length - 1 ? '1px solid var(--cds-border-subtle-01, #393939)' : 'none',
-                  alignItems: 'center',
-                }}
-              >
+              <div className={cn(
+                'grid grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-3 items-center',
+                idx < sorted.length - 1 ? 'border-b border-border' : ''
+              )}>
                 {/* Rank */}
-                <span style={{
-                  fontSize: '0.875rem', fontWeight: 300,
-                  color: idx < 3 ? 'var(--cds-text-primary, #f4f4f4)' : 'var(--cds-text-helper, #8d8d8d)',
-                  fontFamily: 'var(--font-plex-mono, monospace)',
-                }}>
+                <span className={cn(
+                  'text-sm font-light font-mono',
+                  idx < 3 ? 'text-foreground font-bold' : 'text-muted-foreground'
+                )}>
                   {idx + 1}
                 </span>
 
                 {/* Team */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                  {r.team.logo && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.team.logo} alt="" width={24} height={24} style={{ objectFit: 'contain', flexShrink: 0 }} />
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                    <span style={{ fontSize: '0.9375rem', color: 'var(--cds-text-primary, #f4f4f4)' }}>{r.team.name}</span>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                <div className="flex items-center gap-2.5">
+                  <TeamLogo logo={r.team.logo} size="md" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[0.9375rem] text-foreground">{r.team.name}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground">
                       {LEAGUE_NAMES[r.leagueId as keyof typeof LEAGUE_NAMES]}
                     </span>
                   </div>
                 </div>
 
-                {/* Out count — 현재 결장 선수 수 */}
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{
-                    fontSize: '1.25rem', fontWeight: 300,
-                    color: r.currentOut >= 5 ? '#fa4d56' : r.currentOut >= 3 ? '#f1c21b' : 'var(--cds-text-primary, #f4f4f4)',
-                    fontFamily: 'var(--font-plex-mono, monospace)',
-                  }}>
+                {/* Out count */}
+                <div className="text-center">
+                  <span className={cn(
+                    'text-xl font-light font-mono',
+                    r.currentOut >= 5 ? 'text-[var(--sc-red)]' :
+                    r.currentOut >= 3 ? 'text-[var(--sc-yellow)]' : 'text-foreground'
+                  )}>
                     {r.currentOut}
                   </span>
                 </div>
 
                 {/* Power Loss */}
-                <div style={{ textAlign: 'right' }}>
+                <div className="text-right">
                   {r.powerLossPct > 0 ? (
-                    <span style={{
-                      fontSize: '1rem', fontWeight: 300,
-                      color: powerLossColor(r.powerLossPct),
-                      fontFamily: 'var(--font-plex-mono, monospace)',
-                    }}>
+                    <span className={cn('text-base font-light font-mono', powerLossColor(r.powerLossPct))}>
                       −{r.powerLossPct.toFixed(1)}%
                     </span>
                   ) : (
-                    <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>—</span>
+                    <span className="text-sm text-muted-foreground">—</span>
                   )}
                 </div>
 
                 {/* Key absentees */}
-                <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                <div className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                   {r.topPlayers.length > 0
                     ? r.topPlayers.join(', ')
                     : r.impact?.injuredPlayers.slice(0, 2).map((p) => p.player.name).join(', ') ?? '—'}
@@ -265,11 +223,11 @@ export default async function LeaderboardPage({
               </div>
             </Link>
           ))}
-        </div>
+        </Card>
       )}
 
       {/* Season note */}
-      <div style={{ padding: '1rem 0', fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+      <div className="mt-4 text-[0.6875rem] text-muted-foreground">
         {locale === 'ko'
           ? `* ${CURRENT_SEASON}/${CURRENT_SEASON + 1} 시즌 5대 리그 기준. 5분마다 업데이트.`
           : `* ${CURRENT_SEASON}/${CURRENT_SEASON + 1} season, 5 major leagues. Updates every 5 minutes.`}

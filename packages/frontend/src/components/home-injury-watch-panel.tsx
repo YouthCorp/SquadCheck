@@ -5,6 +5,7 @@ import type { Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import type { InjuryImpact } from '@/lib/types';
 import { HomeInjuryCard } from './home-injury-card';
+import { cn } from '@/lib/utils';
 
 interface HomeInjuryWatchPanelProps {
   injuryMap: Record<number, InjuryImpact[]>;
@@ -23,26 +24,24 @@ export function HomeInjuryWatchPanel({ injuryMap, locale }: HomeInjuryWatchPanel
   const [activeLeague, setActiveLeague] = useState(39);
   const impacts = injuryMap[activeLeague] ?? [];
 
-  const sectionLabel: React.CSSProperties = {
-    fontSize: '0.6875rem',
-    fontWeight: 600,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--cds-text-helper, #8d8d8d)',
-  };
-
   return (
-    <div style={{ marginBottom: '2rem' }}>
+    <div className="mb-8">
       {/* Section header */}
-      <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <span style={sectionLabel}>{t(locale, 'injury_watch')}</span>
-        <div style={{ display: 'flex', gap: '0.25rem' }}>
+      <div className="mb-3 flex justify-between items-center flex-wrap gap-2">
+        <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+          {t(locale, 'injury_watch')}
+        </span>
+        <div className="flex gap-1">
           {LEAGUES.map((lg) => (
             <button
               key={lg.id}
-              className={`sc-tab-btn${activeLeague === lg.id ? ' sc-tab-btn--active' : ''}`}
               onClick={() => setActiveLeague(lg.id)}
-              style={{ fontSize: '0.6875rem', padding: '0.25rem 0.5rem' }}
+              className={cn(
+                'px-2 py-1 text-[0.6875rem] rounded border cursor-pointer transition-all duration-100',
+                activeLeague === lg.id
+                  ? 'border-primary bg-primary/15 text-primary'
+                  : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
             >
               {lg.name}
             </button>
@@ -50,13 +49,12 @@ export function HomeInjuryWatchPanel({ injuryMap, locale }: HomeInjuryWatchPanel
         </div>
       </div>
 
-      {/* Cards */}
       {impacts.length === 0 ? (
-        <div style={{ padding: '1.5rem', background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem' }}>
+        <div className="p-6 bg-card border border-border rounded-lg text-sm text-muted-foreground">
           {t(locale, 'no_injuries')}
         </div>
       ) : (
-        <div className="sc-grid-injury-watch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {impacts.slice(0, 4).map((impact) => (
             <HomeInjuryCard key={impact.team.id} impact={impact} locale={locale} leagueId={activeLeague} />
           ))}

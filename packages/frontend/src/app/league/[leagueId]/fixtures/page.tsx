@@ -22,6 +22,7 @@ export async function generateMetadata({
     alternates: { canonical: `/league/${leagueId}/fixtures` },
   };
 }
+
 import {
   parseRoundNumberForSort,
   formatRoundLabel,
@@ -29,16 +30,18 @@ import {
   isKnockoutRound,
 } from '@/lib/format';
 import { ClientMatchDate } from '@/components/client-date';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { FixtureTabSwitcher } from './fixture-tab-switcher';
 
 /* ── Tie type (for knockout grouping) ───────────────────────────────────── */
 interface Tie {
   key: string;
   team1: { id: number; name: string; logo: string | null };
   team2: { id: number; name: string; logo: string | null };
-  legs: Fixture[]; // sorted by date
+  legs: Fixture[];
 }
 
-/** Group fixtures into ties by team pair (supports 1-leg and 2-leg formats). */
 function groupIntoTies(fixtures: Fixture[]): Tie[] {
   const map = new Map<string, Tie>();
   const byDate = [...fixtures].sort(
@@ -83,7 +86,6 @@ export default async function FixturesPage({
     }
   } catch {}
 
-  // Group by round, sort ascending for upcoming / descending for results
   const roundMap = new Map<string, Fixture[]>();
   for (const fix of fixtures) {
     const key = fix.round ?? 'Unknown';
@@ -99,7 +101,6 @@ export default async function FixturesPage({
   const baseUrl = `/league/${leagueId}/fixtures`;
   const tabBase = isResults ? `${baseUrl}?tab=results` : baseUrl;
 
-  // Find current round by exact round string match — avoids 999-collision bug.
   const requestedRound = searchParams.round ?? null;
   const currentIdx = requestedRound !== null
     ? Math.max(0, sortedRounds.findIndex(([r]) => r === requestedRound))
@@ -109,27 +110,6 @@ export default async function FixturesPage({
   const prevRound = currentIdx > 0 ? sortedRounds[currentIdx - 1] : null;
   const nextRound = currentIdx < sortedRounds.length - 1 ? sortedRounds[currentIdx + 1] : null;
 
-  const navBtnBase: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '0.375rem',
-    padding: '0.5rem 1rem',
-    fontSize: '0.8125rem',
-    fontWeight: 500,
-    border: '1px solid var(--cds-border-subtle-01, #393939)',
-    background: 'var(--cds-layer-01, #262626)',
-    color: 'var(--cds-text-primary, #f4f4f4)',
-    textDecoration: 'none',
-    transition: 'background 0.1s',
-    cursor: 'pointer',
-  };
-  const navBtnDisabled: React.CSSProperties = {
-    ...navBtnBase,
-    color: 'var(--cds-text-disabled, #525252)',
-    cursor: 'default',
-    pointerEvents: 'none',
-  };
-
   const noDataMsg = isResults ? t(locale, 'no_results') : t(locale, 'no_fixtures');
 
   function roundHref(round: string) {
@@ -138,114 +118,55 @@ export default async function FixturesPage({
   }
 
   return (
-    <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
+    <div className="max-w-[72rem] mx-auto">
       {/* Page header */}
-      <div
-        style={{
-          marginBottom: '1.5rem',
-          paddingBottom: '1rem',
-          borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
-        }}
-      >
-        <p className="sc-label">
-          <Link
-            href={`/league/${leagueId}`}
-            style={{ color: 'var(--cds-text-helper, #8d8d8d)', textDecoration: 'none' }}
-          >
+      <div className="mb-6 pb-4 border-b border-border">
+        <p className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground mb-1">
+          <Link href={`/league/${leagueId}`} className="text-muted-foreground no-underline hover:text-foreground transition-colors">
             {leagueName}
           </Link>
           {' / '}
           {t(locale, 'fixtures_title')}
         </p>
-        <h1
-          style={{
-            fontSize: '1.75rem',
-            fontWeight: 300,
-            color: 'var(--cds-text-primary, #f4f4f4)',
-            margin: 0,
-          }}
-        >
+        <h1 className="text-3xl font-light text-foreground m-0">
           {t(locale, 'fixtures_title')}
         </h1>
       </div>
 
-      {/* Tab switcher */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 0,
-          marginBottom: '1.5rem',
-          borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
-        }}
-      >
-        {[
-          { key: 'upcoming', label: t(locale, 'tab_upcoming'), href: baseUrl },
-          { key: 'results', label: t(locale, 'tab_results'), href: `${baseUrl}?tab=results` },
-        ].map(({ key, label, href }) => {
-          const isActive = key === (isResults ? 'results' : 'upcoming');
-          return (
-            <Link
-              key={key}
-              href={href}
-              style={{
-                padding: '0.625rem 1.25rem',
-                fontSize: '0.875rem',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive
-                  ? 'var(--cds-text-primary, #f4f4f4)'
-                  : 'var(--cds-text-helper, #8d8d8d)',
-                textDecoration: 'none',
-                borderBottom: isActive
-                  ? '2px solid var(--cds-interactive, #4589ff)'
-                  : '2px solid transparent',
-                marginBottom: '-1px',
-                transition: 'color 0.1s',
-              }}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </div>
+      {/* Tab switcher (client component) */}
+      <FixtureTabSwitcher
+        isResults={isResults}
+        baseUrl={baseUrl}
+        upcomingLabel={t(locale, 'tab_upcoming')}
+        resultsLabel={t(locale, 'tab_results')}
+      />
 
       {sortedRounds.length === 0 || !currentEntry ? (
-        <div
-          style={{
-            background: 'var(--cds-layer-01, #262626)',
-            border: '1px solid var(--cds-border-subtle-01, #393939)',
-            padding: '2rem',
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            fontSize: '0.875rem',
-          }}
-        >
+        <Card className="p-8 text-center text-sm text-muted-foreground items-center justify-center">
           {noDataMsg}
-        </div>
+        </Card>
       ) : (
         <>
           {/* Round navigation bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.75rem 1rem',
-              background: 'var(--cds-layer-02, #393939)',
-              marginBottom: '1rem',
-            }}
-          >
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border border-border rounded-lg mb-4">
             {prevRound ? (
-              <Link href={roundHref(prevRound[0])} style={navBtnBase}>
+              <Link
+                href={roundHref(prevRound[0])}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.8125rem] font-medium text-foreground bg-card border border-border rounded no-underline hover:bg-accent transition-colors"
+              >
                 ← {formatRoundLabel(prevRound[0], locale)}
               </Link>
             ) : (
-              <span style={navBtnDisabled}>← {locale === 'ko' ? '이전' : 'Prev'}</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.8125rem] font-medium text-muted-foreground/50 border border-transparent cursor-default">
+                ← {locale === 'ko' ? '이전' : 'Prev'}
+              </span>
             )}
 
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--cds-interactive, #4589ff)' }}>
+            <div className="text-center">
+              <div className="text-base font-semibold text-primary">
                 {formatRoundLabel(currentEntry[0], locale)}
               </div>
-              <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.125rem' }}>
+              <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
                 {currentEntry[1].length} {locale === 'ko' ? '경기' : 'matches'}
                 {' · '}
                 {locale === 'ko'
@@ -255,11 +176,16 @@ export default async function FixturesPage({
             </div>
 
             {nextRound ? (
-              <Link href={roundHref(nextRound[0])} style={navBtnBase}>
+              <Link
+                href={roundHref(nextRound[0])}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.8125rem] font-medium text-foreground bg-card border border-border rounded no-underline hover:bg-accent transition-colors"
+              >
                 {formatRoundLabel(nextRound[0], locale)} →
               </Link>
             ) : (
-              <span style={navBtnDisabled}>{locale === 'ko' ? '다음' : 'Next'} →</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.8125rem] font-medium text-muted-foreground/50 border border-transparent cursor-default">
+                {locale === 'ko' ? '다음' : 'Next'} →
+              </span>
             )}
           </div>
 
@@ -271,19 +197,12 @@ export default async function FixturesPage({
               locale={locale}
             />
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '1px',
-                background: 'var(--cds-border-subtle-01, #393939)',
-              }}
-            >
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
               {currentEntry[1].map((fix: Fixture) => (
                 <Link
                   key={fix.id}
                   href={`/league/${leagueId}/fixtures/${fix.id}`}
-                  style={{ textDecoration: 'none', display: 'block' }}
+                  className="no-underline block"
                 >
                   {isResults
                     ? <ResultCard fix={fix} rankMap={rankMap} locale={locale} />
@@ -296,15 +215,7 @@ export default async function FixturesPage({
 
           {/* Round pills */}
           {sortedRounds.length > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                gap: '0.375rem',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                marginTop: '1.5rem',
-              }}
-            >
+            <div className="flex gap-1.5 flex-wrap justify-center mt-6">
               {sortedRounds.map(([round], idx) => {
                 const pill = formatRoundPill(round);
                 const isActive = idx === currentIdx;
@@ -312,30 +223,12 @@ export default async function FixturesPage({
                   <Link
                     key={round}
                     href={roundHref(round)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '2rem',
-                      height: '2rem',
-                      padding: '0 0.375rem',
-                      fontSize: '0.6875rem',
-                      fontWeight: isActive ? 700 : 400,
-                      fontFamily: 'var(--font-plex-mono, monospace)',
-                      color: isActive
-                        ? 'var(--cds-text-inverse, #ffffff)'
-                        : 'var(--cds-text-secondary, #c6c6c6)',
-                      background: isActive
-                        ? 'var(--cds-interactive, #4589ff)'
-                        : 'var(--cds-layer-01, #262626)',
-                      border: '1px solid',
-                      borderColor: isActive
-                        ? 'var(--cds-interactive, #4589ff)'
-                        : 'var(--cds-border-subtle-01, #393939)',
-                      textDecoration: 'none',
-                      transition: 'background 0.1s, color 0.1s',
-                      whiteSpace: 'nowrap',
-                    }}
+                    className={cn(
+                      'inline-flex items-center justify-center min-w-8 h-8 px-1.5 text-[0.6875rem] font-mono border rounded no-underline transition-colors whitespace-nowrap',
+                      isActive
+                        ? 'font-bold text-white bg-primary border-primary'
+                        : 'font-normal text-foreground/70 bg-card border-border hover:bg-accent hover:text-foreground'
+                    )}
                   >
                     {pill}
                   </Link>
@@ -352,7 +245,7 @@ export default async function FixturesPage({
 /* ── Knockout ties view ─────────────────────────────────────────────────── */
 function TiesView({ ties, leagueId, locale }: { ties: Tie[]; leagueId: number; locale: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+    <div className="flex flex-col gap-3">
       {ties.map((tie) => (
         <TieCard key={tie.key} tie={tie} leagueId={leagueId} locale={locale} />
       ))}
@@ -365,7 +258,6 @@ function TieCard({ tie, leagueId, locale }: { tie: Tie; leagueId: number; locale
   const [leg1, leg2] = tie.legs;
   const ko = locale === 'ko';
 
-  // Aggregate calculation for two-legged ties
   let t1Agg: number | null = null;
   let t2Agg: number | null = null;
   if (
@@ -388,61 +280,56 @@ function TieCard({ tie, leagueId, locale }: { tie: Tie; leagueId: number; locale
   const t2Wins = t1Agg !== null && t2Agg !== null && t2Agg > t1Agg;
 
   return (
-    <div style={{ background: 'var(--cds-layer-01, #262626)' }}>
-      {/* Tie header: logos + score */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '1rem', gap: '0.75rem' }}>
+    <Card className="p-0 gap-0">
+      {/* Tie header */}
+      <div className="flex items-center px-4 py-4 gap-3">
         {/* Team 1 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
+        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
           {tie.team1.logo && (
-            <img src={tie.team1.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', opacity: t2Wins ? 0.4 : 1 }} />
+            <img src={tie.team1.logo} alt="" className={cn('w-10 h-10 object-contain transition-opacity', t2Wins ? 'opacity-40' : '')} />
           )}
-          <span style={{
-            fontSize: '0.8125rem', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
-            color: t2Wins ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
-            overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>
+          <span className={cn(
+            'text-[0.8125rem] font-semibold text-center leading-tight line-clamp-2',
+            t2Wins ? 'text-muted-foreground' : 'text-foreground'
+          )}>
             {tie.team1.name}
           </span>
         </div>
 
-        {/* Aggregate / "vs" */}
-        <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 0.5rem', minWidth: '5rem' }}>
+        {/* Aggregate */}
+        <div className="shrink-0 text-center px-2 min-w-20">
           {t1Agg !== null && t2Agg !== null ? (
             <>
-              <div style={{
-                fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-plex-mono, monospace)',
-                color: 'var(--cds-text-primary, #f4f4f4)', letterSpacing: '0.05em',
-              }}>
+              <div className="text-2xl font-bold font-mono text-foreground tracking-wide">
                 {t1Agg} — {t2Agg}
               </div>
               {isTwoLegs && (
-                <div style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.125rem' }}>
+                <div className="text-[0.5625rem] font-semibold tracking-widest uppercase text-muted-foreground mt-0.5">
                   {ko ? '합산' : 'AGG'}
                 </div>
               )}
             </>
           ) : (
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)' }}>vs</span>
+            <span className="text-sm font-semibold text-muted-foreground">vs</span>
           )}
         </div>
 
         {/* Team 2 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
+        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
           {tie.team2.logo && (
-            <img src={tie.team2.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', opacity: t1Wins ? 0.4 : 1 }} />
+            <img src={tie.team2.logo} alt="" className={cn('w-10 h-10 object-contain transition-opacity', t1Wins ? 'opacity-40' : '')} />
           )}
-          <span style={{
-            fontSize: '0.8125rem', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
-            color: t1Wins ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
-            overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>
+          <span className={cn(
+            'text-[0.8125rem] font-semibold text-center leading-tight line-clamp-2',
+            t1Wins ? 'text-muted-foreground' : 'text-foreground'
+          )}>
             {tie.team2.name}
           </span>
         </div>
       </div>
 
       {/* Leg rows */}
-      <div style={{ display: 'flex', borderTop: '1px solid var(--cds-border-subtle-01, #393939)' }}>
+      <div className="flex border-t border-border">
         {tie.legs.map((leg, i) => {
           const legScore = leg.goalsHome !== null && leg.goalsAway !== null
             ? `${leg.goalsHome} — ${leg.goalsAway}` : null;
@@ -455,31 +342,27 @@ function TieCard({ tie, leagueId, locale }: { tie: Tie; leagueId: number; locale
             <Link
               key={leg.id}
               href={`/league/${leagueId}/fixtures/${leg.id}`}
-              style={{
-                flex: 1, textDecoration: 'none', padding: '0.625rem 0.75rem',
-                borderRight: i < tie.legs.length - 1 ? '1px solid var(--cds-border-subtle-01, #393939)' : 'none',
-                display: 'flex', flexDirection: 'column', gap: '0.25rem', transition: 'background 0.1s',
-              }}
-              className="sc-tile-hover"
+              className={cn(
+                'flex-1 no-underline px-3 py-2.5 flex flex-col gap-1 hover:bg-accent transition-colors',
+                i < tie.legs.length - 1 ? 'border-r border-border' : ''
+              )}
             >
-              <div style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+              <div className="text-[0.625rem] font-semibold tracking-widest uppercase text-muted-foreground">
                 {isTwoLegs ? (ko ? `${i + 1}차전` : `Leg ${i + 1}`) : (ko ? '경기' : 'Match')}
               </div>
-              <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>
+              <div className="text-[0.6875rem] text-foreground/70">
                 {leg.homeTeam.name} {ko ? '홈' : '(H)'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <div className="flex items-center gap-1.5">
                 {legScore ? (
-                  <span style={{ fontSize: '0.9375rem', fontWeight: 700, fontFamily: 'var(--font-plex-mono, monospace)', color: 'var(--cds-text-primary, #f4f4f4)' }}>
-                    {legScore}
-                  </span>
+                  <span className="text-[0.9375rem] font-bold font-mono text-foreground">{legScore}</span>
                 ) : (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                  <span className="text-xs text-foreground/70 font-mono">
                     <ClientMatchDate dateStr={leg.date} locale={locale} />
                   </span>
                 )}
                 {statusBadge && (
-                  <span style={{ fontSize: '0.5rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                  <span className="text-[0.5rem] font-semibold tracking-widest uppercase text-muted-foreground">
                     {statusBadge}
                   </span>
                 )}
@@ -488,7 +371,7 @@ function TieCard({ tie, leagueId, locale }: { tie: Tie; leagueId: number; locale
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -503,42 +386,30 @@ function UpcomingCard({
   locale: string;
 }) {
   return (
-    <div
-      className="sc-tile-hover"
-      style={{
-        background: 'var(--cds-layer-01, #262626)',
-        padding: '1rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        height: '100%',
-        cursor: 'pointer',
-        transition: 'background 0.1s',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+    <Card className="p-4 gap-3 h-full cursor-pointer hover:bg-accent transition-colors">
+      <div className="flex items-center justify-between gap-2">
         <TeamBlock name={fix.homeTeam.name} logo={fix.homeTeam.logo} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', flexShrink: 0, padding: '0 0.25rem' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.5px' }}>vs</span>
+        <div className="flex flex-col items-center gap-1 shrink-0 px-1">
+          <span className="text-xs font-semibold text-muted-foreground tracking-wide">vs</span>
           {rankMap[fix.homeTeam.id] && rankMap[fix.awayTeam.id] && (
-            <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', whiteSpace: 'nowrap' }}>
+            <span className="text-[0.625rem] text-muted-foreground font-mono whitespace-nowrap">
               #{rankMap[fix.homeTeam.id]} · #{rankMap[fix.awayTeam.id]}
             </span>
           )}
         </div>
         <TeamBlock name={fix.awayTeam.name} logo={fix.awayTeam.logo} />
       </div>
-      <div style={{ borderTop: '1px solid var(--cds-border-subtle-01, #393939)', paddingTop: '0.625rem' }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+      <div className="border-t border-border pt-2.5">
+        <div className="text-xs text-foreground/70 font-mono">
           <ClientMatchDate dateStr={fix.date} locale={locale} />
         </div>
         {fix.venueName && (
-          <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="text-[0.6875rem] text-muted-foreground mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
             {fix.venueName}
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -559,63 +430,49 @@ function ResultCard({
   const statusLabel = fix.status === 'AET' ? 'AET' : fix.status === 'PEN' ? 'PEN' : 'FT';
 
   return (
-    <div
-      className="sc-tile-hover"
-      style={{
-        background: 'var(--cds-layer-01, #262626)',
-        padding: '1rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        height: '100%',
-        cursor: 'pointer',
-        transition: 'background 0.1s',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+    <Card className="p-4 gap-3 h-full cursor-pointer hover:bg-accent transition-colors">
+      <div className="flex items-center justify-between gap-2">
         <TeamBlock name={fix.homeTeam.name} logo={fix.homeTeam.logo} dimmed={awayWon} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', flexShrink: 0, padding: '0 0.25rem' }}>
-          <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)', letterSpacing: '0.05em' }}>
+        <div className="flex flex-col items-center gap-1 shrink-0 px-1">
+          <span className="text-xl font-bold text-foreground font-mono tracking-wide">
             {homeGoals} — {awayGoals}
           </span>
-          <span style={{ fontSize: '0.5625rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          <span className="text-[0.5625rem] font-semibold text-muted-foreground tracking-widest uppercase">
             {statusLabel}
           </span>
           {rankMap[fix.homeTeam.id] && rankMap[fix.awayTeam.id] && (
-            <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', whiteSpace: 'nowrap' }}>
+            <span className="text-[0.625rem] text-muted-foreground font-mono whitespace-nowrap">
               #{rankMap[fix.homeTeam.id]} · #{rankMap[fix.awayTeam.id]}
             </span>
           )}
         </div>
         <TeamBlock name={fix.awayTeam.name} logo={fix.awayTeam.logo} dimmed={homeWon} />
       </div>
-      <div style={{ borderTop: '1px solid var(--cds-border-subtle-01, #393939)', paddingTop: '0.625rem' }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+      <div className="border-t border-border pt-2.5">
+        <div className="text-xs text-foreground/70 font-mono">
           <ClientMatchDate dateStr={fix.date} locale={locale} />
         </div>
         {fix.venueName && (
-          <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="text-[0.6875rem] text-muted-foreground mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
             {fix.venueName}
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
 /* ── Shared team block ───────────────────────────────────────────────────── */
 function TeamBlock({ name, logo, dimmed = false }: { name: string; logo: string | null; dimmed?: boolean }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem', flex: 1, minWidth: 0 }}>
+    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
       {logo && (
-        <img src={logo} alt="" style={{ width: '2.25rem', height: '2.25rem', objectFit: 'contain', opacity: dimmed ? 0.45 : 1 }} />
+        <img src={logo} alt="" className={cn('w-9 h-9 object-contain transition-opacity', dimmed ? 'opacity-40' : '')} />
       )}
-      <span style={{
-        fontSize: '0.8125rem', fontWeight: 600,
-        color: dimmed ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)',
-        textAlign: 'center', lineHeight: 1.3,
-        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
+      <span className={cn(
+        'text-[0.8125rem] font-semibold text-center leading-tight line-clamp-2',
+        dimmed ? 'text-muted-foreground' : 'text-foreground'
+      )}>
         {name}
       </span>
     </div>

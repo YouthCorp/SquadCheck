@@ -4,6 +4,11 @@ import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
 import { isDisciplinaryReason, fmtDate, fmtRound } from '@/lib/format';
 import type { Metadata } from 'next';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 export async function generateMetadata({
   params,
@@ -62,7 +67,6 @@ interface InjuryEpisode {
   injuredInMatch: { date: string; round: string | null; opponentName: string; homeAway: 'H' | 'A' } | null;
 }
 
-
 function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<number, InjuryEpisode[]> {
   const sortedApps = [...appearances].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const bySeason = new Map<number, Injury[]>();
@@ -83,8 +87,6 @@ function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<numbe
       }
       const injDate = new Date(inj.fixtureDate);
       if (cur && cur.reason === inj.reason) {
-        // Split into a new episode if the player appeared between the last miss and this miss
-        // (i.e., they returned from the previous suspension/injury before this new one)
         const returnedBetween = sortedApps.some(
           app => new Date(app.date) > cur!.lastMissDate && new Date(app.date) < injDate
         );
@@ -147,151 +149,181 @@ export default async function PlayerPage({
   } catch {}
 
   if (!player) {
-    return <div style={{ color: 'var(--cds-text-helper, #8d8d8d)', padding: '2rem' }}>{t(locale, 'player_not_found')}</div>;
+    return (
+      <div className="max-w-[56rem] mx-auto px-4 py-8 text-sm text-muted-foreground">
+        {t(locale, 'player_not_found')}
+      </div>
+    );
   }
 
   const episodesBySeason = buildEpisodes(injuries, appearances);
   const sortedSeasons = Array.from(episodesBySeason.keys()).sort((a, b) => b - a);
 
-  const col: React.CSSProperties = { padding: '0.625rem 1rem', textAlign: 'left' };
-  const colC: React.CSSProperties = { ...col, textAlign: 'center' };
-
   return (
-    <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
+    <div className="max-w-[56rem] mx-auto">
       {/* Back button */}
       {backTeamId && (
         <Link
           href={`/team/${backTeamId}${backLeagueId ? `?league=${backLeagueId}` : ''}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            fontSize: '0.8125rem',
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            textDecoration: 'none',
-            marginBottom: '1rem',
-          }}
+          className="inline-flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground no-underline hover:text-foreground transition-colors mb-4"
         >
           ← {t(locale, 'squad')}
         </Link>
       )}
 
       {/* Player header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
-        {player.photo && <img src={player.photo} alt="" style={{ width: '5rem', height: '5rem', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--cds-border-subtle-01, #393939)' }} />}
+      <div className="flex items-center gap-5 mb-6 pb-5 border-b border-border">
+        <Avatar className="w-20 h-20 shrink-0">
+          {player.photo && <AvatarImage src={player.photo} alt="" />}
+          <AvatarFallback className="text-2xl">{player.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', margin: 0 }}>{player.name}</h1>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.375rem' }}>
-            {[tPos(locale, player.position), player.nationality, player.birthDate && fmtDate(player.birthDate), player.height].filter(Boolean).map((v, i) => (
-              <span key={i} style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>{v}</span>
-            ))}
+          <h1 className="text-3xl font-light text-foreground m-0">{player.name}</h1>
+          <div className="flex gap-4 mt-1.5 flex-wrap">
+            {[tPos(locale, player.position), player.nationality, player.birthDate && fmtDate(player.birthDate), player.height]
+              .filter(Boolean)
+              .map((v, i) => (
+                <span key={i} className="text-xs text-muted-foreground">{v}</span>
+              ))}
           </div>
         </div>
       </div>
 
       {/* Season stats */}
       {player.seasonStats.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label">{t(locale, 'season_stats')}</span>
+        <Card className="mb-6 p-0 gap-0">
+          <div className="px-4 py-2.5 bg-muted/30 border-b border-border">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t(locale, 'season_stats')}
+            </span>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--cds-layer-01, #262626)' }}>
-            <thead>
-              <tr style={{ background: 'var(--cds-layer-02, #393939)' }}>
+          <Table className="text-[0.8125rem]">
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {[
-                  { l: t(locale, 'season'), s: col },
-                  { l: t(locale, 'league'), s: col },
-                  { l: t(locale, 'app'), s: colC },
-                  { l: t(locale, 'min'), s: colC },
-                  { l: t(locale, 'rating'), s: colC },
-                  { l: t(locale, 'goals'), s: colC },
-                  { l: t(locale, 'assists'), s: colC },
-                  { l: t(locale, 'yellow_cards'), s: colC },
-                  { l: t(locale, 'red_cards'), s: colC },
+                  { l: t(locale, 'season'), align: 'left' as const },
+                  { l: t(locale, 'league'), align: 'left' as const },
+                  { l: t(locale, 'app'), align: 'center' as const },
+                  { l: t(locale, 'min'), align: 'center' as const },
+                  { l: t(locale, 'rating'), align: 'center' as const },
+                  { l: t(locale, 'goals'), align: 'center' as const },
+                  { l: t(locale, 'assists'), align: 'center' as const },
+                  { l: t(locale, 'yellow_cards'), align: 'center' as const },
+                  { l: t(locale, 'red_cards'), align: 'center' as const },
                 ].map((h) => (
-                  <th key={h.l} style={{ ...h.s, fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.32px', textTransform: 'uppercase', color: 'var(--cds-text-secondary, #c6c6c6)', borderBottom: '1px solid var(--cds-border-strong-01, #6f6f6f)' }}>{h.l}</th>
+                  <TableHead
+                    key={h.l}
+                    className={cn(
+                      'py-2.5 text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground border-b border-border',
+                      h.align === 'center' ? 'px-3 text-center' : 'px-4 text-left'
+                    )}
+                  >
+                    {h.l}
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {player.seasonStats.map((s, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid var(--cds-border-subtle-01, #393939)', background: i % 2 === 0 ? 'var(--cds-layer-01, #262626)' : 'var(--cds-layer-accent-01, #2e2e2e)' }}>
-                  <td style={{ ...col, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem', color: 'var(--cds-text-primary, #f4f4f4)', fontWeight: 600 }}>{s.season.year}/{(s.season.year + 1).toString().slice(2)}</td>
-                  <td style={{ ...col, fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>{s.season.league.name}</td>
-                  {[s.appearances, s.minutes].map((v, j) => (
-                    <td key={j} style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>{v ?? '—'}</td>
-                  ))}
-                  <td style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem' }}>
-                    {s.rating ? <span style={{ color: s.rating >= 7 ? 'var(--sc-green)' : s.rating >= 6.5 ? 'var(--sc-yellow)' : 'var(--cds-text-secondary)' }}>{s.rating.toFixed(2)}</span> : '—'}
-                  </td>
-                  {[s.goalsTotal, s.assists].map((v, j) => (
-                    <td key={j} style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>{v ?? '—'}</td>
-                  ))}
-                  <td style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem', color: 'var(--sc-yellow)' }}>{s.yellowCards ?? '—'}</td>
-                  <td style={{ ...colC, fontFamily: 'var(--font-plex-mono, monospace)', fontSize: '0.875rem', color: 'var(--sc-red)' }}>{s.redCards ?? '—'}</td>
-                </tr>
+                <TableRow
+                  key={i}
+                  className={cn(
+                    'border-border hover:bg-accent/50',
+                    i % 2 === 1 ? 'bg-muted/20' : ''
+                  )}
+                >
+                  <TableCell className="px-4 py-2.5 font-mono text-sm text-foreground font-semibold">
+                    {s.season.year}/{(s.season.year + 1).toString().slice(2)}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-sm text-foreground/70">{s.season.league.name}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-foreground/80">{s.appearances ?? '—'}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-foreground/80">{s.minutes ?? '—'}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono">
+                    {s.rating ? (
+                      <span className={
+                        s.rating >= 7 ? 'text-[var(--sc-green)]' :
+                        s.rating >= 6.5 ? 'text-[var(--sc-yellow)]' : 'text-foreground/80'
+                      }>{s.rating.toFixed(2)}</span>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-foreground/80">{s.goalsTotal ?? '—'}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-foreground/80">{s.assists ?? '—'}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-[var(--sc-yellow)]">{s.yellowCards ?? '—'}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-center font-mono text-[var(--sc-red)]">{s.redCards ?? '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {/* Injury history */}
       {sortedSeasons.length > 0 && (
-        <div>
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label">{t(locale, 'injury_history')}</span>
+        <Card className="p-0 gap-0">
+          <div className="px-4 py-2.5 bg-muted/30 border-b border-border">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t(locale, 'injury_history')}
+            </span>
           </div>
-          <div style={{ background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)' }}>
+          <div>
             {sortedSeasons.map((yr, si) => {
               const episodes = episodesBySeason.get(yr)!;
               const issueLabel = episodes.length === 1 ? t(locale, 'issue_singular') : t(locale, 'issue_plural');
               return (
-                <div key={yr} style={{ borderBottom: si < sortedSeasons.length - 1 ? '1px solid var(--cds-border-subtle-01, #393939)' : 'none' }}>
-                  {/* Season sub-header */}
-                  <div style={{ padding: '0.5rem 1rem', background: 'var(--cds-layer-02, #393939)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-secondary, #c6c6c6)' }}>
+                <div
+                  key={yr}
+                  className={cn(si < sortedSeasons.length - 1 ? 'border-b border-border' : '')}
+                >
+                  <div className="px-4 py-2 bg-muted/20 flex justify-between items-center border-b border-border">
+                    <span className="text-xs font-semibold text-foreground/70">
                       {yr}/{(yr + 1).toString().slice(2)} {t(locale, 'season')}
                     </span>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+                    <span className="text-[0.6875rem] text-muted-foreground">
                       {episodes.length} {issueLabel}
                     </span>
                   </div>
-                  {/* Episode rows */}
+
                   {episodes.map((ep, i) => {
                     const isMissed = ep.type === 'Missing Fixture';
                     const match = ep.injuredInMatch;
                     const missedLabel = ep.missedCount === 1 ? t(locale, 'match_missed_singular') : t(locale, 'match_missed_plural');
-                    // Disciplinary absences (red card, suspension) get an orange badge; injuries get red
-                    const statusTag = !isMissed
-                      ? 'sc-tag--yellow'
-                      : ep.isDisciplinary
-                        ? 'sc-tag--orange'
-                        : 'sc-tag--red';
-                    const statusLabel = !isMissed
+
+                    const badgeVariant = !isMissed ? 'moderate' as const
+                      : ep.isDisciplinary ? 'high' as const
+                      : 'critical' as const;
+
+                    const statusLabelText = !isMissed
                       ? t(locale, 'status_doubtful')
                       : ep.isDisciplinary
                         ? t(locale, 'status_suspended')
                         : t(locale, 'status_out');
+
                     const matchContextLabel = ep.isDisciplinary
                       ? t(locale, 'disciplinary_in_match')
                       : t(locale, 'injury_in_match');
+
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: i < episodes.length - 1 ? '1px solid var(--cds-border-subtle-01, #393939)' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                          <span className={`sc-tag ${statusTag}`} style={{ marginTop: '1px', flexShrink: 0 }}>
-                            {statusLabel}
-                          </span>
+                      <div
+                        key={i}
+                        className={cn(
+                          'flex items-center justify-between px-4 py-3',
+                          i < episodes.length - 1 ? 'border-b border-border' : ''
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
+                            {statusLabelText}
+                          </Badge>
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--cds-text-primary, #f4f4f4)' }}>{ep.reason}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-foreground">{ep.reason}</span>
                               {isMissed && ep.missedCount > 0 && (
-                                <span className="sc-tag sc-tag--gray">
+                                <Badge variant="info" className="text-[0.6rem]">
                                   {ep.missedCount} {missedLabel}{ep.ongoing ? ` · ${t(locale, 'ongoing')}` : ''}
-                                </span>
+                                </Badge>
                               )}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.25rem' }}>
+                            <div className="text-xs text-muted-foreground mt-0.5">
                               {match ? (
                                 <span>{matchContextLabel}: {fmtRound(match.round)} · vs {match.opponentName} ({match.homeAway})</span>
                               ) : isMissed ? (
@@ -301,7 +333,7 @@ export default async function PlayerPage({
                           </div>
                         </div>
                         {match && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', flexShrink: 0, marginLeft: '1rem', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                          <div className="text-xs text-muted-foreground shrink-0 ml-4 font-mono">
                             {fmtDate(match.date)}
                           </div>
                         )}
@@ -312,7 +344,7 @@ export default async function PlayerPage({
               );
             })}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

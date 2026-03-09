@@ -1,9 +1,9 @@
-import { fetchApi } from '@/lib/api';
-import Link from 'next/link';
-import { getLocale } from '@/lib/locale';
-import { t, type Locale } from '@/lib/i18n';
-import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
-import type { Metadata } from 'next';
+import { fetchApi } from "@/lib/api";
+import Link from "next/link";
+import { getLocale } from "@/lib/locale";
+import { t, type Locale } from "@/lib/i18n";
+import { LEAGUE_NAMES, CURRENT_SEASON } from "@/lib/constants";
+import type { Metadata } from "next";
 
 export async function generateMetadata({
   params,
@@ -31,6 +31,7 @@ export async function generateMetadata({
     };
   }
 }
+
 import type {
   FixtureDetail,
   FixtureTeamStats,
@@ -39,80 +40,116 @@ import type {
   InjuryImpact,
   PredictedLineup,
   Standing,
-} from '@/lib/types';
-import { formatRoundLabel, parseRoundNumber } from '@/lib/format';
-import { ClientMatchDateTime } from '@/components/client-date';
-import { InjuredPlayerCard } from '@/components/injured-player-card';
-import { PitchLineup } from '@/components/pitch-lineup';
+} from "@/lib/types";
+import { formatRoundLabel, parseRoundNumber } from "@/lib/format";
+import { ClientMatchDateTime } from "@/components/client-date";
+import { InjuredPlayerCard } from "@/components/injured-player-card";
+import { PitchLineup } from "@/components/pitch-lineup";
+import { SectionHeader } from "@/components/section-header";
+import { PowerLossGauge } from "@/components/power-loss-gauge";
+import { cn } from "@/lib/utils";
+import { TeamLogo } from "@/components/team-logo";
 
-const COMPLETED_STATUSES = new Set(['FT', 'AET', 'PEN', 'AWD', 'WO']);
-
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div style={{ padding: '0.75rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1rem' }}>
-      <span className="sc-label">{label}</span>
-    </div>
-  );
-}
+const COMPLETED_STATUSES = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
 
 // ── UPCOMING: Injury column ───────────────────────────────────────────────────
 
-function InjuryColumn({ impact, locale }: { impact: InjuryImpact | null; locale: Locale }) {
+function InjuryColumn({
+  impact,
+  locale,
+}: {
+  impact: InjuryImpact | null;
+  locale: Locale;
+}) {
   const team = impact?.team;
-  const highImpact = impact?.injuredPlayers.filter((p) => p.severity === 'critical' || p.severity === 'high') ?? [];
-  const otherInjured = impact?.injuredPlayers.filter((p) => p.severity === 'moderate' || p.severity === 'low') ?? [];
+  const highImpact =
+    impact?.injuredPlayers.filter(
+      (p) => p.severity === "critical" || p.severity === "high",
+    ) ?? [];
+  const otherInjured =
+    impact?.injuredPlayers.filter(
+      (p) => p.severity === "moderate" || p.severity === "low",
+    ) ?? [];
   const totalOut = impact?.injuredPlayers.length ?? 0;
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-        {team?.logo && <img src={team.logo} alt="" style={{ width: '1.75rem', height: '1.75rem', objectFit: 'contain', flexShrink: 0 }} />}
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)' }}>{team?.name ?? '—'}</span>
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+        <TeamLogo logo={team?.logo} size="lg" />
+        <span className="text-sm font-semibold text-foreground">
+          {team?.name ?? "—"}
+        </span>
       </div>
 
       {impact && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)', marginBottom: '1px' }}>
-          <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '0.875rem 1rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 300, color: impact.powerLossPct >= 15 ? 'var(--sc-red)' : impact.powerLossPct >= 8 ? 'var(--sc-orange)' : 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
-              {impact.powerLossPct.toFixed(1)}%
-            </div>
-            <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'power_loss')}</div>
+        <div className="grid grid-cols-2 divide-x divide-border border-b border-border">
+          <div className="px-4 py-3 flex flex-col items-center justify-center">
+            <PowerLossGauge value={impact.powerLossPct} size="sm" />
           </div>
-          <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '0.875rem 1rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 300, color: totalOut >= 4 ? 'var(--sc-red)' : totalOut >= 2 ? 'var(--sc-orange)' : 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+          <div className="px-4 py-3 text-center">
+            <div
+              className={cn(
+                "text-2xl font-light font-mono",
+                totalOut >= 4
+                  ? "text-[var(--sc-red)]"
+                  : totalOut >= 2
+                    ? "text-[var(--sc-orange)]"
+                    : "text-muted-foreground",
+              )}
+            >
               {totalOut}
             </div>
-            <div className="sc-label" style={{ marginTop: '0.25rem' }}>{t(locale, 'players_out')}</div>
+            <div className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground mt-1">
+              {t(locale, "players_out")}
+            </div>
           </div>
         </div>
       )}
 
       {impact && totalOut === 0 && (
-        <div style={{ padding: '1.5rem 1rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>
-          {t(locale, 'no_injuries')}
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+          {t(locale, "no_injuries")}
         </div>
       )}
 
       {highImpact.length > 0 && (
         <div>
-          <div style={{ padding: '0.5rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label" style={{ color: '#ff8389' }}>{t(locale, 'key_absences')}</span>
+          <div className="px-4 py-2 border-b border-border bg-muted/20">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-[var(--sc-red)]">
+              {t(locale, "key_absences")}
+            </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)', marginBottom: '1px' }}>
-            {highImpact.map((ip) => <InjuredPlayerCard key={ip.player.id} ip={ip} locale={locale} variant="fixture" severity="high" />)}
+          <div className="flex flex-col">
+            {highImpact.map((ip) => (
+              <InjuredPlayerCard
+                key={ip.player.id}
+                ip={ip}
+                locale={locale}
+                variant="fixture"
+                severity="high"
+              />
+            ))}
           </div>
         </div>
       )}
 
       {otherInjured.length > 0 && (
         <div>
-          <div style={{ padding: '0.5rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label">{t(locale, 'other_injuries')}</span>
+          <div className="px-4 py-2 border-b border-border bg-muted/20">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t(locale, "other_injuries")}
+            </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
-            {otherInjured.map((ip) => <InjuredPlayerCard key={ip.player.id} ip={ip} locale={locale} variant="fixture" severity="other" />)}
+          <div className="flex flex-col">
+            {otherInjured.map((ip) => (
+              <InjuredPlayerCard
+                key={ip.player.id}
+                ip={ip}
+                locale={locale}
+                variant="fixture"
+                severity="other"
+              />
+            ))}
           </div>
         </div>
       )}
@@ -122,29 +159,47 @@ function InjuryColumn({ impact, locale }: { impact: InjuryImpact | null; locale:
 
 // ── UPCOMING: Predicted lineup column ────────────────────────────────────────
 
-function PredictedLineupColumn({ lineup, locale }: { lineup: PredictedLineup | null; locale: Locale }) {
+function PredictedLineupColumn({
+  lineup,
+  locale,
+}: {
+  lineup: PredictedLineup | null;
+  locale: Locale;
+}) {
   if (!lineup) {
     return (
-      <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '2rem 1rem', textAlign: 'center', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem' }}>
-        {t(locale, 'lineup_no_data')}
+      <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+        {t(locale, "lineup_no_data")}
       </div>
     );
   }
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-        {lineup.teamLogo && <img src={lineup.teamLogo} alt="" style={{ width: '1.75rem', height: '1.75rem', objectFit: 'contain', flexShrink: 0 }} />}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)' }}>{lineup.teamName}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.125rem' }}>
-            <span className="sc-label">{t(locale, 'lineup_formation')}: {lineup.formation}</span>
-            {lineup.formationSource === 'default' && (
-              <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>({t(locale, 'lineup_default_formation')})</span>
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+        {lineup.teamLogo && (
+          <img
+            src={lineup.teamLogo}
+            alt=""
+            className="w-7 h-7 object-contain shrink-0"
+          />
+        )}
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">
+            {lineup.teamName}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[0.6875rem] text-muted-foreground">
+              {t(locale, "lineup_formation")}: {lineup.formation}
+            </span>
+            {lineup.formationSource === "default" && (
+              <span className="text-[0.625rem] text-muted-foreground/60">
+                ({t(locale, "lineup_default_formation")})
+              </span>
             )}
           </div>
         </div>
       </div>
-      <div style={{ padding: '0.5rem', background: 'var(--cds-layer-01, #262626)' }}>
+      <div className="p-2">
         <PitchLineup lineup={lineup} />
       </div>
     </div>
@@ -154,107 +209,185 @@ function PredictedLineupColumn({ lineup, locale }: { lineup: PredictedLineup | n
 // ── RESULT: Match events ──────────────────────────────────────────────────────
 
 function eventIcon(type: string, detail: string | null): string {
-  if (type === 'Goal') return '⚽';
-  if (type === 'Card') return detail?.toLowerCase().includes('red') ? '🟥' : '🟨';
-  if (type === 'subst') return '🔄';
-  if (type === 'Var') return '📺';
-  return '•';
+  if (type === "Goal") return "⚽";
+  if (type === "Card")
+    return detail?.toLowerCase().includes("red") ? "🟥" : "🟨";
+  if (type === "subst") return "🔄";
+  if (type === "Var") return "📺";
+  return "•";
 }
 
 // ── RESULT: Compact horizontal timeline ──────────────────────────────────────
 
-function CompactTimeline({ events, homeTeamId }: { events: FixtureEvent[]; homeTeamId: number }) {
-  const relevant = events.filter((ev) => ['Goal', 'Card', 'subst'].includes(ev.type));
+function CompactTimeline({
+  events,
+  homeTeamId,
+}: {
+  events: FixtureEvent[];
+  homeTeamId: number;
+}) {
+  const relevant = events.filter((ev) =>
+    ["Goal", "Card", "subst"].includes(ev.type),
+  );
   if (relevant.length === 0) return null;
 
   const icon = (ev: FixtureEvent) => {
-    if (ev.type === 'Goal') return '⚽';
-    if (ev.type === 'Card') return ev.detail?.toLowerCase().includes('red') ? '🟥' : '🟨';
-    return '🔄';
+    if (ev.type === "Goal") return "⚽";
+    if (ev.type === "Card")
+      return ev.detail?.toLowerCase().includes("red") ? "🟥" : "🟨";
+    return "🔄";
   };
 
   return (
-    <div style={{ background: 'var(--cds-layer-01, #262626)', padding: '0.5rem 1rem 0.375rem' }}>
-      <div style={{ fontSize: '0.4375rem', color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.08em', marginBottom: '0.125rem' }}>HOME</div>
-      <div style={{ position: 'relative', height: '3.75rem' }}>
-        {/* Center line */}
-        <div style={{ position: 'absolute', top: '50%', left: 0, right: '2rem', height: '1px', background: 'var(--cds-border-subtle-01, #393939)' }} />
-        {/* HT tick */}
-        <div style={{ position: 'absolute', left: `${(45 / 95) * 92}%`, top: 'calc(50% - 3px)', height: '6px', width: '1px', background: '#6f6f6f' }} />
-        {/* 90' label */}
-        <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontSize: '0.5rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>90'</span>
+    <div className="bg-card px-4 pt-2 pb-1.5">
+      <div className="text-[0.4375rem] text-muted-foreground tracking-widest mb-0.5">
+        HOME
+      </div>
+      <div className="relative h-[3.75rem]">
+        <div className="absolute top-1/2 left-0 right-8 h-px bg-border" />
+        <div
+          className="absolute bg-muted-foreground/40"
+          style={{
+            left: `${(45 / 95) * 92}%`,
+            top: "calc(50% - 3px)",
+            height: "6px",
+            width: "1px",
+          }}
+        />
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[0.5rem] text-muted-foreground font-mono">
+          90'
+        </span>
 
         {relevant.map((ev) => {
           const isHome = ev.teamId === homeTeamId;
           const mins = ev.timeElapsed + (ev.timeExtra ?? 0);
           const pct = Math.min(Math.max((mins / 95) * 92, 1), 91);
           const ic = icon(ev);
-          const label = ev.timeExtra ? `${ev.timeElapsed}+${ev.timeExtra}'` : `${ev.timeElapsed}'`;
+          const label = ev.timeExtra
+            ? `${ev.timeElapsed}+${ev.timeExtra}'`
+            : `${ev.timeElapsed}'`;
 
           return (
-            <div key={ev.id} style={{ position: 'absolute', left: `${pct}%`, top: '50%', transform: 'translateX(-50%)' }}>
-              {/* Dot on line */}
-              <div style={{
-                position: 'absolute', top: 0, left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '5px', height: '5px', borderRadius: '50%',
-                background: ev.type === 'Goal' ? 'var(--cds-interactive, #4589ff)' : '#6f6f6f',
-              }} />
-              {/* Icon + time: above line for home, below for away */}
-              <div style={{
-                position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-                ...(isHome ? { bottom: '6px' } : { top: '6px' }),
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
-              }}>
-                <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{ic}</span>
-                <span style={{ fontSize: '0.4375rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', whiteSpace: 'nowrap' }}>{label}</span>
+            <div
+              key={ev.id}
+              style={{
+                position: "absolute",
+                left: `${pct}%`,
+                top: "50%",
+                transform: "translateX(-50%)",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "5px",
+                  height: "5px",
+                  borderRadius: "50%",
+                  background:
+                    ev.type === "Goal"
+                      ? "var(--primary)"
+                      : "var(--muted-foreground)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  ...(isHome ? { bottom: "6px" } : { top: "6px" }),
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "1px",
+                }}
+              >
+                <span style={{ fontSize: "0.75rem", lineHeight: 1 }}>{ic}</span>
+                <span
+                  style={{
+                    fontSize: "0.4375rem",
+                    color: "var(--muted-foreground)",
+                    fontFamily: "var(--font-mono)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </span>
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ fontSize: '0.4375rem', color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.08em', marginTop: '0.125rem' }}>AWAY</div>
+      <div className="text-[0.4375rem] text-muted-foreground tracking-widest mt-0.5">
+        AWAY
+      </div>
     </div>
   );
 }
 
-function MatchEvents({ events, homeTeamId, locale }: { events: FixtureEvent[]; homeTeamId: number; locale: Locale }) {
+function MatchEvents({
+  events,
+  homeTeamId,
+  locale,
+}: {
+  events: FixtureEvent[];
+  homeTeamId: number;
+  locale: Locale;
+}) {
   if (!events.length) {
     return (
-      <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>
-        {t(locale, 'no_match_events')}
+      <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+        {t(locale, "no_match_events")}
       </div>
     );
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+    <div className="flex flex-col divide-y divide-border">
       {events.map((ev) => {
         const isHome = ev.teamId === homeTeamId;
-        const time = ev.timeExtra ? `${ev.timeElapsed}+${ev.timeExtra}'` : `${ev.timeElapsed}'`;
+        const time = ev.timeExtra
+          ? `${ev.timeElapsed}+${ev.timeExtra}'`
+          : `${ev.timeElapsed}'`;
         const icon = eventIcon(ev.type, ev.detail);
-        const isGoal = ev.type === 'Goal';
-        const isSub = ev.type === 'subst';
+        const isGoal = ev.type === "Goal";
+        const isSub = ev.type === "subst";
 
         const playerBlock = (
-          <span style={{ fontSize: '0.8125rem', color: isGoal ? 'var(--cds-text-primary, #f4f4f4)' : 'var(--cds-text-secondary, #c6c6c6)', fontWeight: isGoal ? 600 : 400 }}>
-            {ev.player?.name ?? ''}
+          <span
+            className={cn(
+              "text-[0.8125rem]",
+              isGoal ? "text-foreground font-semibold" : "text-foreground/70",
+            )}
+          >
+            {ev.player?.name ?? ""}
             {isSub && ev.assist && (
-              <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', display: 'block' }}>↑ {ev.assist.name}</span>
+              <span className="text-[0.6875rem] text-muted-foreground block">
+                ↑ {ev.assist.name}
+              </span>
             )}
             {isGoal && ev.assist && (
-              <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', display: 'block' }}>{ev.assist.name}</span>
+              <span className="text-[0.6875rem] text-muted-foreground block">
+                {ev.assist.name}
+              </span>
             )}
           </span>
         );
 
         return (
-          <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1fr 3.5rem 1fr', alignItems: 'center', background: 'var(--cds-layer-01, #262626)', padding: '0.5rem 1rem', minHeight: '2.5rem' }}>
-            <div style={{ textAlign: 'right', paddingRight: '0.75rem' }}>{isHome && playerBlock}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem' }}>
-              <span style={{ fontSize: '0.625rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{time}</span>
-              <span style={{ fontSize: '0.875rem' }}>{icon}</span>
+          <div
+            key={ev.id}
+            className="grid grid-cols-[1fr_3.5rem_1fr] items-center bg-card px-4 py-2 min-h-10"
+          >
+            <div className="text-right pr-3">{isHome && playerBlock}</div>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[0.625rem] text-muted-foreground font-mono">
+                {time}
+              </span>
+              <span className="text-sm">{icon}</span>
             </div>
-            <div style={{ textAlign: 'left', paddingLeft: '0.75rem' }}>{!isHome && playerBlock}</div>
+            <div className="text-left pl-3">{!isHome && playerBlock}</div>
           </div>
         );
       })}
@@ -264,36 +397,70 @@ function MatchEvents({ events, homeTeamId, locale }: { events: FixtureEvent[]; h
 
 // ── RESULT: Actual lineup column ──────────────────────────────────────────────
 
-function ActualLineupColumn({ lineup, events, locale }: { lineup: FixtureTeamLineup; events: FixtureEvent[]; locale: Locale }) {
+function ActualLineupColumn({
+  lineup,
+  events,
+  locale,
+}: {
+  lineup: FixtureTeamLineup;
+  events: FixtureEvent[];
+  locale: Locale;
+}) {
   const starters = lineup.players.filter((p) => p.isStarting);
   const bench = lineup.players.filter((p) => !p.isStarting);
 
-  // For sub type: player = came OFF, assist = came ON
-  const teamSubs = events.filter((ev) => ev.type === 'subst' && ev.teamId === lineup.team.id);
-  const subOutIds = new Set(teamSubs.map((ev) => ev.player?.id).filter((id): id is number => id !== undefined));
-  const subInIds = new Set(teamSubs.map((ev) => ev.assist?.id).filter((id): id is number => id !== undefined));
+  const teamSubs = events.filter(
+    (ev) => ev.type === "subst" && ev.teamId === lineup.team.id,
+  );
+  const subOutIds = new Set(
+    teamSubs
+      .map((ev) => ev.player?.id)
+      .filter((id): id is number => id !== undefined),
+  );
+  const subInIds = new Set(
+    teamSubs
+      .map((ev) => ev.assist?.id)
+      .filter((id): id is number => id !== undefined),
+  );
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-        {lineup.team.logo && <img src={lineup.team.logo} alt="" style={{ width: '1.75rem', height: '1.75rem', objectFit: 'contain', flexShrink: 0 }} />}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)' }}>{lineup.team.name}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.125rem' }}>
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+        <TeamLogo logo={lineup.team.logo} size="lg" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">
+            {lineup.team.name}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
             {lineup.formation && <span>{lineup.formation}</span>}
-            {lineup.coachName && <span style={{ marginLeft: lineup.formation ? '0.5rem' : 0 }}>{t(locale, 'coach')}: {lineup.coachName}</span>}
+            {lineup.coachName && (
+              <span className={lineup.formation ? "ml-2" : ""}>
+                {t(locale, "coach")}: {lineup.coachName}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)', marginBottom: '1px' }}>
+      <div className="flex flex-col divide-y divide-border">
         {starters.map((p) => (
-          <div key={p.player.id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 1rem', background: 'var(--cds-layer-01, #262626)' }}>
-            <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', minWidth: '1.25rem', textAlign: 'right', flexShrink: 0 }}>{p.number ?? ''}</span>
-            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--cds-tag-color-gray, #8d8d8d)', minWidth: '2rem', flexShrink: 0 }}>{p.position ?? ''}</span>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--cds-text-primary, #f4f4f4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.playerName}</span>
+          <div
+            key={p.player.id}
+            className="flex items-center gap-2.5 px-4 py-2"
+          >
+            <span className="text-[0.6875rem] text-muted-foreground font-mono min-w-5 text-right shrink-0">
+              {p.number ?? ""}
+            </span>
+            <span className="text-[0.6875rem] font-semibold text-muted-foreground min-w-8 shrink-0">
+              {p.position ?? ""}
+            </span>
+            <span className="text-[0.8125rem] text-foreground overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+              {p.playerName}
+            </span>
             {subOutIds.has(p.player.id) && (
-              <span style={{ fontSize: '0.875rem', color: '#fa4d56', flexShrink: 0, lineHeight: 1 }}>↓</span>
+              <span className="text-[var(--sc-red)] shrink-0 leading-none text-base">
+                ↓
+              </span>
             )}
           </div>
         ))}
@@ -301,17 +468,30 @@ function ActualLineupColumn({ lineup, events, locale }: { lineup: FixtureTeamLin
 
       {bench.length > 0 && (
         <>
-          <div style={{ padding: '0.375rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px' }}>
-            <span className="sc-label">{t(locale, 'bench')}</span>
+          <div className="px-4 py-1.5 border-t border-border bg-muted/20">
+            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t(locale, "bench")}
+            </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--cds-border-subtle-01, #393939)' }}>
+          <div className="flex flex-col divide-y divide-border">
             {bench.map((p) => (
-              <div key={p.player.id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.375rem 1rem', background: 'var(--cds-layer-01, #262626)' }}>
-                <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)', minWidth: '1.25rem', textAlign: 'right', flexShrink: 0 }}>{p.number ?? ''}</span>
-                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--cds-tag-color-gray, #8d8d8d)', minWidth: '2rem', flexShrink: 0 }}>{p.position ?? ''}</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.playerName}</span>
+              <div
+                key={p.player.id}
+                className="flex items-center gap-2.5 px-4 py-1.5"
+              >
+                <span className="text-[0.6875rem] text-muted-foreground font-mono min-w-5 text-right shrink-0">
+                  {p.number ?? ""}
+                </span>
+                <span className="text-[0.6875rem] font-semibold text-muted-foreground min-w-8 shrink-0">
+                  {p.position ?? ""}
+                </span>
+                <span className="text-xs text-foreground/70 overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+                  {p.playerName}
+                </span>
                 {subInIds.has(p.player.id) && (
-                  <span style={{ fontSize: '0.875rem', color: '#42be65', flexShrink: 0, lineHeight: 1 }}>↑</span>
+                  <span className="text-[var(--sc-green)] shrink-0 leading-none text-base">
+                    ↑
+                  </span>
                 )}
               </div>
             ))}
@@ -324,56 +504,137 @@ function ActualLineupColumn({ lineup, events, locale }: { lineup: FixtureTeamLin
 
 // ── RESULT: Statistics comparison ─────────────────────────────────────────────
 
-function StatRow({ label, homeVal, awayVal, format = 'number' }: { label: string; homeVal: number | null | undefined; awayVal: number | null | undefined; format?: 'number' | 'pct' | 'decimal' }) {
+function StatRow({
+  label,
+  homeVal,
+  awayVal,
+  format = "number",
+}: {
+  label: string;
+  homeVal: number | null | undefined;
+  awayVal: number | null | undefined;
+  format?: "number" | "pct" | "decimal";
+}) {
   const h = homeVal ?? 0;
   const a = awayVal ?? 0;
   const total = h + a || 1;
-  const fmt = (v: number) => format === 'pct' ? `${v}%` : format === 'decimal' ? v.toFixed(2) : String(v);
-
-  const homeBarColor = h >= a ? 'var(--cds-interactive, #4589ff)' : '#525252';
-  const awayBarColor = a >= h ? 'var(--cds-interactive, #4589ff)' : '#525252';
+  const fmt = (v: number) =>
+    format === "pct"
+      ? `${v}%`
+      : format === "decimal"
+        ? v.toFixed(2)
+        : String(v);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '3rem 1fr 5rem 1fr 3rem', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1rem', background: 'var(--cds-layer-01, #262626)', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
-      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)', textAlign: 'right', fontFamily: 'var(--font-plex-mono, monospace)' }}>{fmt(h)}</span>
-      <div style={{ height: '0.375rem', background: 'var(--cds-layer-02, #393939)', borderRadius: '2px', overflow: 'hidden', display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ width: `${(h / total) * 100}%`, height: '0.375rem', background: homeBarColor, borderRadius: '2px' }} />
+    <div className="grid grid-cols-[3rem_1fr_5rem_1fr_3rem] items-center gap-2 px-4 py-2.5 border-b border-border bg-card last:border-0">
+      <span className="text-sm font-semibold text-foreground text-right font-mono">
+        {fmt(h)}
+      </span>
+      <div className="h-1.5 bg-muted rounded-sm overflow-hidden flex justify-end">
+        <div
+          className={cn(
+            "h-1.5 rounded-sm",
+            h >= a ? "bg-primary" : "bg-muted-foreground/40",
+          )}
+          style={{ width: `${(h / total) * 100}%` }}
+        />
       </div>
-      <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
-      <div style={{ height: '0.375rem', background: 'var(--cds-layer-02, #393939)', borderRadius: '2px', overflow: 'hidden' }}>
-        <div style={{ width: `${(a / total) * 100}%`, height: '0.375rem', background: awayBarColor, borderRadius: '2px' }} />
+      <span className="text-[0.6875rem] text-muted-foreground text-center leading-tight">
+        {label}
+      </span>
+      <div className="h-1.5 bg-muted rounded-sm overflow-hidden">
+        <div
+          className={cn(
+            "h-1.5 rounded-sm",
+            a >= h ? "bg-primary" : "bg-muted-foreground/40",
+          )}
+          style={{ width: `${(a / total) * 100}%` }}
+        />
       </div>
-      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{fmt(a)}</span>
+      <span className="text-sm font-semibold text-foreground font-mono">
+        {fmt(a)}
+      </span>
     </div>
   );
 }
 
-function Statistics({ stats, homeTeamId, locale }: { stats: FixtureTeamStats[]; homeTeamId: number; locale: Locale }) {
+function Statistics({
+  stats,
+  homeTeamId,
+  locale,
+}: {
+  stats: FixtureTeamStats[];
+  homeTeamId: number;
+  locale: Locale;
+}) {
   if (!stats.length) {
     return (
-      <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>
-        {t(locale, 'no_statistics')}
+      <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+        {t(locale, "no_statistics")}
       </div>
     );
   }
   const home = stats.find((s) => s.team.id === homeTeamId) ?? stats[0];
   const away = stats.find((s) => s.team.id !== homeTeamId) ?? stats[1];
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 5rem 1fr', padding: '0.5rem 1rem', background: 'var(--cds-layer-02, #393939)', marginBottom: '1px', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)' }}>{home?.team.name}</span>
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-[1fr_5rem_1fr] px-4 py-2.5 border-b border-border bg-muted/30">
+        <span className="text-xs font-semibold text-foreground">
+          {home?.team.name}
+        </span>
         <span />
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--cds-text-primary, #f4f4f4)', textAlign: 'right' }}>{away?.team.name}</span>
+        <span className="text-xs font-semibold text-foreground text-right">
+          {away?.team.name}
+        </span>
       </div>
-      <StatRow label={t(locale, 'stat_possession')} homeVal={home?.possession} awayVal={away?.possession} format="pct" />
-      <StatRow label={t(locale, 'stat_shots')} homeVal={home?.totalShots} awayVal={away?.totalShots} />
-      <StatRow label={t(locale, 'stat_on_target')} homeVal={home?.shotsOnGoal} awayVal={away?.shotsOnGoal} />
-      <StatRow label={t(locale, 'stat_xg')} homeVal={home?.expectedGoals ?? undefined} awayVal={away?.expectedGoals ?? undefined} format="decimal" />
-      <StatRow label={t(locale, 'stat_corners')} homeVal={home?.cornerKicks} awayVal={away?.cornerKicks} />
-      <StatRow label={t(locale, 'stat_fouls')} homeVal={home?.fouls} awayVal={away?.fouls} />
-      <StatRow label={t(locale, 'stat_offsides')} homeVal={home?.offsides} awayVal={away?.offsides} />
-      <StatRow label={t(locale, 'stat_saves')} homeVal={home?.goalkeeperSaves} awayVal={away?.goalkeeperSaves} />
-      <StatRow label={t(locale, 'stat_pass_pct')} homeVal={home?.passPercent ?? undefined} awayVal={away?.passPercent ?? undefined} format="pct" />
+      <StatRow
+        label={t(locale, "stat_possession")}
+        homeVal={home?.possession}
+        awayVal={away?.possession}
+        format="pct"
+      />
+      <StatRow
+        label={t(locale, "stat_shots")}
+        homeVal={home?.totalShots}
+        awayVal={away?.totalShots}
+      />
+      <StatRow
+        label={t(locale, "stat_on_target")}
+        homeVal={home?.shotsOnGoal}
+        awayVal={away?.shotsOnGoal}
+      />
+      <StatRow
+        label={t(locale, "stat_xg")}
+        homeVal={home?.expectedGoals ?? undefined}
+        awayVal={away?.expectedGoals ?? undefined}
+        format="decimal"
+      />
+      <StatRow
+        label={t(locale, "stat_corners")}
+        homeVal={home?.cornerKicks}
+        awayVal={away?.cornerKicks}
+      />
+      <StatRow
+        label={t(locale, "stat_fouls")}
+        homeVal={home?.fouls}
+        awayVal={away?.fouls}
+      />
+      <StatRow
+        label={t(locale, "stat_offsides")}
+        homeVal={home?.offsides}
+        awayVal={away?.offsides}
+      />
+      <StatRow
+        label={t(locale, "stat_saves")}
+        homeVal={home?.goalkeeperSaves}
+        awayVal={away?.goalkeeperSaves}
+      />
+      <StatRow
+        label={t(locale, "stat_pass_pct")}
+        homeVal={home?.passPercent ?? undefined}
+        awayVal={away?.passPercent ?? undefined}
+        format="pct"
+      />
     </div>
   );
 }
@@ -397,7 +658,9 @@ export default async function FixtureDetailPage({
   try {
     const [f, standing] = await Promise.all([
       fetchApi<FixtureDetail>(`/api/fixtures/${fixtureId}`),
-      fetchApi<Standing>(`/api/standings?league=${leagueId}&season=${CURRENT_SEASON}`).catch(() => null),
+      fetchApi<Standing>(
+        `/api/standings?league=${leagueId}&season=${CURRENT_SEASON}`,
+      ).catch(() => null),
     ]);
     fixture = f;
     if (standing) {
@@ -407,8 +670,8 @@ export default async function FixtureDetailPage({
 
   if (!fixture) {
     return (
-      <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
-        <div style={{ background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)', padding: '2rem', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem' }}>
+      <div className="max-w-[72rem] mx-auto">
+        <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
           Match not found.
         </div>
       </div>
@@ -418,10 +681,11 @@ export default async function FixtureDetailPage({
   const isCompleted = COMPLETED_STATUSES.has(fixture.status);
   const roundNum = parseRoundNumber(fixture.round);
   const backUrl = isCompleted
-    ? `${fixturesBase}?tab=results${roundNum !== null ? `&round=${roundNum}` : ''}`
-    : roundNum !== null ? `${fixturesBase}?round=${roundNum}` : fixturesBase;
+    ? `${fixturesBase}?tab=results${roundNum !== null ? `&round=${roundNum}` : ""}`
+    : roundNum !== null
+      ? `${fixturesBase}?round=${roundNum}`
+      : fixturesBase;
 
-  // ── Upcoming: fetch injury + lineup data ──────────────────────────────────
   let homeImpact: InjuryImpact | null = null;
   let awayImpact: InjuryImpact | null = null;
   let homeLineup: PredictedLineup | null = null;
@@ -430,135 +694,201 @@ export default async function FixtureDetailPage({
   if (!isCompleted) {
     try {
       const [hi, ai, hl, al] = await Promise.all([
-        fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${fixture.homeTeam.id}`),
-        fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${fixture.awayTeam.id}`),
-        fetchApi<PredictedLineup>(`/api/analysis/predicted-lineup/${fixture.homeTeam.id}`).catch(() => null),
-        fetchApi<PredictedLineup>(`/api/analysis/predicted-lineup/${fixture.awayTeam.id}`).catch(() => null),
+        fetchApi<InjuryImpact>(
+          `/api/analysis/injury-impact/${fixture.homeTeam.id}`,
+        ),
+        fetchApi<InjuryImpact>(
+          `/api/analysis/injury-impact/${fixture.awayTeam.id}`,
+        ),
+        fetchApi<PredictedLineup>(
+          `/api/analysis/predicted-lineup/${fixture.homeTeam.id}`,
+        ).catch(() => null),
+        fetchApi<PredictedLineup>(
+          `/api/analysis/predicted-lineup/${fixture.awayTeam.id}`,
+        ).catch(() => null),
       ]);
-      homeImpact = hi; awayImpact = ai; homeLineup = hl; awayLineup = al;
+      homeImpact = hi;
+      awayImpact = ai;
+      homeLineup = hl;
+      awayLineup = al;
     } catch {}
   }
 
-  const statusLabel = fixture.status === 'AET' ? 'AET' : fixture.status === 'PEN' ? 'PEN' : 'FT';
+  const statusLabel =
+    fixture.status === "AET" ? "AET" : fixture.status === "PEN" ? "PEN" : "FT";
   const homeGoals = fixture.goalsHome ?? 0;
   const awayGoals = fixture.goalsAway ?? 0;
   const homeWon = homeGoals > awayGoals;
   const awayWon = awayGoals > homeGoals;
 
-  const homeActualLineup = fixture.lineups.find((l) => l.team.id === fixture!.homeTeam.id) ?? null;
-  const awayActualLineup = fixture.lineups.find((l) => l.team.id === fixture!.awayTeam.id) ?? null;
+  const homeActualLineup =
+    fixture.lineups.find((l) => l.team.id === fixture!.homeTeam.id) ?? null;
+  const awayActualLineup =
+    fixture.lineups.find((l) => l.team.id === fixture!.awayTeam.id) ?? null;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.vercel.app';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
   const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SportsEvent',
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
     name: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
-    sport: 'Association Football',
+    sport: "Association Football",
     startDate: fixture.date,
     url: `${siteUrl}/league/${leagueId}/fixtures/${fixtureId}`,
     description: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name} — ${leagueName} match analysis with injury impact and predicted lineups.`,
-    homeTeam: { '@type': 'SportsTeam', name: fixture.homeTeam.name },
-    awayTeam: { '@type': 'SportsTeam', name: fixture.awayTeam.name },
+    homeTeam: { "@type": "SportsTeam", name: fixture.homeTeam.name },
+    awayTeam: { "@type": "SportsTeam", name: fixture.awayTeam.name },
     ...(fixture.venueName && {
       location: {
-        '@type': 'StadiumOrArena',
+        "@type": "StadiumOrArena",
         name: fixture.venueName,
         ...(fixture.venueCity && { address: fixture.venueCity }),
       },
     }),
-    ...(isCompleted && {
-      eventStatus: 'https://schema.org/EventScheduled',
-    }),
+    ...(isCompleted && { eventStatus: "https://schema.org/EventScheduled" }),
   };
 
   return (
-    <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
+    <div className="max-w-[72rem] mx-auto">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+
       {/* Back button */}
       <Link
         href={backUrl}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--cds-text-helper, #8d8d8d)', textDecoration: 'none', marginBottom: '1rem' }}
+        className="inline-flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground no-underline hover:text-foreground transition-colors mb-4"
       >
-        ← {t(locale, isCompleted ? 'tab_results' : 'fixtures_title')}
+        ← {t(locale, isCompleted ? "tab_results" : "fixtures_title")}
       </Link>
 
-      {/* Breadcrumb & Header */}
-      <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)' }}>
-        <p className="sc-label">
-          <Link href={`/league/${leagueId}`} style={{ color: 'var(--cds-text-helper, #8d8d8d)', textDecoration: 'none' }}>{leagueName}</Link>
-          {' / '}
-          <Link href={backUrl} style={{ color: 'var(--cds-text-helper, #8d8d8d)', textDecoration: 'none' }}>
-            {t(locale, 'fixtures_title')}
+      {/* Header */}
+      <div className="mb-6 pb-5 border-b border-border">
+        <p className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground mb-2">
+          <Link
+            href={`/league/${leagueId}`}
+            className="text-muted-foreground no-underline hover:text-foreground transition-colors"
+          >
+            {leagueName}
           </Link>
-          {' / '}
-          {t(locale, isCompleted ? 'result_detail' : 'match_detail')}
+          {" / "}
+          <Link
+            href={backUrl}
+            className="text-muted-foreground no-underline hover:text-foreground transition-colors"
+          >
+            {t(locale, "fixtures_title")}
+          </Link>
+          {" / "}
+          {t(locale, isCompleted ? "result_detail" : "match_detail")}
         </p>
 
-        {/* Match title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+        {/* Match header */}
+        <div className="flex items-center gap-4 mt-2">
           {/* Home team */}
-          <Link href={`/team/${fixture.homeTeam.id}?league=${leagueId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0, textDecoration: 'none' }}>
+          <Link
+            href={`/team/${fixture.homeTeam.id}?league=${leagueId}`}
+            className="flex items-center gap-2.5 flex-1 min-w-0 no-underline"
+          >
             {fixture.homeTeam.logo && (
-              <img src={fixture.homeTeam.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', flexShrink: 0, opacity: isCompleted && awayWon ? 0.5 : 1 }} />
+              <img
+                src={fixture.homeTeam.logo}
+                alt=""
+                className={cn(
+                  "w-10 h-10 object-contain shrink-0 transition-opacity",
+                  isCompleted && awayWon ? "opacity-40" : "",
+                )}
+              />
             )}
-            <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: isCompleted && awayWon ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="min-w-0">
+              <h1
+                className={cn(
+                  "text-2xl font-semibold m-0 overflow-hidden text-ellipsis whitespace-nowrap",
+                  isCompleted && awayWon
+                    ? "text-muted-foreground"
+                    : "text-foreground",
+                )}
+              >
                 {fixture.homeTeam.name}
               </h1>
               {rankMap[fixture.homeTeam.id] && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                <span className="text-xs text-muted-foreground font-mono">
                   #{rankMap[fixture.homeTeam.id]}
                 </span>
               )}
             </div>
           </Link>
 
-          {/* Center: score (completed) or vs (upcoming) */}
+          {/* Score / vs */}
           {isCompleted ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{homeGoals}</span>
-                <span style={{ fontSize: '1.25rem', color: 'var(--cds-text-helper, #8d8d8d)', fontWeight: 300 }}>—</span>
-                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>{awayGoals}</span>
+            <div className="flex flex-col items-center shrink-0">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold font-mono text-foreground">
+                  {homeGoals}
+                </span>
+                <span className="text-xl text-muted-foreground font-light">
+                  —
+                </span>
+                <span className="text-4xl font-bold font-mono text-foreground">
+                  {awayGoals}
+                </span>
               </div>
-              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--cds-text-helper, #8d8d8d)', letterSpacing: '0.08em' }}>{statusLabel}</span>
+              <span className="text-[0.6875rem] font-semibold text-muted-foreground tracking-widest uppercase">
+                {statusLabel}
+              </span>
             </div>
           ) : (
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--cds-text-helper, #8d8d8d)', flexShrink: 0, letterSpacing: '1px' }}>vs</div>
+            <div className="text-base font-bold text-muted-foreground shrink-0 tracking-widest">
+              vs
+            </div>
           )}
 
           {/* Away team */}
-          <Link href={`/team/${fixture.awayTeam.id}?league=${leagueId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, justifyContent: 'flex-end', minWidth: 0, textDecoration: 'none' }}>
-            <div style={{ minWidth: 0, textAlign: 'right' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: isCompleted && homeWon ? 'var(--cds-text-helper, #8d8d8d)' : 'var(--cds-text-primary, #f4f4f4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Link
+            href={`/team/${fixture.awayTeam.id}?league=${leagueId}`}
+            className="flex items-center justify-end gap-2.5 flex-1 min-w-0 no-underline"
+          >
+            <div className="min-w-0 text-right">
+              <h1
+                className={cn(
+                  "text-2xl font-semibold m-0 overflow-hidden text-ellipsis whitespace-nowrap",
+                  isCompleted && homeWon
+                    ? "text-muted-foreground"
+                    : "text-foreground",
+                )}
+              >
                 {fixture.awayTeam.name}
               </h1>
               {rankMap[fixture.awayTeam.id] && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+                <span className="text-xs text-muted-foreground font-mono">
                   #{rankMap[fixture.awayTeam.id]}
                 </span>
               )}
             </div>
             {fixture.awayTeam.logo && (
-              <img src={fixture.awayTeam.logo} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain', flexShrink: 0, opacity: isCompleted && homeWon ? 0.5 : 1 }} />
+              <img
+                src={fixture.awayTeam.logo}
+                alt=""
+                className={cn(
+                  "w-10 h-10 object-contain shrink-0 transition-opacity",
+                  isCompleted && homeWon ? "opacity-40" : "",
+                )}
+              />
             )}
           </Link>
         </div>
 
         {/* Match meta */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.625rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--cds-interactive, #4589ff)', fontWeight: 600 }}>
+        <div className="flex items-center gap-4 mt-2.5 flex-wrap">
+          <span className="text-xs text-primary font-semibold">
             {formatRoundLabel(fixture.round, locale)}
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+          <span className="text-xs text-foreground/70 font-mono">
             <ClientMatchDateTime dateStr={fixture.date} locale={locale} />
           </span>
           {fixture.venueName && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
-              {fixture.venueName}{fixture.venueCity ? `, ${fixture.venueCity}` : ''}
+            <span className="text-xs text-muted-foreground">
+              {fixture.venueName}
+              {fixture.venueCity ? `, ${fixture.venueCity}` : ""}
             </span>
           )}
         </div>
@@ -567,51 +897,73 @@ export default async function FixtureDetailPage({
       {/* ── COMPLETED: Result view ─────────────────────────────────────────── */}
       {isCompleted && (
         <>
-          <div style={{ marginBottom: '2rem' }}>
-            <SectionHeader label={t(locale, 'match_events')} />
+          <div className="mb-6">
+            <SectionHeader label={t(locale, "match_events")} />
             {fixture.events.length > 0 ? (
-              <>
-                <CompactTimeline events={fixture.events} homeTeamId={fixture.homeTeam.id} />
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <CompactTimeline
+                  events={fixture.events}
+                  homeTeamId={fixture.homeTeam.id}
+                />
                 <details>
-                  <summary style={{
-                    cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem',
-                    padding: '0.375rem 1rem', background: 'var(--cds-layer-01, #262626)',
-                    borderTop: '1px solid var(--cds-border-subtle-01, #393939)',
-                    fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', userSelect: 'none',
-                  }}>
-                    ▾ {t(locale, 'events_show_all')}
+                  <summary className="cursor-pointer list-none flex items-center gap-1 px-4 py-2 border-t border-border text-[0.6875rem] text-muted-foreground select-none hover:bg-accent/50 transition-colors">
+                    ▾ {t(locale, "events_show_all")}
                   </summary>
-                  <MatchEvents events={fixture.events} homeTeamId={fixture.homeTeam.id} locale={locale} />
+                  <MatchEvents
+                    events={fixture.events}
+                    homeTeamId={fixture.homeTeam.id}
+                    locale={locale}
+                  />
                 </details>
-              </>
+              </div>
             ) : (
-              <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>
-                {t(locale, 'no_match_events')}
+              <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+                {t(locale, "no_match_events")}
               </div>
             )}
           </div>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <SectionHeader label={t(locale, 'actual_lineups')} />
+          <div className="mb-6">
+            <SectionHeader label={t(locale, "actual_lineups")} />
             {homeActualLineup || awayActualLineup ? (
-              <div className="sc-grid-2col">
-                {homeActualLineup
-                  ? <ActualLineupColumn lineup={homeActualLineup} events={fixture.events} locale={locale} />
-                  : <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>{t(locale, 'no_lineups')}</div>
-                }
-                {awayActualLineup
-                  ? <ActualLineupColumn lineup={awayActualLineup} events={fixture.events} locale={locale} />
-                  : <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>{t(locale, 'no_lineups')}</div>
-                }
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {homeActualLineup ? (
+                  <ActualLineupColumn
+                    lineup={homeActualLineup}
+                    events={fixture.events}
+                    locale={locale}
+                  />
+                ) : (
+                  <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+                    {t(locale, "no_lineups")}
+                  </div>
+                )}
+                {awayActualLineup ? (
+                  <ActualLineupColumn
+                    lineup={awayActualLineup}
+                    events={fixture.events}
+                    locale={locale}
+                  />
+                ) : (
+                  <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+                    {t(locale, "no_lineups")}
+                  </div>
+                )}
               </div>
             ) : (
-              <div style={{ padding: '2rem', background: 'var(--cds-layer-01, #262626)', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem', textAlign: 'center' }}>{t(locale, 'no_lineups')}</div>
+              <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
+                {t(locale, "no_lineups")}
+              </div>
             )}
           </div>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <SectionHeader label={t(locale, 'statistics')} />
-            <Statistics stats={fixture.statistics} homeTeamId={fixture.homeTeam.id} locale={locale} />
+          <div className="mb-6">
+            <SectionHeader label={t(locale, "statistics")} />
+            <Statistics
+              stats={fixture.statistics}
+              homeTeamId={fixture.homeTeam.id}
+              locale={locale}
+            />
           </div>
         </>
       )}
@@ -619,17 +971,17 @@ export default async function FixtureDetailPage({
       {/* ── UPCOMING: Injury + Predicted lineup view ───────────────────────── */}
       {!isCompleted && (
         <>
-          <div style={{ marginBottom: '2rem' }}>
-            <SectionHeader label={t(locale, 'injury_comparison')} />
-            <div className="sc-grid-2col">
+          <div className="mb-6">
+            <SectionHeader label={t(locale, "injury_comparison")} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InjuryColumn impact={homeImpact} locale={locale} />
               <InjuryColumn impact={awayImpact} locale={locale} />
             </div>
           </div>
 
           <div>
-            <SectionHeader label={t(locale, 'predicted_lineups')} />
-            <div className="sc-grid-2col">
+            <SectionHeader label={t(locale, "predicted_lineups")} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <PredictedLineupColumn lineup={homeLineup} locale={locale} />
               <PredictedLineupColumn lineup={awayLineup} locale={locale} />
             </div>

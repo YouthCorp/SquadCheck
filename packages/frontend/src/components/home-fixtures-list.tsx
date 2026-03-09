@@ -6,6 +6,7 @@ import type { Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import type { FixtureWithLeague } from '@/lib/types';
 import { LEAGUE_API_ID_BY_NAME } from '@/lib/constants';
+import { TeamLogo } from '@/components/team-logo';
 
 interface HomeFixturesListProps {
   fixtures: FixtureWithLeague[];
@@ -26,68 +27,48 @@ export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const sectionLabel: React.CSSProperties = {
-    fontSize: '0.6875rem',
-    fontWeight: 600,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--cds-text-helper, #8d8d8d)',
-    marginBottom: '0.75rem',
-  };
-
   return (
-    <div style={{ background: 'var(--cds-layer-01, #262626)', border: '1px solid var(--cds-border-subtle-01, #393939)', height: '100%' }}>
+    <div className="bg-card border border-border rounded-lg overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--cds-border-subtle-01, #393939)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={sectionLabel}>{t(locale, 'upcoming_fixtures')}</span>
-        <Link href="/league/39/fixtures" style={{ fontSize: '0.75rem', color: 'var(--cds-interactive, #4589ff)', textDecoration: 'none' }}>
+      <div className="px-4 py-3 border-b border-border flex justify-between items-center">
+        <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+          {t(locale, 'upcoming_fixtures')}
+        </span>
+        <Link href="/league/39/fixtures" className="text-xs text-primary no-underline hover:underline">
           {t(locale, 'view_all_fixtures')}
         </Link>
       </div>
 
       {fixtures.length === 0 ? (
-        <div style={{ padding: '1.5rem 1rem', color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.875rem' }}>
-          {t(locale, 'no_fixtures')}
-        </div>
+        <div className="px-4 py-6 text-sm text-muted-foreground">{t(locale, 'no_fixtures')}</div>
       ) : (
-        <div>
+        <div className="flex-1 overflow-auto">
           {fixtures.map((fix) => {
             const leagueName = fix.league?.name ?? '';
             const apiId = LEAGUE_API_ID_BY_NAME[leagueName];
             const href = apiId ? `/league/${apiId}/fixtures/${fix.id}` : '#';
 
             return (
-              <Link key={fix.id} href={href} style={{ textDecoration: 'none', display: 'block' }}>
-                <div
-                  className="sc-tile-hover"
-                  style={{
-                    padding: '0.625rem 1rem',
-                    borderBottom: '1px solid var(--cds-border-subtle-01, #393939)',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: '0.5rem',
-                    alignItems: 'center',
-                  }}
-                >
+              <Link key={fix.id} href={href} className="no-underline block">
+                <div className="px-4 py-2.5 border-b border-border grid grid-cols-[1fr_auto] gap-2 items-center transition-all duration-200 hover:-translate-y-0 hover:bg-accent cursor-pointer">
                   {/* Teams */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
-                    {fix.homeTeam.logo && (
-                      <img src={fix.homeTeam.logo} alt="" width={16} height={16} style={{ objectFit: 'contain', flexShrink: 0 }} />
-                    )}
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--cds-text-primary, #f4f4f4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '7rem' }}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <TeamLogo logo={fix.homeTeam.logo} size="xs" />
+                    <span className="text-[0.8125rem] text-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[7rem]">
                       {fix.homeTeam.name}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', flexShrink: 0 }}>vs</span>
-                    {fix.awayTeam.logo && (
-                      <img src={fix.awayTeam.logo} alt="" width={16} height={16} style={{ objectFit: 'contain', flexShrink: 0 }} />
-                    )}
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--cds-text-primary, #f4f4f4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '7rem' }}>
+                    <span className="text-xs text-muted-foreground shrink-0">vs</span>
+                    <TeamLogo logo={fix.awayTeam.logo} size="xs" />
+                    <span className="text-[0.8125rem] text-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[7rem]">
                       {fix.awayTeam.name}
                     </span>
                   </div>
 
-                  {/* Date — rendered client-side for local timezone */}
-                  <span suppressHydrationWarning style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {/* Date — client-side for local timezone */}
+                  <span
+                    suppressHydrationWarning
+                    className="text-xs text-muted-foreground whitespace-nowrap shrink-0 font-mono"
+                  >
                     {mounted ? formatDate(fix.date, locale) : ''}
                   </span>
                 </div>

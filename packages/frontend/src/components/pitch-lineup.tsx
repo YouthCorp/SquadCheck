@@ -1,95 +1,88 @@
 import Link from 'next/link';
 import type { PredictedLineup, PredictedPlayer } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
-// ── Pitch lineup visualization ───────────────────────────────────────────────
+// ── Pitch markup lines ───────────────────────────────────────────────────────
+const pitchLineBase = 'absolute border-white/25 z-[1]';
 
-function PlayerNode({ player }: { player: PredictedPlayer }) {
+function PitchLines() {
+  return (
+    <>
+      {/* Stripes */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+        <div
+          key={i}
+          className="absolute left-0 right-0"
+          style={{ top: `${i * 12.5}%`, height: '12.5%', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}
+        />
+      ))}
+      {/* Pitch outline */}
+      <div className={cn(pitchLineBase, 'border inset-[2%]')} />
+      {/* Half line */}
+      <div className={cn(pitchLineBase, 'border-t')} style={{ top: '50%', left: '4%', right: '4%' }} />
+      {/* Center circle */}
+      <div
+        className={cn(pitchLineBase, 'border rounded-full')}
+        style={{ top: '50%', left: '50%', width: '18%', aspectRatio: '1', transform: 'translate(-50%, -50%)' }}
+      />
+      {/* Bottom penalty box (GK side) */}
+      <div className={cn(pitchLineBase, 'border border-b-0')} style={{ bottom: '2%', left: '22%', right: '22%', height: '14%' }} />
+      {/* Bottom goal box */}
+      <div className={cn(pitchLineBase, 'border border-b-0')} style={{ bottom: '2%', left: '34%', right: '34%', height: '5%' }} />
+      {/* Top penalty box */}
+      <div className={cn(pitchLineBase, 'border border-t-0')} style={{ top: '2%', left: '22%', right: '22%', height: '14%' }} />
+      {/* Top goal box */}
+      <div className={cn(pitchLineBase, 'border border-t-0')} style={{ top: '2%', left: '34%', right: '34%', height: '5%' }} />
+    </>
+  );
+}
+
+// ── Player node ───────────────────────────────────────────────────────────────
+function PlayerNode({ player, index }: { player: PredictedPlayer; index: number }) {
   const isRotation = player.role === 'rotation' || player.role === 'bench';
   const isSignalRecovered = !!player.signalRecovered;
-
-  // Border: signal-recovered (blue dashed) > recentReturn (orange) > default (white)
-  const photoBorder = isSignalRecovered
-    ? '2px dashed #4589ff'
-    : player.recentReturn
-    ? '2px solid #ff832b'
-    : '2px solid rgba(255,255,255,0.7)';
 
   const availabilityPct = isSignalRecovered
     ? Math.round(player.signalRecovered!.predictedAvailability * 100)
     : null;
 
+  const photoTitle = isSignalRecovered
+    ? `Signal return: ${availabilityPct}% availability (${player.signalRecovered!.latestSignalStage?.replace(/_/g, ' ') ?? ''})`
+    : player.recentReturn
+    ? 'Recently returned from injury'
+    : undefined;
+
   return (
     <div
+      className="absolute z-[2] flex flex-col items-center gap-0.5 w-[4.5rem]"
       style={{
-        position: 'absolute',
         left: `${player.pitchX}%`,
         top: `${100 - player.pitchY}%`,
         transform: 'translate(-50%, -50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '0.125rem',
-        zIndex: 2,
-        width: '4.5rem',
+        animationDelay: `${index * 50}ms`,
       }}
     >
       {/* Slot label */}
-      <span
-        style={{
-          fontSize: '0.5625rem',
-          fontWeight: 700,
-          color: '#a8d4a0',
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          lineHeight: 1,
-        }}
-      >
+      <span className="text-[0.5625rem] font-bold uppercase tracking-wide leading-none text-[#a8d4a0]">
         {player.slotLabel}
       </span>
 
       {/* Player photo */}
       <div
-        title={
+        title={photoTitle}
+        className={cn(
+          'relative w-8 h-8 rounded-full overflow-hidden bg-black/50 shrink-0',
           isSignalRecovered
-            ? `Signal return: ${availabilityPct}% availability (${player.signalRecovered!.latestSignalStage?.replace(/_/g, ' ') ?? ''})`
+            ? 'ring-2 ring-primary ring-offset-0 [outline:2px_dashed_var(--primary)]'
             : player.recentReturn
-            ? 'Recently returned from injury'
-            : undefined
-        }
-        style={{
-          position: 'relative',
-          width: '2rem',
-          height: '2rem',
-          borderRadius: '50%',
-          overflow: 'hidden',
-          border: photoBorder,
-          background: 'rgba(0,0,0,0.5)',
-          flexShrink: 0,
-        }}
+            ? 'ring-2 ring-[var(--sc-orange)]'
+            : 'ring-2 ring-white/70'
+        )}
       >
         {player.photo ? (
-          <img
-            src={player.photo}
-            alt=""
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
+          <img src={player.photo} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.625rem',
-              color: 'rgba(255,255,255,0.7)',
-              fontWeight: 600,
-            }}
-          >
+          <div className="w-full h-full flex items-center justify-center text-[0.625rem] text-white/70 font-semibold">
             {player.playerName.split(' ').pop()?.[0] ?? '?'}
           </div>
         )}
@@ -98,19 +91,11 @@ function PlayerNode({ player }: { player: PredictedPlayer }) {
       {/* Player name */}
       <Link
         href={`/player/${player.playerId}`}
-        style={{
-          fontSize: '0.625rem',
-          fontWeight: 600,
-          color: isRotation ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.95)',
-          textDecoration: 'none',
-          textAlign: 'center',
-          lineHeight: 1.2,
-          maxWidth: '100%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-        }}
+        className={cn(
+          'text-[0.625rem] font-semibold no-underline text-center leading-tight max-w-full truncate',
+          '[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]',
+          isRotation ? 'text-white/65' : 'text-white/95'
+        )}
       >
         {player.playerName}
       </Link>
@@ -118,150 +103,26 @@ function PlayerNode({ player }: { player: PredictedPlayer }) {
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export function PitchLineup({ lineup }: { lineup: PredictedLineup }) {
   return (
     <div
+      className="relative w-full overflow-hidden rounded-lg min-w-[260px]"
       style={{
-        position: 'relative',
-        width: '100%',
         aspectRatio: '68 / 95',
         background: 'linear-gradient(180deg, #2d6b30 0%, #1e5a22 50%, #2d6b30 100%)',
-        borderRadius: '0.5rem',
-        overflow: 'hidden',
-        minWidth: '260px',
       }}
     >
-      {/* Pitch stripes (alternating shade) */}
-      {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            top: `${i * 12.5}%`,
-            left: 0,
-            right: 0,
-            height: '12.5%',
-            background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-          }}
-        />
-      ))}
+      <PitchLines />
 
-      {/* Pitch outline */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '2%',
-          left: '4%',
-          right: '4%',
-          bottom: '2%',
-          border: '1px solid rgba(255,255,255,0.25)',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Half line */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '4%',
-          right: '4%',
-          height: '1px',
-          background: 'rgba(255,255,255,0.25)',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Center circle */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: '18%',
-          aspectRatio: '1',
-          transform: 'translate(-50%, -50%)',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderRadius: '50%',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Bottom penalty box (GK side) */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '2%',
-          left: '22%',
-          right: '22%',
-          height: '14%',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderBottom: 'none',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Bottom goal box */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '2%',
-          left: '34%',
-          right: '34%',
-          height: '5%',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderBottom: 'none',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Top penalty box (attack side) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '2%',
-          left: '22%',
-          right: '22%',
-          height: '14%',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderTop: 'none',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Top goal box */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '2%',
-          left: '34%',
-          right: '34%',
-          height: '5%',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderTop: 'none',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Formation label */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '0.5rem',
-          right: '0.5rem',
-          fontSize: '0.625rem',
-          fontWeight: 700,
-          color: 'rgba(255,255,255,0.5)',
-          zIndex: 3,
-          letterSpacing: '0.08em',
-        }}
-      >
+      {/* Formation label — glass effect */}
+      <div className="absolute top-2 right-2 z-[3] px-1.5 py-0.5 rounded text-[0.625rem] font-bold tracking-wider text-white/50 backdrop-blur-sm bg-black/40">
         {lineup.formation}
       </div>
 
       {/* Players */}
-      {lineup.starters.map(player => (
-        <PlayerNode key={player.playerId} player={player} />
+      {lineup.starters.map((player, i) => (
+        <PlayerNode key={player.playerId} player={player} index={i} />
       ))}
     </div>
   );

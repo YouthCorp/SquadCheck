@@ -1,10 +1,11 @@
 import type { TranslationKey } from './i18n';
 
-export const SEV_TAG: Record<string, string> = {
-  critical: 'sc-tag--red',
-  high: 'sc-tag--orange',
-  moderate: 'sc-tag--yellow',
-  low: 'sc-tag--gray',
+/** Maps severity key → shadcn Badge variant */
+export const SEV_TAG: Record<string, 'critical' | 'high' | 'moderate' | 'low'> = {
+  critical: 'critical',
+  high: 'high',
+  moderate: 'moderate',
+  low: 'low',
 };
 
 export const SEV_KEY: Record<string, TranslationKey> = {

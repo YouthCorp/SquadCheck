@@ -232,11 +232,20 @@ export class FixtureDetailCollector {
   // ── Helpers ──────────────────────────────────
 
   private async ensurePlayer(apiId: number, name: string) {
-    return this.prisma.player.upsert({
-      where: { apiFootballId: apiId },
-      create: { apiFootballId: apiId, name: decodeHtml(name) },
-      update: {},
-    });
+    try {
+      return await this.prisma.player.upsert({
+        where: { apiFootballId: apiId },
+        create: { apiFootballId: apiId, name: decodeHtml(name) },
+        update: {},
+      });
+    } catch (e: any) {
+      // Race condition: concurrent fixture syncs both tried to INSERT the same player.
+      // P2002 = unique constraint violation → player was just inserted by another concurrent sync.
+      if (e?.code === 'P2002') {
+        return this.prisma.player.findUniqueOrThrow({ where: { apiFootballId: apiId } });
+      }
+      throw e;
+    }
   }
 
   private parseStats(stats: ApiStatItem[]): Record<string, number | null> {

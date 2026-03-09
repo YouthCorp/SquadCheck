@@ -2,48 +2,49 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ContentSwitcher, Switch } from '@carbon/react';
 import type { Locale } from '@/lib/i18n';
+
+const LANGS: { value: Locale; label: string }[] = [
+  { value: 'en', label: '🇬🇧 EN' },
+  { value: 'ko', label: '🇰🇷 한국어' },
+];
 
 export function LangSelector() {
   const router = useRouter();
-  const [index, setIndex] = useState(0);
+  const [current, setCurrent] = useState<Locale>('en');
 
   useEffect(() => {
     const match = document.cookie.match(/(?:^|;\s*)locale=([^;]*)/);
-    setIndex(match?.[1] === 'ko' ? 1 : 0);
+    setCurrent((match?.[1] === 'ko' ? 'ko' : 'en') as Locale);
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleChange = ({ index: i }: { index?: number; name?: string | number }) => {
-    const next: Locale = i === 1 ? 'ko' : 'en';
+  const handleChange = (next: Locale) => {
     document.cookie = `locale=${next};path=/;max-age=31536000;SameSite=Lax`;
-    setIndex(i ?? 0);
+    setCurrent(next);
     router.refresh();
   };
 
   return (
-    <div style={{ padding: '0 1rem' }}>
-      <div
-        style={{
-          fontSize: '0.6875rem',
-          fontWeight: 600,
-          letterSpacing: '0.32px',
-          textTransform: 'uppercase',
-          color: 'var(--cds-text-helper, #8d8d8d)',
-          marginBottom: '0.375rem',
-        }}
-      >
+    <div className="px-4">
+      <div className="mb-1.5 text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
         Language
       </div>
-      <ContentSwitcher
-        selectedIndex={index}
-        onChange={handleChange}
-        size="sm"
-      >
-        <Switch name="en" text="🇬🇧  EN" />
-        <Switch name="ko" text="🇰🇷  한국어" />
-      </ContentSwitcher>
+      <div className="flex gap-1">
+        {LANGS.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => handleChange(value)}
+            className={[
+              'flex-1 px-2 py-1 text-[0.8125rem] rounded-sm border cursor-pointer transition-all duration-100',
+              current === value
+                ? 'border-primary bg-primary/15 text-primary'
+                : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

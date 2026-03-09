@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { t, tPos, tInjury, type Locale } from '@/lib/i18n';
-import { SEV_TAG, SEV_KEY, ROLE_KEY, CTX_KEY } from '@/lib/constants';
+import { SEV_KEY, ROLE_KEY, CTX_KEY, SEV_TAG } from '@/lib/constants';
 import { isDisciplinaryReason, fmtDate, daysAgo, timeAgo } from '@/lib/format';
 import type { InjuredPlayer } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface InjuredPlayerCardProps {
   ip: InjuredPlayer;
@@ -33,214 +36,140 @@ export function InjuredPlayerCard({
     (ip.injuryContext.type === 'pre_season_absence' ||
       ip.injuryContext.type === 'extended_absence');
 
-  // ── Style values by variant × severity ─────────────────────────────────────
-  const photoSize = isTeam ? (isHigh ? '2.25rem' : '1.75rem') : isHigh ? '1.75rem' : '1.5rem';
-  const nameFontSize = isTeam ? '0.875rem' : '0.8125rem';
-  const nameFontWeight = isHigh ? 600 : 500;
-  const tagGap = isTeam ? '0.5rem' : '0.375rem';
-  const infoFontSize = isTeam ? '0.75rem' : '0.6875rem';
-  const statsFontSize = isTeam
-    ? isHigh
-      ? '0.6875rem'
-      : '0.625rem'
-    : isHigh
-    ? '0.625rem'
-    : '0.5625rem';
-  const statsGap = isTeam ? (isHigh ? '0.875rem' : '0.625rem') : isHigh ? '0.75rem' : '0.5rem';
-  const containerPadding = isHigh
-    ? isTeam
-      ? '0.875rem 1rem'
-      : '0.75rem 1rem'
-    : '0.625rem 1rem';
+  const recovers = ip.recoverySignal && ip.recoverySignal.confidenceLevel >= 0.5;
+  const recoverHigh = recovers && ip.recoverySignal!.predictedAvailability >= 0.7;
 
-  // Stats row — team+high shows minutes, others don't
+  // ── Start/Sub labels ──────────────────────────────────────────────────────
+  const startLabel = isTeam && !isHigh ? (locale === 'ko' ? '선발' : 'S') : (locale === 'ko' ? '선발 ' : 'Start ');
+  const subLabel   = isTeam && !isHigh ? (locale === 'ko' ? '교체' : 'Sub') : (locale === 'ko' ? '교체 ' : 'Sub ');
   const showMinutes = isTeam && isHigh;
-  // Start label — team+high shows "Start", team+other shows "S", fixture shows "Start"
-  const startLabel = isTeam && !isHigh
-    ? locale === 'ko' ? '선발' : 'S'
-    : locale === 'ko' ? '선발 ' : 'Start ';
-  const subLabel = locale === 'ko' ? (isTeam && !isHigh ? '교체' : '교체 ') : (isTeam && !isHigh ? 'Sub' : 'Sub ');
 
-  // ── Tags row (shared across all variants) ──────────────────────────────────
+  // ── Avatar sizes ──────────────────────────────────────────────────────────
+  const avatarSize: 'sm' | 'default' | 'lg' =
+    isTeam && isHigh ? 'lg' : isTeam && !isHigh ? 'default' : isHigh ? 'default' : 'sm';
+
+  // ── Shared sub-elements ───────────────────────────────────────────────────
+  const photo = (
+    <Avatar size={avatarSize}>
+      {ip.player.photo && <AvatarImage src={ip.player.photo} alt="" />}
+      <AvatarFallback>{ip.player.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+    </Avatar>
+  );
+
   const tagsRow = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: tagGap,
-        flexWrap: 'wrap',
-      }}
-    >
+    <div className="flex items-center gap-1.5 flex-wrap">
       <Link
         href={`/player/${ip.player.id}${playerLinkSuffix}`}
-        style={{
-          textDecoration: 'none',
-          fontSize: nameFontSize,
-          fontWeight: nameFontWeight,
-          color: 'var(--cds-text-primary, #f4f4f4)',
-        }}
+        className={cn(
+          'no-underline text-foreground hover:text-primary transition-colors',
+          isHigh ? 'text-sm font-semibold' : 'text-[0.8125rem] font-medium'
+        )}
       >
         {ip.player.name}
       </Link>
-      <span className={`sc-tag ${SEV_TAG[ip.severity]}`}>
+
+      <Badge variant={SEV_TAG[ip.severity] ?? 'low'}>
         {t(locale, SEV_KEY[ip.severity] ?? 'severity_low')}
-      </span>
+      </Badge>
+
       {isHigh && (
-        <span className="sc-tag sc-tag--blue">
+        <Badge variant="info">
           {t(locale, ROLE_KEY[ip.starterProfile.role] ?? 'role_bench')}
-        </span>
+        </Badge>
       )}
+
       {disciplinary && (
-        <span className="sc-tag sc-tag--orange">
-          {locale === 'ko' ? '출전 정지' : 'Suspended'}
-        </span>
+        <Badge variant="high">{locale === 'ko' ? '출전 정지' : 'Suspended'}</Badge>
       )}
+
       {!isHigh && isLongTerm && !disciplinary && (
-        <span className="sc-tag sc-tag--gray">
+        <Badge variant="low">
           {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
-        </span>
+        </Badge>
       )}
+
       {!isHigh && triggerDays <= 7 && !disciplinary && !isLongTerm && (
-        <span className="sc-tag sc-tag--blue">{t(locale, 'new_badge')}</span>
+        <Badge variant="info">{t(locale, 'new_badge')}</Badge>
       )}
-      {ip.recoverySignal && ip.recoverySignal.confidenceLevel >= 0.5 && (
-        <span
-          className="sc-tag"
-          title={`${locale === 'ko' ? '복귀 신호' : 'Return signal'}: ${Math.round(ip.recoverySignal.predictedAvailability * 100)}% ${locale === 'ko' ? '가용성' : 'availability'}${ip.recoverySignal.latestSignalStage ? ` (${ip.recoverySignal.latestSignalStage.replace(/_/g, ' ')})` : ''}`}
-          style={{
-            background: ip.recoverySignal.predictedAvailability >= 0.7
-              ? 'rgba(36,161,72,0.18)'
-              : 'rgba(214,158,46,0.18)',
-            color: ip.recoverySignal.predictedAvailability >= 0.7
-              ? '#42be65'
-              : '#f1c21b',
-            border: `1px solid ${ip.recoverySignal.predictedAvailability >= 0.7 ? 'rgba(66,190,101,0.35)' : 'rgba(241,194,27,0.35)'}`,
-          }}
+
+      {recovers && (
+        <Badge
+          variant={recoverHigh ? 'success' : 'moderate'}
+          title={`${locale === 'ko' ? '복귀 신호' : 'Return signal'}: ${Math.round(ip.recoverySignal!.predictedAvailability * 100)}% ${locale === 'ko' ? '가용성' : 'availability'}${ip.recoverySignal!.latestSignalStage ? ` (${ip.recoverySignal!.latestSignalStage.replace(/_/g, ' ')})` : ''}`}
         >
-          {ip.recoverySignal.predictedAvailability >= 0.7
+          {recoverHigh
             ? (locale === 'ko' ? '복귀 임박' : 'Return signal')
             : (locale === 'ko' ? '복귀 중' : 'In recovery')}
-          {' '}{Math.round(ip.recoverySignal.predictedAvailability * 100)}%
-          {ip.recoverySignal.lastSignalAt && (
-            <span style={{ opacity: 0.65, marginLeft: '0.25rem' }}>
-              · {timeAgo(ip.recoverySignal.lastSignalAt, locale)}
-            </span>
+          {' '}{Math.round(ip.recoverySignal!.predictedAvailability * 100)}%
+          {ip.recoverySignal!.lastSignalAt && (
+            <span className="opacity-65 ml-1">· {timeAgo(ip.recoverySignal!.lastSignalAt, locale)}</span>
           )}
-        </span>
+        </Badge>
       )}
     </div>
   );
 
-  // ── Stats row (shared across all variants) ─────────────────────────────────
   const statsRow = (
-    <div style={{ display: 'flex', gap: statsGap, marginTop: isHigh ? '0.25rem' : '0.1875rem' }}>
-      <span
-        style={{
-          fontSize: statsFontSize,
-          color: 'var(--cds-text-secondary, #c6c6c6)',
-          fontFamily: 'var(--font-plex-mono, monospace)',
-        }}
-      >
-        <span style={{ color: 'var(--cds-text-helper, #8d8d8d)' }}>{startLabel}</span>
-        {ip.starterProfile.starterCount}
+    <div className={cn('flex mt-1 font-mono', isHigh ? 'gap-3.5' : 'gap-2.5', isTeam ? 'text-[0.6875rem]' : 'text-[0.625rem]')}>
+      <span className="text-foreground/80">
+        <span className="text-muted-foreground">{startLabel}</span>{ip.starterProfile.starterCount}
       </span>
-      <span
-        style={{
-          fontSize: statsFontSize,
-          color: 'var(--cds-text-secondary, #c6c6c6)',
-          fontFamily: 'var(--font-plex-mono, monospace)',
-        }}
-      >
-        <span style={{ color: 'var(--cds-text-helper, #8d8d8d)' }}>{subLabel}</span>
-        {ip.starterProfile.substituteCount}
+      <span className="text-foreground/80">
+        <span className="text-muted-foreground">{subLabel}</span>{ip.starterProfile.substituteCount}
       </span>
       {ip.stats?.goals != null && (
-        <span
-          style={{
-            fontSize: statsFontSize,
-            color: 'var(--cds-text-secondary, #c6c6c6)',
-            fontFamily: 'var(--font-plex-mono, monospace)',
-          }}
-        >
-          <span style={{ color: 'var(--cds-text-helper, #8d8d8d)' }}>{t(locale, 'goals')} </span>
-          {ip.stats.goals}
+        <span className="text-foreground/80">
+          <span className="text-muted-foreground">{t(locale, 'goals')} </span>{ip.stats.goals}
         </span>
       )}
       {ip.stats?.assists != null && (
-        <span
-          style={{
-            fontSize: statsFontSize,
-            color: 'var(--cds-text-secondary, #c6c6c6)',
-            fontFamily: 'var(--font-plex-mono, monospace)',
-          }}
-        >
-          <span style={{ color: 'var(--cds-text-helper, #8d8d8d)' }}>{t(locale, 'assists')} </span>
-          {ip.stats.assists}
+        <span className="text-foreground/80">
+          <span className="text-muted-foreground">{t(locale, 'assists')} </span>{ip.stats.assists}
         </span>
       )}
       {showMinutes && ip.stats?.minutes != null && (
-        <span
-          style={{
-            fontSize: statsFontSize,
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            fontFamily: 'var(--font-plex-mono, monospace)',
-          }}
-        >
+        <span className="text-muted-foreground">
           {ip.stats.minutes}{locale === 'ko' ? '분' : 'min'}
         </span>
       )}
     </div>
   );
 
-  // ── Photo element ──────────────────────────────────────────────────────────
-  const photo = ip.player.photo ? (
-    <img
-      src={ip.player.photo}
-      alt=""
-      style={{
-        width: photoSize,
-        height: photoSize,
-        borderRadius: '50%',
-        objectFit: 'cover',
-        flexShrink: 0,
-      }}
-    />
-  ) : null;
+  const infoLine = (full: boolean) => (
+    <div className={cn('text-muted-foreground mt-0.5', isTeam ? 'text-xs' : 'text-[0.6875rem]')}>
+      {tPos(locale, ip.player.position)}
+      {full && <>
+        {' · '}{tInjury(locale, ip.injury.reason)}{' · '}{fmtDate(triggerDate)}
+        <span className="ml-1.5 text-[var(--sc-orange)]">{t(locale, 'days_ago', { n: triggerDays })}</span>
+      </>}
+    </div>
+  );
+
+  const cardCls = cn(
+    'bg-card border-b border-border',
+    isHigh ? (isTeam ? 'px-4 py-3.5' : 'px-4 py-3') : 'px-4 py-2.5'
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TEAM + HIGH: flex row with right-side context/winRate panel
+  // TEAM + HIGH
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTeam && isHigh) {
     return (
-      <div
-        style={{
-          background: 'var(--cds-layer-01, #262626)',
-          padding: containerPadding,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className={cn(cardCls, 'flex items-center justify-between')}>
+        <div className="flex items-center gap-3">
           {photo}
           <div>
             {tagsRow}
-            <div style={{ fontSize: infoFontSize, color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '0.25rem' }}>
-              {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)} · {fmtDate(triggerDate)}
-              <span style={{ marginLeft: '0.5rem', color: 'var(--sc-orange)' }}>
-                {t(locale, 'days_ago', { n: triggerDays })}
-              </span>
-            </div>
+            {infoLine(true)}
             {statsRow}
           </div>
         </div>
-        {/* Right panel: context + win rate */}
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '1rem' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+        <div className="text-right shrink-0 ml-4">
+          <div className="text-xs text-muted-foreground">
             {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           </div>
           {ip.winRateBoost > 0 && (
-            <div style={{ fontSize: '0.6875rem', color: 'var(--sc-red)', marginTop: '2px' }}>
+            <div className="text-[0.6875rem] text-[var(--sc-red)] mt-0.5">
               {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
             </div>
           )}
@@ -250,40 +179,27 @@ export function InjuredPlayerCard({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TEAM + OTHER: flex row with right-side injury reason/date panel
+  // TEAM + OTHER
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTeam && !isHigh) {
     return (
-      <div
-        style={{
-          background: 'var(--cds-layer-01, #262626)',
-          padding: containerPadding,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+      <div className={cn(cardCls, 'flex items-center justify-between')}>
+        <div className="flex items-center gap-2.5">
           {photo}
           <div>
             {tagsRow}
-            <div style={{ fontSize: infoFontSize, color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '2px' }}>
+            <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
               {tPos(locale, ip.player.position)} · {t(locale, ROLE_KEY[ip.starterProfile.role] ?? 'role_bench')}
             </div>
             {statsRow}
           </div>
         </div>
-        {/* Right panel: injury reason + date */}
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>
-            {tInjury(locale, ip.injury.reason)}
-          </div>
-          <div style={{ fontSize: '0.6875rem', color: 'var(--cds-text-helper, #8d8d8d)', marginTop: '2px' }}>
+        <div className="text-right shrink-0">
+          <div className="text-xs text-foreground/80">{tInjury(locale, ip.injury.reason)}</div>
+          <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
             {ip.starterProfile.lastStartFixtureDate
               ? fmtDate(triggerDate)
-              : locale === 'ko'
-              ? '시즌 내내 결장'
-              : 'Out all season'}
+              : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
           </div>
         </div>
       </div>
@@ -291,53 +207,21 @@ export function InjuredPlayerCard({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FIXTURE + HIGH: vertical stack, photo+tags row → info → stats → context
+  // FIXTURE + HIGH
   // ═══════════════════════════════════════════════════════════════════════════
   if (!isTeam && isHigh) {
     return (
-      <div
-        style={{
-          background: 'var(--cds-layer-01, #262626)',
-          padding: containerPadding,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.625rem',
-            marginBottom: '0.25rem',
-          }}
-        >
+      <div className={cardCls}>
+        <div className="flex items-center gap-2.5 mb-1">
           {photo}
-          <div style={{ minWidth: 0 }}>
-            {tagsRow}
-          </div>
+          <div className="min-w-0">{tagsRow}</div>
         </div>
-        <div
-          style={{
-            fontSize: infoFontSize,
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            marginTop: '0.125rem',
-          }}
-        >
-          {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)} · {fmtDate(triggerDate)}
-          <span style={{ marginLeft: '0.375rem', color: 'var(--sc-orange)' }}>
-            {t(locale, 'days_ago', { n: triggerDays })}
-          </span>
-        </div>
+        {infoLine(true)}
         {statsRow}
-        {/* Context + win rate below stats, indented under photo */}
-        <div
-          style={{
-            fontSize: '0.6875rem',
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            paddingLeft: ip.player.photo ? '2.375rem' : 0,
-          }}
-        >
+        <div className={cn('text-[0.6875rem] text-muted-foreground mt-0.5', ip.player.photo ? 'pl-9' : '')}>
           {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           {ip.winRateBoost > 0 && (
-            <span style={{ marginLeft: '0.5rem', color: 'var(--sc-red)' }}>
+            <span className="ml-2 text-[var(--sc-red)]">
               {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
             </span>
           )}
@@ -347,34 +231,18 @@ export function InjuredPlayerCard({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FIXTURE + OTHER: single flex row, no right panel
+  // FIXTURE + OTHER
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div
-      style={{
-        background: 'var(--cds-layer-01, #262626)',
-        padding: containerPadding,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-      }}
-    >
+    <div className={cn(cardCls, 'flex items-center gap-2')}>
       {photo}
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <div className="min-w-0 flex-1">
         {tagsRow}
-        <div
-          style={{
-            fontSize: infoFontSize,
-            color: 'var(--cds-text-helper, #8d8d8d)',
-            marginTop: '0.125rem',
-          }}
-        >
+        <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
           {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)} ·{' '}
           {ip.starterProfile.lastStartFixtureDate
             ? fmtDate(triggerDate)
-            : locale === 'ko'
-            ? '시즌 내내 결장'
-            : 'Out all season'}
+            : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
         </div>
         {statsRow}
       </div>

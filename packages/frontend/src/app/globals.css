@@ -1,169 +1,11 @@
-/* ============================================================
-   1. Carbon Design System — full styles (tokens + components)
-   NOTE: Carbon's styles.css compiles with WHITE theme as :root default.
-         We override vars below per theme via data-carbon-theme attribute.
-   ============================================================ */
-@import '@carbon/styles/css/styles.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   2. Tailwind — utilities only (preflight disabled in config)
-   ============================================================ */
-@tailwind components;
-@tailwind utilities;
-
-/* ============================================================
-   3. Theme tokens
-   Light (white) = reinforce Carbon defaults + our --sc-* semantic vars
-   Dark  (g100)  = override ALL Carbon --cds-* vars + --sc-* semantic vars
-   ============================================================ */
-
-:root,
-[data-carbon-theme="white"] {
-  /* Surface */
-  --cds-background:                  #ffffff;
-  --cds-background-hover:            rgba(141,141,141,0.12);
-  --cds-background-active:           rgba(141,141,141,0.50);
-  --cds-background-selected:         rgba(141,141,141,0.20);
-  --cds-background-inverse:          #393939;
-  /* Layers */
-  --cds-layer-01:                    #f4f4f4;
-  --cds-layer-02:                    #e0e0e0;
-  --cds-layer-03:                    #d1d1d1;
-  --cds-layer-accent-01:             #e0e0e0;
-  --cds-layer-hover-01:              #e8e8e8;
-  --cds-layer-hover-02:              #d1d1d1;
-  --cds-layer-selected-01:           #e0e0e0;
-  --cds-layer-selected-hover-01:     #d1d1d1;
-  --cds-layer-selected-inverse:      #161616;
-  /* Borders */
-  --cds-border-subtle-00:            #e0e0e0;
-  --cds-border-subtle-01:            #c6c6c6;
-  --cds-border-strong-01:            #8d8d8d;
-  --cds-border-interactive:          #0f62fe;
-  --cds-border-inverse:              #161616;
-  /* Text */
-  --cds-text-primary:                #161616;
-  --cds-text-secondary:              #525252;
-  --cds-text-helper:                 #6f6f6f;
-  --cds-text-placeholder:            #a8a8a8;
-  --cds-text-error:                  #da1e28;
-  --cds-text-inverse:                #ffffff;
-  --cds-text-on-color:               #ffffff;
-  /* Links */
-  --cds-link-primary:                #0f62fe;
-  --cds-link-primary-hover:          #0043ce;
-  --cds-link-visited:                #8a3ffc;
-  /* Interactive */
-  --cds-interactive:                 #0f62fe;
-  --cds-focus:                       #0f62fe;
-  --cds-focus-inset:                 #ffffff;
-  /* ContentSwitcher component tokens */
-  --cds-content-switcher-background:       #e0e0e0;
-  --cds-content-switcher-background-hover: #d1d1d1;
-  --cds-content-switcher-selected:         #ffffff;
-  /* Icons */
-  --cds-icon-primary:                #161616;
-  --cds-icon-secondary:              #525252;
-  --cds-icon-inverse:                #ffffff;
-  /* Buttons */
-  --cds-button-primary:              #0f62fe;
-  --cds-button-secondary:            #6f6f6f;
-  --cds-button-tertiary:             #0f62fe;
-  --cds-button-disabled:             rgba(141,141,141,0.30);
-  /* Support/Status */
-  --cds-support-error:               #da1e28;
-  --cds-support-success:             #198038;
-  --cds-support-warning:             #f1c21b;
-  --cds-support-info:                #0043ce;
-  --cds-support-caution-major:       #bc4b01;
-  /* Misc */
-  --cds-overlay:                     rgba(22,22,22,0.50);
-  --cds-shadow:                      rgba(0,0,0,0.30);
-  --cds-skeleton-background:         #e8e8e8;
-  --cds-skeleton-element:            #c6c6c6;
-  /* SquadCheck semantic colors */
-  --sc-green:   #198038;
-  --sc-red:     #da1e28;
-  --sc-yellow:  #8a6a00;
-  --sc-orange:  #c45500;
-  --sc-blue:    #0043ce;
-  --sc-gray:    #525252;
-}
-
-[data-carbon-theme="g100"] {
-  /* Surface */
-  --cds-background:                  #161616;
-  --cds-background-hover:            rgba(141,141,141,0.16);
-  --cds-background-active:           rgba(141,141,141,0.40);
-  --cds-background-selected:         rgba(141,141,141,0.24);
-  --cds-background-inverse:          #f4f4f4;
-  /* Layers */
-  --cds-layer-01:                    #262626;
-  --cds-layer-02:                    #393939;
-  --cds-layer-03:                    #525252;
-  --cds-layer-accent-01:             #353535;
-  --cds-layer-hover-01:              #333333;
-  --cds-layer-hover-02:              #474747;
-  --cds-layer-selected-01:           #393939;
-  --cds-layer-selected-hover-01:     #474747;
-  --cds-layer-selected-inverse:      #f4f4f4;
-  /* Borders */
-  --cds-border-subtle-00:            #393939;
-  --cds-border-subtle-01:            #393939;
-  --cds-border-strong-01:            #6f6f6f;
-  --cds-border-interactive:          #4589ff;
-  --cds-border-inverse:              #f4f4f4;
-  /* Text */
-  --cds-text-primary:                #f4f4f4;
-  --cds-text-secondary:              #c6c6c6;
-  --cds-text-helper:                 #8d8d8d;
-  --cds-text-placeholder:            #6f6f6f;
-  --cds-text-error:                  #ff8389;
-  --cds-text-inverse:                #161616;
-  --cds-text-on-color:               #ffffff;
-  /* Links */
-  --cds-link-primary:                #78a9ff;
-  --cds-link-primary-hover:          #a6c8ff;
-  --cds-link-visited:                #be95ff;
-  /* Interactive */
-  --cds-interactive:                 #4589ff;
-  --cds-focus:                       #ffffff;
-  --cds-focus-inset:                 #161616;
-  /* ContentSwitcher component tokens */
-  --cds-content-switcher-background:       rgba(0,0,0,0);
-  --cds-content-switcher-background-hover: rgba(141,141,141,0.12);
-  --cds-content-switcher-selected:         rgba(141,141,141,0.24);
-  /* Icons */
-  --cds-icon-primary:                #f4f4f4;
-  --cds-icon-secondary:              #c6c6c6;
-  --cds-icon-inverse:                #161616;
-  /* Buttons */
-  --cds-button-primary:              #0f62fe;
-  --cds-button-secondary:            #6f6f6f;
-  --cds-button-tertiary:             #ffffff;
-  --cds-button-disabled:             rgba(141,141,141,0.30);
-  /* Support/Status */
-  --cds-support-error:               #fa4d56;
-  --cds-support-success:             #42be65;
-  --cds-support-warning:             #f1c21b;
-  --cds-support-info:                #4589ff;
-  --cds-support-caution-major:       #ff832b;
-  /* Misc */
-  --cds-overlay:                     rgba(0,0,0,0.65);
-  --cds-shadow:                      rgba(0,0,0,0.80);
-  --cds-skeleton-background:         #292929;
-  --cds-skeleton-element:            #393939;
-  /* SquadCheck semantic colors */
-  --sc-green:   #42be65;
-  --sc-red:     #ff8389;
-  --sc-yellow:  #f1c21b;
-  --sc-orange:  #ff832b;
-  --sc-blue:    #78a9ff;
-  --sc-gray:    #a8a8a8;
-}
-
-/* ============================================================
-   4. App-level base
+   1. App-level base
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -171,20 +13,167 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: var(--cds-background);
-  color: var(--cds-text-primary);
-  font-family: var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* ============================================================
-   5. SquadCheck utility classes
+   2. Design tokens
+   ============================================================ */
+:root {
+  /* SquadCheck severity colors */
+  --sc-green:  #42be65;
+  --sc-red:    #ff8389;
+  --sc-yellow: #f1c21b;
+  --sc-orange: #ff832b;
+  --sc-blue:   #3b82f6;
+  --sc-gray:   #a8a8a8;
+
+  /* Light mode — shadcn tokens */
+  --background:         #f8fafc;
+  --foreground:         #0f172a;
+  --card:               #ffffff;
+  --card-foreground:    #0f172a;
+  --popover:            #ffffff;
+  --popover-foreground: #0f172a;
+  --primary:            #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary:          #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted:              #f1f5f9;
+  --muted-foreground:   #64748b;
+  --accent:             #f1f5f9;
+  --accent-foreground:  #0f172a;
+  --destructive:        #ef4444;
+  --border:             #e2e8f0;
+  --input:              #e2e8f0;
+  --ring:               #93c5fd;
+  --radius:             0.625rem;
+  --chart-1: #3b82f6;
+  --chart-2: #60a5fa;
+  --chart-3: #93c5fd;
+  --chart-4: #1d4ed8;
+  --chart-5: #1e40af;
+  --sidebar:                      #f8fafc;
+  --sidebar-foreground:           #0f172a;
+  --sidebar-primary:              #2563eb;
+  --sidebar-primary-foreground:   #ffffff;
+  --sidebar-accent:               #f1f5f9;
+  --sidebar-accent-foreground:    #0f172a;
+  --sidebar-border:               #e2e8f0;
+  --sidebar-ring:                 #93c5fd;
+}
+
+.dark {
+  /* Dark mode — Premium Dark Analytics (Bloomberg × ESPN+) */
+  --background:         #0a0e17;
+  --foreground:         #f1f5f9;
+  --card:               #111827;
+  --card-foreground:    #f1f5f9;
+  --popover:            #111827;
+  --popover-foreground: #f1f5f9;
+  --primary:            #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary:          #1e293b;
+  --secondary-foreground: #f1f5f9;
+  --muted:              #1e293b;
+  --muted-foreground:   #64748b;
+  --accent:             #1e293b;
+  --accent-foreground:  #f1f5f9;
+  --destructive:        #ff8389;
+  --border:             #1e293b;
+  --input:              rgba(255, 255, 255, 0.1);
+  --ring:               #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #60a5fa;
+  --chart-3: #93c5fd;
+  --chart-4: #1d4ed8;
+  --chart-5: #1e40af;
+  --sidebar:                      #0d1117;
+  --sidebar-foreground:           #f1f5f9;
+  --sidebar-primary:              #3b82f6;
+  --sidebar-primary-foreground:   #ffffff;
+  --sidebar-accent:               #1e293b;
+  --sidebar-accent-foreground:    #f1f5f9;
+  --sidebar-border:               #1e293b;
+  --sidebar-ring:                 #3b82f6;
+}
+
+/* ============================================================
+   3. Tailwind theme mapping
+   ============================================================ */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Severity / status */
+  --color-severity-critical: var(--sc-red);
+  --color-severity-high:     var(--sc-orange);
+  --color-severity-moderate: var(--sc-yellow);
+  --color-severity-low:      var(--sc-gray);
+  --color-success:           var(--sc-green);
+
+  /* shadcn design tokens */
+  --color-background:         var(--background);
+  --color-foreground:         var(--foreground);
+  --color-card:               var(--card);
+  --color-card-foreground:    var(--card-foreground);
+  --color-popover:            var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:          var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:              var(--muted);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-accent:             var(--accent);
+  --color-accent-foreground:  var(--accent-foreground);
+  --color-destructive:        var(--destructive);
+  --color-border:             var(--border);
+  --color-input:              var(--input);
+  --color-ring:               var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar:                    var(--sidebar);
+  --color-sidebar-foreground:         var(--sidebar-foreground);
+  --color-sidebar-primary:            var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:             var(--sidebar-accent);
+  --color-sidebar-accent-foreground:  var(--sidebar-accent-foreground);
+  --color-sidebar-border:             var(--sidebar-border);
+  --color-sidebar-ring:               var(--sidebar-ring);
+
+  --radius-sm:  calc(var(--radius) * 0.6);
+  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ============================================================
+   4. Legacy sc-* utilities (removed progressively as components
+      are rewritten to Tailwind in Steps 2–4)
    ============================================================ */
 
 .sc-tile {
-  background-color: var(--cds-layer-01);
-  border: 1px solid var(--cds-border-subtle-01);
+  background-color: var(--card);
+  border: 1px solid var(--border);
   padding: 1rem;
 }
 
@@ -193,14 +182,14 @@ html, body {
   font-weight: 600;
   letter-spacing: 0.32px;
   text-transform: uppercase;
-  color: var(--cds-text-helper);
+  color: var(--muted-foreground);
 }
 
 .sc-mono {
-  font-family: var(--font-plex-mono), 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono), 'IBM Plex Mono', Menlo, monospace;
 }
 
-/* Tags — use CSS vars so they adapt to both themes */
+/* Tags */
 .sc-tag {
   display: inline-flex;
   align-items: center;
@@ -211,6 +200,7 @@ html, body {
   height: 1.25rem;
   line-height: 1.25rem;
   white-space: nowrap;
+  border-radius: calc(var(--radius) * 0.5);
 }
 .sc-tag--red    { background: color-mix(in srgb, var(--sc-red)    18%, transparent); color: var(--sc-red); }
 .sc-tag--orange { background: color-mix(in srgb, var(--sc-orange) 18%, transparent); color: var(--sc-orange); }
@@ -225,32 +215,21 @@ html, body {
 .sc-form-l { background: color-mix(in srgb, var(--sc-red)    22%, transparent); color: var(--sc-red);    font-size: 0.6875rem; font-weight: 700; }
 
 /* ============================================================
-   6. Carbon SideNav
-   ============================================================ */
-.cds--side-nav {
-  width: 16rem !important;
-  max-width: 16rem !important;
-  background-color: var(--cds-background) !important;
-}
-.cds--side-nav--expanded { width: 16rem !important; }
-.cds--side-nav__items { padding-top: 0 !important; }
-
-/* ============================================================
-   7. Hover utility classes (server components — no JS handlers)
+   5. Hover utilities
    ============================================================ */
 .sc-tile-hover {
-  background-color: var(--cds-layer-01);
+  background-color: var(--card);
   transition: background 0.1s;
   cursor: pointer;
 }
-.sc-tile-hover:hover { background-color: var(--cds-layer-hover-01); }
+.sc-tile-hover:hover { background-color: var(--accent); }
 
 .sc-row-hover { transition: background 0.1s; }
 .sc-row-hover:hover td,
-.sc-row-hover:hover { background-color: var(--cds-layer-hover-01) !important; }
+.sc-row-hover:hover { background-color: var(--accent) !important; }
 
 /* ============================================================
-   8. Theme toggle — sliding pill with icon-in-thumb
+   6. Theme toggle — sliding pill with icon-in-thumb
    ============================================================ */
 .sc-toggle-pill {
   position: relative;
@@ -264,7 +243,7 @@ html, body {
   transition: background 0.3s ease;
   outline: none;
 }
-.sc-toggle-pill:focus-visible { box-shadow: 0 0 0 2px var(--cds-focus); }
+.sc-toggle-pill:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
 .sc-toggle-pill--dark  { background: #252535; }
 .sc-toggle-pill--light { background: #b8cad8; }
 
@@ -295,35 +274,26 @@ html, body {
 .sc-toggle-icon--sun  { color: #f59e0b; filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.9)); }
 
 /* ============================================================
-   9. Carbon Content Switcher — language selector tweaks
-   ============================================================ */
-.cds--content-switcher { width: 100%; }
-.cds--content-switcher-btn { flex: 1; }
-
-/* ============================================================
-   10. Responsive layout
+   7. Responsive layout (replaced in Step 2-D by LayoutShell)
    ============================================================ */
 
-/* Sidebar sticky position (was inline style — moved here so media query can override) */
 aside[data-sidebar] {
   position: sticky;
   top: 0;
 }
 
-/* Close button inside sidebar — hidden on desktop */
 .sc-sidebar-close {
   display: none;
 }
 
-/* Mobile top bar — hidden on desktop */
 .sc-mobile-header {
   display: none;
   position: sticky;
   top: 0;
   z-index: 100;
   height: 3.5rem;
-  background: var(--cds-background, #161616);
-  border-bottom: 1px solid var(--cds-border-subtle-01, #393939);
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--sidebar-border);
   align-items: center;
   justify-content: space-between;
   padding: 0 1rem;
@@ -339,34 +309,31 @@ aside[data-sidebar] {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--cds-text-primary, #f4f4f4);
+  color: var(--foreground);
   border-radius: 4px;
   flex-shrink: 0;
   transition: background 0.1s;
 }
-.sc-hamburger:hover { background: var(--cds-layer-hover-01, #2e2e2e); }
+.sc-hamburger:hover { background: var(--accent); }
 
 .sc-mobile-brand {
   font-size: 1.125rem;
   letter-spacing: -0.5px;
 }
 
-/* Layout row */
 .sc-layout {
   display: flex;
   min-height: 100vh;
 }
 
-/* Main content area */
 .sc-main {
   flex: 1;
   overflow: auto;
-  background: var(--cds-background, #161616);
+  background: var(--background);
   padding: 2rem;
-  min-width: 0; /* prevent flex overflow */
+  min-width: 0;
 }
 
-/* Backdrop overlay (mobile sidebar open) */
 .sc-sidebar-backdrop {
   position: fixed;
   inset: 0;
@@ -374,8 +341,7 @@ aside[data-sidebar] {
   z-index: 150;
 }
 
-/* ── Responsive grid helpers ───────────────────────────────── */
-
+/* Responsive grid helpers */
 .sc-grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -392,29 +358,19 @@ aside[data-sidebar] {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: var(--cds-border-subtle-01, #393939);
+  background: var(--border);
   margin-bottom: 1.5rem;
 }
 
-/* Horizontal scroll wrapper for wide tables */
 .sc-table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Tablet / mobile: sidebar becomes a drawer (< 1024px) ── */
 @media (max-width: 1023px) {
-  .sc-mobile-header {
-    display: flex;
-  }
-
-  .sc-layout {
-    min-height: calc(100vh - 3.5rem);
-  }
-
-  .sc-main {
-    padding: 1.25rem;
-  }
+  .sc-mobile-header { display: flex; }
+  .sc-layout { min-height: calc(100vh - 3.5rem); }
+  .sc-main { padding: 1.25rem; }
 
   aside[data-sidebar] {
     position: fixed;
@@ -425,78 +381,86 @@ aside[data-sidebar] {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 200;
   }
-
-  aside[data-sidebar][data-mobile-open="true"] {
-    transform: translateX(0);
-  }
-
-  .sc-sidebar-close {
-    display: flex;
-  }
+  aside[data-sidebar][data-mobile-open="true"] { transform: translateX(0); }
+  .sc-sidebar-close { display: flex; }
 }
 
-/* ── Small mobile: single-column layouts (< 640px) ── */
 @media (max-width: 639px) {
-  .sc-main {
-    padding: 1rem;
-  }
-
-  .sc-grid-2col {
-    grid-template-columns: 1fr;
-  }
-
-  .sc-grid-3col {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-
-  .sc-grid-4col {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .sc-grid-injury-watch {
-    grid-template-columns: 1fr;
-  }
+  .sc-main { padding: 1rem; }
+  .sc-grid-2col { grid-template-columns: 1fr; }
+  .sc-grid-3col { grid-template-columns: 1fr; gap: 1.25rem; }
+  .sc-grid-4col { grid-template-columns: repeat(2, 1fr); }
+  .sc-grid-injury-watch { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
-   11. Home page layout
+   8. Home page layout
    ============================================================ */
 
-/* 3fr:2fr main grid (fixtures left, standings right) */
 .sc-grid-home-main {
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: 1rem;
 }
 
-/* Injury Watch 4-col card grid */
 .sc-grid-injury-watch {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
 
-/* League tab button (Standings + Injury Watch shared) */
 .sc-tab-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.375rem 0.625rem;
   font-size: 1rem;
-  border: 1px solid var(--cds-border-subtle-01, #393939);
-  background: var(--cds-layer-01, #262626);
-  color: var(--cds-text-primary, #f4f4f4);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s;
+  border-radius: var(--radius);
 }
-.sc-tab-btn:hover { background: var(--cds-layer-hover-01, #333333); }
+.sc-tab-btn:hover { background: var(--accent); }
 .sc-tab-btn--active {
-  border-color: var(--cds-interactive, #4589ff);
-  background: color-mix(in srgb, var(--cds-interactive, #4589ff) 12%, transparent);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 @media (max-width: 1023px) {
   .sc-grid-home-main    { grid-template-columns: 1fr; }
   .sc-grid-injury-watch { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   Motion & Polish (Step 5)
+   ============================================================ */
+
+/* Page load fade-in */
+@keyframes sc-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sc-page-enter {
+  animation: sc-fade-in 0.35s ease-out both;
+}
+
+/* Critical badge subtle pulse (gentler than Tailwind animate-pulse) */
+@keyframes sc-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+.sc-badge-critical {
+  animation: sc-badge-pulse 2.4s ease-in-out infinite;
+}
+
+/* Home hero radial float */
+@keyframes sc-hero-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.5;  transform: scale(1.08); }
+}
+.sc-hero-glow {
+  animation: sc-hero-glow 6s ease-in-out infinite;
+  pointer-events: none;
 }

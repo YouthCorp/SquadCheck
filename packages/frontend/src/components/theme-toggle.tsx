@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import type { Theme } from '@/lib/theme';
 
 const MoonIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="block">
     <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
   </svg>
 );
@@ -15,7 +15,7 @@ const SunIcon = () => (
     width="13" height="13" viewBox="0 0 24 24"
     fill="none" stroke="currentColor"
     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    style={{ display: 'block' }}
+    className="block"
   >
     <circle cx="12" cy="12" r="4.5" />
     <line x1="12" y1="1.5" x2="12" y2="4.5" />
@@ -35,33 +35,23 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const match = document.cookie.match(/(?:^|;\s*)theme=([^;]*)/);
-    setIsDark(match?.[1] !== 'white');
+    setIsDark(match?.[1] !== 'light');
   }, []);
 
   const toggle = () => {
-    const next: Theme = isDark ? 'white' : 'g100';
+    const next: Theme = isDark ? 'light' : 'dark';
     document.cookie = `theme=${next};path=/;max-age=31536000;SameSite=Lax`;
-    document.documentElement.setAttribute('data-carbon-theme', next);
-    setIsDark(!isDark);
+    document.documentElement.classList.toggle('dark', next === 'dark');
+    setIsDark(next === 'dark');
     router.refresh();
   };
 
   return (
-    <div style={{ padding: '0 1rem' }}>
-      <div
-        style={{
-          fontSize: '0.6875rem',
-          fontWeight: 600,
-          letterSpacing: '0.32px',
-          textTransform: 'uppercase',
-          color: 'var(--cds-text-helper)',
-          marginBottom: '0.5rem',
-        }}
-      >
+    <div className="px-4">
+      <div className="mb-1.5 text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
         Theme
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-        {/* Sliding pill — icon lives inside the thumb */}
+      <div className="flex items-center gap-2.5">
         <button
           onClick={toggle}
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -73,15 +63,7 @@ export function ThemeToggle() {
             </span>
           </span>
         </button>
-
-        {/* Mode label */}
-        <span
-          style={{
-            fontSize: '0.75rem',
-            color: 'var(--cds-text-secondary)',
-            transition: 'color 0.2s',
-          }}
-        >
+        <span className="text-xs text-muted-foreground transition-colors duration-200">
           {isDark ? 'Dark' : 'Light'}
         </span>
       </div>

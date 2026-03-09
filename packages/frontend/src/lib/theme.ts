@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 
-export type Theme = 'g100' | 'white';
+export type Theme = 'dark' | 'light';
 
 export function getTheme(): Theme {
   try {
     const val = cookies().get('theme')?.value;
-    return val === 'white' ? 'white' : 'g100';
+    return val === 'light' ? 'light' : 'dark';
   } catch {
-    return 'g100';
+    return 'dark';
   }
 }

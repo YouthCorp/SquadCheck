@@ -6,6 +6,8 @@ import { LEAGUE_NAMES, CURRENT_SEASON } from '@/lib/constants';
 import type { InjuryImpact, Standing } from '@/lib/types';
 import type { Metadata } from 'next';
 import { MatchupSelector } from './matchup-selector';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Matchup Analysis',
@@ -59,25 +61,10 @@ function getFormResult(f: FormFixture, teamId: number): 'W' | 'D' | 'L' {
   return 'D';
 }
 
-function FormPip({ result }: { result: 'W' | 'D' | 'L' }) {
-  const colors = { W: '#42be65', D: '#8d8d8d', L: '#fa4d56' };
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: '1.5rem', height: '1.5rem',
-      background: colors[result],
-      borderRadius: 1,
-      fontSize: '0.6875rem', fontWeight: 600, color: '#fff',
-    }}>
-      {result}
-    </span>
-  );
-}
-
-function powerLossColor(pct: number): string {
-  if (pct >= 20) return '#fa4d56';
-  if (pct >= 10) return '#f1c21b';
-  return '#42be65';
+function powerLossColorClass(pct: number): string {
+  if (pct >= 20) return 'text-[var(--sc-red)]';
+  if (pct >= 10) return 'text-[var(--sc-yellow)]';
+  return 'text-[var(--sc-green)]';
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────────
@@ -91,7 +78,6 @@ export default async function MatchupPage({
   const homeId = searchParams.home ? parseInt(searchParams.home) : null;
   const awayId = searchParams.away ? parseInt(searchParams.away) : null;
 
-  // Always fetch standings for team selector
   const LEAGUE_IDS = [39, 140, 135, 78, 61] as const;
   const standingResults = await Promise.all(
     LEAGUE_IDS.map((id) =>
@@ -99,7 +85,6 @@ export default async function MatchupPage({
     )
   );
 
-  // Build team list grouped by league
   const teamsByLeague: { leagueId: number; leagueName: string; teams: { id: number; name: string }[] }[] = [];
   LEAGUE_IDS.forEach((id, i) => {
     const standing = standingResults[i];
@@ -112,7 +97,6 @@ export default async function MatchupPage({
     }
   });
 
-  // If both teams selected, fetch matchup + injury data
   let matchup: MatchupData | null = null;
   let homeImpact: InjuryImpact | null = null;
   let awayImpact: InjuryImpact | null = null;
@@ -128,20 +112,14 @@ export default async function MatchupPage({
     awayImpact = ai;
   }
 
-  const tile: React.CSSProperties = {
-    background: 'var(--cds-layer-01, #262626)',
-    border: '1px solid var(--cds-border-subtle-01, #393939)',
-    padding: '1.25rem 1rem',
-  };
-
   return (
-    <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1rem' }}>
+    <div className="max-w-[72rem] mx-auto">
       {/* Page header */}
-      <div style={{ padding: '1.5rem 0 1rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', margin: '0 0 0.25rem' }}>
+      <div className="mb-6 pb-4 border-b border-border">
+        <h1 className="text-3xl font-light text-foreground m-0 mb-1">
           {t(locale, 'nav_matchup')}
         </h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--cds-text-helper, #8d8d8d)', margin: 0 }}>
+        <p className="text-sm text-muted-foreground m-0">
           {locale === 'ko'
             ? '두 팀의 부상 현황, 전력 손실, 폼, 맞대결 기록을 비교합니다'
             : 'Compare injury impact, Power Loss %, form and H2H record for any two teams'}
@@ -158,72 +136,63 @@ export default async function MatchupPage({
 
       {/* Comparison results */}
       {matchup && homeId && awayId && (
-        <div style={{ marginTop: '1.5rem' }}>
+        <div className="mt-6 flex flex-col gap-3">
           {/* VS header */}
-          <div style={{ ...tile, marginBottom: '1px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)' }}>
-                {matchup.homeTeam.name}
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cds-text-helper, #8d8d8d)' }}>
-                VS
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)' }}>
-                {matchup.awayTeam.name}
-              </div>
-            </div>
+          <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
+            <div className="text-2xl font-light text-foreground">{matchup.homeTeam.name}</div>
+            <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground text-center">VS</div>
+            <div className="text-2xl font-light text-foreground text-right">{matchup.awayTeam.name}</div>
           </div>
 
           {/* Injury Impact row */}
-          <div style={{ ...tile, marginBottom: '1px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', alignItems: 'start' }}>
-            {/* Home injury */}
+          <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-[1fr_auto_1fr] gap-4 items-start">
             <InjuryColumn impact={homeImpact} align="left" locale={locale} teamId={homeId} />
-
-            {/* Center label */}
-            <div style={{ paddingTop: '0.125rem', textAlign: 'center', minWidth: '7rem' }}>
-              <div className="sc-label">{locale === 'ko' ? '부상 현황' : 'Injury Status'}</div>
+            <div className="pt-0.5 text-center min-w-28">
+              <div className="text-[0.6875rem] font-semibold tracking-widest uppercase text-muted-foreground">
+                {locale === 'ko' ? '부상 현황' : 'Injury Status'}
+              </div>
             </div>
-
-            {/* Away injury */}
             <InjuryColumn impact={awayImpact} align="right" locale={locale} teamId={awayId} />
           </div>
 
           {/* Season stats row */}
           {(matchup.homeTeam.seasonStats || matchup.awayTeam.seasonStats) && (
-            <div style={{ ...tile, marginBottom: '1px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', alignItems: 'start' }}>
+            <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-[1fr_auto_1fr] gap-4 items-start">
               <StatsColumn stats={matchup.homeTeam.seasonStats} align="left" locale={locale} />
-              <div style={{ paddingTop: '0.125rem', textAlign: 'center', minWidth: '7rem' }}>
-                <div className="sc-label">{locale === 'ko' ? '시즌 기록' : 'Season Record'}</div>
+              <div className="pt-0.5 text-center min-w-28">
+                <div className="text-[0.6875rem] font-semibold tracking-widest uppercase text-muted-foreground">
+                  {locale === 'ko' ? '시즌 기록' : 'Season Record'}
+                </div>
               </div>
               <StatsColumn stats={matchup.awayTeam.seasonStats} align="right" locale={locale} />
             </div>
           )}
 
           {/* Form row */}
-          <div style={{ ...tile, marginBottom: '1px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              {matchup.homeForm.map((f, i) => (
-                <FormPip key={i} result={getFormResult(f, homeId)} />
-              ))}
+          <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
+            <div className="flex gap-1">
+              {matchup.homeForm.map((f, i) => {
+                const r = getFormResult(f, homeId);
+                return <Badge key={i} variant={r === 'W' ? 'win' : r === 'D' ? 'draw' : 'loss'} className="w-6 h-6 p-0 text-[0.625rem] flex items-center justify-center">{r}</Badge>;
+              })}
             </div>
-            <div style={{ textAlign: 'center', minWidth: '7rem' }}>
-              <div className="sc-label">{locale === 'ko' ? '최근 폼 (5경기)' : 'Form (last 5)'}</div>
+            <div className="text-center min-w-28">
+              <div className="text-[0.6875rem] font-semibold tracking-widest uppercase text-muted-foreground">
+                {locale === 'ko' ? '최근 폼 (5경기)' : 'Form (last 5)'}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
-              {matchup.awayForm.map((f, i) => (
-                <FormPip key={i} result={getFormResult(f, awayId)} />
-              ))}
+            <div className="flex gap-1 justify-end">
+              {matchup.awayForm.map((f, i) => {
+                const r = getFormResult(f, awayId);
+                return <Badge key={i} variant={r === 'W' ? 'win' : r === 'D' ? 'draw' : 'loss'} className="w-6 h-6 p-0 text-[0.625rem] flex items-center justify-center">{r}</Badge>;
+              })}
             </div>
           </div>
 
           {/* H2H row */}
           {matchup.h2h.length > 0 && (
-            <div style={{ ...tile, marginBottom: '1px' }}>
-              <div className="sc-label" style={{ marginBottom: '0.75rem' }}>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="text-[0.6875rem] font-semibold tracking-widest uppercase text-muted-foreground mb-3">
                 {locale === 'ko' ? '맞대결 기록 (최근 10경기)' : 'Head to Head (last 10)'}
               </div>
               <H2HTable h2h={matchup.h2h} homeId={homeId} awayId={awayId} />
@@ -231,19 +200,17 @@ export default async function MatchupPage({
           )}
 
           {/* Quick links */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-            <Link href={`/team/${homeId}`} style={{
-              padding: '0.5rem 1rem', background: 'var(--cds-layer-01, #262626)',
-              border: '1px solid var(--cds-border-subtle-01, #393939)',
-              color: 'var(--cds-text-secondary, #c6c6c6)', fontSize: '0.8125rem', textDecoration: 'none',
-            }}>
+          <div className="flex gap-2 flex-wrap">
+            <Link
+              href={`/team/${homeId}`}
+              className="px-4 py-2 bg-card border border-border rounded text-sm text-foreground/70 no-underline hover:text-foreground hover:bg-accent transition-colors"
+            >
               {matchup.homeTeam.name} {locale === 'ko' ? '부상 리포트 →' : 'Injury Report →'}
             </Link>
-            <Link href={`/team/${awayId}`} style={{
-              padding: '0.5rem 1rem', background: 'var(--cds-layer-01, #262626)',
-              border: '1px solid var(--cds-border-subtle-01, #393939)',
-              color: 'var(--cds-text-secondary, #c6c6c6)', fontSize: '0.8125rem', textDecoration: 'none',
-            }}>
+            <Link
+              href={`/team/${awayId}`}
+              className="px-4 py-2 bg-card border border-border rounded text-sm text-foreground/70 no-underline hover:text-foreground hover:bg-accent transition-colors"
+            >
               {matchup.awayTeam.name} {locale === 'ko' ? '부상 리포트 →' : 'Injury Report →'}
             </Link>
           </div>
@@ -252,14 +219,7 @@ export default async function MatchupPage({
 
       {/* Prompt to select teams */}
       {(!homeId || !awayId) && (
-        <div style={{
-          marginTop: '1.5rem',
-          padding: '3rem 1.5rem', textAlign: 'center',
-          background: 'var(--cds-layer-01, #262626)',
-          border: '1px solid var(--cds-border-subtle-01, #393939)',
-          color: 'var(--cds-text-helper, #8d8d8d)',
-          fontSize: '0.875rem',
-        }}>
+        <div className="mt-6 bg-card border border-border rounded-lg px-6 py-12 text-center text-sm text-muted-foreground">
           {locale === 'ko'
             ? '위에서 두 팀을 선택하면 비교 분석이 표시됩니다'
             : 'Select two teams above to see the full comparison'}
@@ -280,29 +240,32 @@ function InjuryColumn({
   teamId: number;
 }) {
   const isRight = align === 'right';
-  if (!impact) return <div style={{ color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.8125rem', textAlign: isRight ? 'right' : 'left' }}>—</div>;
+  if (!impact) return <div className={cn('text-sm text-muted-foreground', isRight ? 'text-right' : 'text-left')}>—</div>;
 
   const out = impact.injuredPlayers.length;
   const pl = impact.powerLossPct;
   const ss = impact.severitySummary;
 
   return (
-    <div style={{ textAlign: isRight ? 'right' : 'left', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-      <div style={{ fontSize: '1.75rem', fontWeight: 300, color: powerLossColor(pl), fontFamily: 'var(--font-plex-mono, monospace)' }}>
+    <div className={cn('flex flex-col gap-1.5', isRight ? 'text-right items-end' : 'text-left items-start')}>
+      <div className={cn('text-3xl font-light font-mono', powerLossColorClass(pl))}>
         {pl.toFixed(1)}%
       </div>
-      <div style={{ fontSize: '0.8125rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+      <div className="text-xs text-muted-foreground">
         {locale === 'ko' ? '전력 손실' : 'Power Loss'}
       </div>
-      <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>
+      <div className="text-sm text-foreground/70">
         {out} {locale === 'ko' ? '명 결장' : out === 1 ? 'player out' : 'players out'}
       </div>
       {ss && (ss.critical + ss.high > 0) && (
-        <div style={{ fontSize: '0.75rem', color: '#fa4d56' }}>
+        <div className="text-xs text-[var(--sc-red)]">
           {ss.critical + ss.high} {locale === 'ko' ? '명 중요/심각' : 'critical/high'}
         </div>
       )}
-      <Link href={`/team/${teamId}`} style={{ fontSize: '0.75rem', color: 'var(--cds-interactive, #4589ff)', textDecoration: 'none', marginTop: '0.25rem' }}>
+      <Link
+        href={`/team/${teamId}`}
+        className="text-xs text-primary no-underline hover:underline mt-1"
+      >
         {locale === 'ko' ? '상세 보기 →' : 'See details →'}
       </Link>
     </div>
@@ -317,23 +280,23 @@ function StatsColumn({
   locale: string;
 }) {
   const isRight = align === 'right';
-  if (!stats) return <div style={{ color: 'var(--cds-text-helper, #8d8d8d)', fontSize: '0.8125rem', textAlign: isRight ? 'right' : 'left' }}>—</div>;
+  if (!stats) return <div className={cn('text-sm text-muted-foreground', isRight ? 'text-right' : 'text-left')}>—</div>;
 
   const { wins, draws, losses, goalsFor, goalsAgainst, played } = stats;
   const pts = ((wins ?? 0) * 3) + (draws ?? 0);
 
   return (
-    <div style={{ textAlign: isRight ? 'right' : 'left', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-      <div style={{ fontSize: '1.5rem', fontWeight: 300, color: 'var(--cds-text-primary, #f4f4f4)', fontFamily: 'var(--font-plex-mono, monospace)' }}>
+    <div className={cn('flex flex-col gap-1', isRight ? 'text-right items-end' : 'text-left items-start')}>
+      <div className="text-2xl font-light font-mono text-foreground">
         {pts} {locale === 'ko' ? '점' : 'pts'}
       </div>
-      <div style={{ fontSize: '0.8125rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>
+      <div className="text-[0.8125rem] text-foreground/70">
         {played ?? 0}{locale === 'ko' ? '경기' : 'P'} &nbsp;
         {wins ?? 0}{locale === 'ko' ? '승' : 'W'} &nbsp;
         {draws ?? 0}{locale === 'ko' ? '무' : 'D'} &nbsp;
         {losses ?? 0}{locale === 'ko' ? '패' : 'L'}
       </div>
-      <div style={{ fontSize: '0.8125rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>
+      <div className="text-[0.8125rem] text-muted-foreground">
         {goalsFor ?? 0}{locale === 'ko' ? '득' : 'GF'} / {goalsAgainst ?? 0}{locale === 'ko' ? '실' : 'GA'}
       </div>
     </div>
@@ -356,21 +319,19 @@ function H2HTable({ h2h, homeId, awayId }: { h2h: H2HFixture[]; homeId: number; 
 
   return (
     <div>
-      {/* H2H summary */}
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
-        <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>{homeName}: <strong>{homeWins}W</strong></span>
-        <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-helper, #8d8d8d)' }}>D: <strong>{draws}</strong></span>
-        <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #c6c6c6)' }}>{awayName}: <strong>{awayWins}W</strong></span>
+      <div className="flex gap-6 mb-3">
+        <span className="text-sm text-foreground/70">{homeName}: <strong className="text-foreground">{homeWins}W</strong></span>
+        <span className="text-sm text-muted-foreground">D: <strong className="text-foreground">{draws}</strong></span>
+        <span className="text-sm text-foreground/70">{awayName}: <strong className="text-foreground">{awayWins}W</strong></span>
       </div>
 
-      {/* Recent results */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+      <div className="flex flex-col gap-1.5">
         {h2h.slice(0, 5).map((f) => {
           const d = new Date(f.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
           return (
-            <div key={f.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.8125rem' }}>
-              <span style={{ color: 'var(--cds-text-helper, #8d8d8d)', minWidth: '5rem' }}>{d}</span>
-              <span style={{ color: 'var(--cds-text-secondary, #c6c6c6)', flex: 1 }}>
+            <div key={f.id} className="flex gap-2 items-center text-[0.8125rem]">
+              <span className="text-muted-foreground min-w-20">{d}</span>
+              <span className="text-foreground/70 flex-1">
                 {f.homeTeam.name} {f.goalsHome ?? '?'} – {f.goalsAway ?? '?'} {f.awayTeam.name}
               </span>
             </div>
