@@ -27,7 +27,7 @@ export function HomeInjuryCard({ impact, locale, leagueId }: HomeInjuryCardProps
       </div>
 
       {/* Power loss gauge */}
-      <PowerLossGauge value={impact.powerLossPct} size="sm" className="py-1" />
+      <PowerLossGauge value={impact.powerLossPct} size="sm" className="py-1" locale={locale} />
 
       {/* Top 2 injured players */}
       {top2.length > 0 && (

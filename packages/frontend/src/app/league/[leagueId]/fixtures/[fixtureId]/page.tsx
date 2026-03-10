@@ -85,7 +85,7 @@ function InjuryColumn({
       {impact && (
         <div className="grid grid-cols-2 divide-x divide-border border-b border-border">
           <div className="px-4 py-3 flex flex-col items-center justify-center">
-            <PowerLossGauge value={impact.powerLossPct} size="sm" />
+            <PowerLossGauge value={impact.powerLossPct} size="sm" locale={locale} />
           </div>
           <div className="px-4 py-3 text-center">
             <div
@@ -134,6 +134,9 @@ function InjuryColumn({
                 locale={locale}
                 variant="fixture"
                 severity="high"
+                playerRecord={impact?.outcomeImpact?.playerRecords?.find(
+                  (r) => r.playerId === ip.player.id,
+                )}
               />
             ))}
           </div>
@@ -987,7 +990,7 @@ export default async function FixtureDetailPage({
           </div>
 
           <div>
-            <SectionHeader label={t(locale, "predicted_lineups")} />
+            <SectionHeader label={t(locale, "predicted_lineups")} tooltip={t(locale, "tooltip_predicted_lineup")} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <PredictedLineupColumn lineup={homeLineup} locale={locale} />
               <PredictedLineupColumn lineup={awayLineup} locale={locale} />

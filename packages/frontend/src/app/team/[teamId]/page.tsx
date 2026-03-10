@@ -8,6 +8,7 @@ import { OutcomeImpactCard } from '@/components/outcome-impact-card';
 import { PowerLossGauge } from '@/components/power-loss-gauge';
 import { SectionHeader } from '@/components/section-header';
 import { StatCard } from '@/components/stat-card';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Metadata } from 'next';
@@ -104,7 +105,7 @@ export default async function TeamPage({
         </div>
         {impact && (
           <div className="ml-auto">
-            <PowerLossGauge value={impact.powerLossPct} size="lg" />
+            <PowerLossGauge value={impact.powerLossPct} size="lg" locale={locale} />
           </div>
         )}
       </div>
@@ -192,14 +193,27 @@ export default async function TeamPage({
             <table className="w-full border-collapse bg-card text-[0.8125rem]">
               <thead>
                 <tr className="bg-muted/50">
-                  {[t(locale, 'player'), t(locale, 'position'), t(locale, 'app'), t(locale, 'min'), t(locale, 'rating'), t(locale, 'goals'), t(locale, 'assists')].map((h, i) => (
+                  {[
+                    { label: t(locale, 'player') },
+                    { label: t(locale, 'position') },
+                    { label: t(locale, 'app') },
+                    { label: t(locale, 'min') },
+                    { label: t(locale, 'rating'), tooltip: t(locale, 'tooltip_rating') },
+                    { label: t(locale, 'goals') },
+                    { label: t(locale, 'assists') },
+                  ].map((h, i) => (
                     <th
-                      key={h}
+                      key={h.label}
                       className={cn(
                         'py-2.5 text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground border-b border-border',
                         i === 0 ? 'px-4 text-left' : 'px-3 text-center'
                       )}
-                    >{h}</th>
+                    >
+                      <span className={cn('inline-flex items-center gap-1', i !== 0 && 'justify-center w-full')}>
+                        {h.label}
+                        {h.tooltip && <InfoTooltip content={h.tooltip} />}
+                      </span>
+                    </th>
                   ))}
                 </tr>
               </thead>

@@ -5,6 +5,7 @@ import { isDisciplinaryReason, fmtDate, daysAgo, timeAgo } from '@/lib/format';
 import type { InjuredPlayer, PlayerOutcomeRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { cn } from '@/lib/utils';
 
 interface InjuredPlayerCardProps {
@@ -74,11 +75,15 @@ export function InjuredPlayerCard({
       <Badge variant={SEV_TAG[ip.severity] ?? 'low'}>
         {t(locale, SEV_KEY[ip.severity] ?? 'severity_low')}
       </Badge>
+      <InfoTooltip content={t(locale, 'tooltip_severity')} />
 
       {isHigh && (
-        <Badge variant="info">
-          {t(locale, ROLE_KEY[ip.starterProfile.role] ?? 'role_bench')}
-        </Badge>
+        <>
+          <Badge variant="info">
+            {t(locale, ROLE_KEY[ip.starterProfile.role] ?? 'role_bench')}
+          </Badge>
+          <InfoTooltip content={t(locale, 'tooltip_role')} />
+        </>
       )}
 
       {disciplinary && (
@@ -96,18 +101,21 @@ export function InjuredPlayerCard({
       )}
 
       {recovers && (
-        <Badge
-          variant={recoverHigh ? 'success' : 'moderate'}
-          title={`${locale === 'ko' ? '복귀 신호' : 'Return signal'}: ${Math.round(ip.recoverySignal!.predictedAvailability * 100)}% ${locale === 'ko' ? '가용성' : 'availability'}${ip.recoverySignal!.latestSignalStage ? ` (${ip.recoverySignal!.latestSignalStage.replace(/_/g, ' ')})` : ''}`}
-        >
-          {recoverHigh
-            ? (locale === 'ko' ? '복귀 임박' : 'Return signal')
-            : (locale === 'ko' ? '복귀 중' : 'In recovery')}
-          {' '}{Math.round(ip.recoverySignal!.predictedAvailability * 100)}%
-          {ip.recoverySignal!.lastSignalAt && (
-            <span className="opacity-65 ml-1">· {timeAgo(ip.recoverySignal!.lastSignalAt, locale)}</span>
-          )}
-        </Badge>
+        <>
+          <Badge
+            variant={recoverHigh ? 'success' : 'moderate'}
+            title={`${locale === 'ko' ? '복귀 신호' : 'Return signal'}: ${Math.round(ip.recoverySignal!.predictedAvailability * 100)}% ${locale === 'ko' ? '가용성' : 'availability'}${ip.recoverySignal!.latestSignalStage ? ` (${ip.recoverySignal!.latestSignalStage.replace(/_/g, ' ')})` : ''}`}
+          >
+            {recoverHigh
+              ? (locale === 'ko' ? '복귀 임박' : 'Return signal')
+              : (locale === 'ko' ? '복귀 중' : 'In recovery')}
+            {' '}{Math.round(ip.recoverySignal!.predictedAvailability * 100)}%
+            {ip.recoverySignal!.lastSignalAt && (
+              <span className="opacity-65 ml-1">· {timeAgo(ip.recoverySignal!.lastSignalAt, locale)}</span>
+            )}
+          </Badge>
+          <InfoTooltip content={t(locale, 'tooltip_recovery_signal')} />
+        </>
       )}
     </div>
   );
@@ -145,10 +153,10 @@ export function InjuredPlayerCard({
         <span className="text-foreground/80">
           <span className="text-muted-foreground">{t(locale, 'outcome_with')} </span>
           <span className="text-[var(--sc-green)]">{playerRecord.withPlayer.W}W</span>
-          -{playerRecord.withPlayer.D}D
-          -<span className="text-[var(--sc-red)]">{playerRecord.withPlayer.L}L</span>
+          <span>-{playerRecord.withPlayer.D}D-</span>
+          <span className="text-[var(--sc-red)]">{playerRecord.withPlayer.L}L</span>
           {playerRecord.withPlayer.xgAvg != null && (
-            <span className="text-muted-foreground ml-1">xG {playerRecord.withPlayer.xgAvg.toFixed(2)}</span>
+            <span className="text-muted-foreground"> xG {playerRecord.withPlayer.xgAvg.toFixed(2)}</span>
           )}
         </span>
       )}
@@ -156,10 +164,10 @@ export function InjuredPlayerCard({
         <span className={cn('text-foreground/80', !playerRecord.hasSignificantSample && 'opacity-60')}>
           <span className="text-muted-foreground">{t(locale, 'outcome_without')} </span>
           <span className="text-[var(--sc-green)]">{playerRecord.withoutPlayer.W}W</span>
-          -{playerRecord.withoutPlayer.D}D
-          -<span className="text-[var(--sc-red)]">{playerRecord.withoutPlayer.L}L</span>
+          <span>-{playerRecord.withoutPlayer.D}D-</span>
+          <span className="text-[var(--sc-red)]">{playerRecord.withoutPlayer.L}L</span>
           {playerRecord.withoutPlayer.xgAvg != null && (
-            <span className="text-muted-foreground ml-1">xG {playerRecord.withoutPlayer.xgAvg.toFixed(2)}</span>
+            <span className="text-muted-foreground"> xG {playerRecord.withoutPlayer.xgAvg.toFixed(2)}</span>
           )}
           {!playerRecord.hasSignificantSample && (
             <span className="text-muted-foreground ml-1">
@@ -170,7 +178,7 @@ export function InjuredPlayerCard({
       )}
       {playerRecord.withoutPlayer.matches === 0 && (
         <span className="text-muted-foreground opacity-60">
-          {t(locale, 'outcome_without')}: {t(locale, 'outcome_no_data')}
+          {t(locale, 'outcome_without')} {t(locale, 'outcome_no_data')}
         </span>
       )}
     </div>
@@ -211,8 +219,9 @@ export function InjuredPlayerCard({
             {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           </div>
           {ip.winRateBoost > 0 && (
-            <div className="text-[0.6875rem] text-[var(--sc-red)] mt-0.5">
+            <div className="inline-flex items-center gap-1 text-[0.6875rem] text-[var(--sc-red)] mt-0.5">
               {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
+              <InfoTooltip content={t(locale, 'tooltip_win_rate')} />
             </div>
           )}
         </div>
@@ -264,8 +273,9 @@ export function InjuredPlayerCard({
         <div className={cn('text-[0.6875rem] text-muted-foreground mt-0.5', ip.player.photo ? 'pl-9' : '')}>
           {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           {ip.winRateBoost > 0 && (
-            <span className="ml-2 text-[var(--sc-red)]">
+            <span className="inline-flex items-center gap-1 ml-2 text-[var(--sc-red)]">
               {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
+              <InfoTooltip content={t(locale, 'tooltip_win_rate')} />
             </span>
           )}
         </div>

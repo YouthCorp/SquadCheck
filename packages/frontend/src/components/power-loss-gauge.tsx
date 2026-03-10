@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { t, type Locale } from '@/lib/i18n';
 
 type Severity = 'low' | 'moderate' | 'high' | 'critical';
 type Size = 'sm' | 'md' | 'lg';
@@ -31,6 +33,7 @@ interface PowerLossGaugeProps {
   size?: Size;
   className?: string;
   label?: string;
+  locale?: Locale;
 }
 
 export function PowerLossGauge({
@@ -38,6 +41,7 @@ export function PowerLossGauge({
   size = 'md',
   className,
   label = 'Power Loss',
+  locale = 'en',
 }: PowerLossGaugeProps) {
   const [displayed, setDisplayed] = useState(0);
 
@@ -67,8 +71,9 @@ export function PowerLossGauge({
       >
         {displayed.toFixed(1)}%
       </span>
-      <span className={cn('uppercase tracking-wider font-semibold text-muted-foreground', labelCls)}>
+      <span className={cn('inline-flex items-center gap-1 uppercase tracking-wider font-semibold text-muted-foreground', labelCls)}>
         {label}
+        <InfoTooltip content={t(locale, 'tooltip_power_loss')} />
       </span>
     </div>
   );

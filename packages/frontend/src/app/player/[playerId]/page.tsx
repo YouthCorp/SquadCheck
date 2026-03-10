@@ -1,7 +1,7 @@
 import { fetchApi } from '@/lib/api';
 import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
-import { t, tPos } from '@/lib/i18n';
+import { t, tPos, tInjury } from '@/lib/i18n';
 import { isDisciplinaryReason, fmtDate, fmtRound } from '@/lib/format';
 import type { Metadata } from 'next';
 import { Badge } from '@/components/ui/badge';
@@ -334,7 +334,7 @@ export default async function PlayerPage({
                           </Badge>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-foreground">{ep.reason}</span>
+                              <span className="text-sm font-medium text-foreground">{tInjury(locale, ep.reason)}</span>
                               {isMissed && ep.missedCount > 0 && (
                                 <Badge variant="info" className="text-[0.6rem]">
                                   {ep.missedCount} {missedLabel}{ep.ongoing ? ` · ${t(locale, 'ongoing')}` : ''}

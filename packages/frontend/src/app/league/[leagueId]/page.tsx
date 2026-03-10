@@ -5,6 +5,7 @@ import { t } from '@/lib/i18n';
 import { LEAGUE_NAMES, CUP_IDS_NO_STANDINGS } from '@/lib/constants';
 import type { Metadata } from 'next';
 import { Badge } from '@/components/ui/badge';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -97,7 +98,7 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
                   { label: t(locale, 'goals_against'), align: 'center' as const },
                   { label: t(locale, 'goal_diff'), align: 'center' as const },
                   { label: t(locale, 'points'), align: 'center' as const },
-                  { label: t(locale, 'form'), align: 'center' as const },
+                  { label: t(locale, 'form'), align: 'center' as const, tooltip: t(locale, 'tooltip_form') },
                 ].map((h) => (
                   <TableHead
                     key={h.label}
@@ -107,7 +108,10 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
                       h.minW ? 'min-w-[10rem]' : ''
                     )}
                   >
-                    {h.label}
+                    <span className={cn('inline-flex items-center gap-1', h.align === 'center' && 'justify-center w-full')}>
+                      {h.label}
+                      {'tooltip' in h && h.tooltip && <InfoTooltip content={h.tooltip} />}
+                    </span>
                   </TableHead>
                 ))}
               </TableRow>
@@ -143,6 +147,12 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
                         />
                       )}
                       {entry.rank}
+                      {zone && (
+                        <InfoTooltip
+                          content={t(locale, zone === 'cl' ? 'tooltip_cl_zone' : zone === 'uel' ? 'tooltip_uel_zone' : zone === 'uecl' ? 'tooltip_uecl_zone' : 'tooltip_relegation_zone')}
+                          side="right"
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <Link

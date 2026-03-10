@@ -1,5 +1,6 @@
 import { t, type Locale } from '@/lib/i18n';
 import { Badge } from '@/components/ui/badge';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { cn } from '@/lib/utils';
 import type { TeamOutcomeImpact } from '@/lib/types';
 
@@ -45,6 +46,7 @@ export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpac
   const metrics = [
     {
       label: t(locale, 'outcome_xg'),
+      tooltip: t(locale, 'tooltip_xg'),
       baseline: baseline.xgPerMatch,
       depleted: depleted.estimatedXg,
       deltaStr: fmtDelta(impact.xgDelta),
@@ -52,6 +54,7 @@ export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpac
     },
     {
       label: t(locale, 'outcome_xga'),
+      tooltip: t(locale, 'tooltip_xga'),
       baseline: baseline.xgaPerMatch,
       depleted: depleted.estimatedXga,
       deltaStr: fmtDelta(impact.xgaDelta),
@@ -69,17 +72,21 @@ export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpac
         <h3 className={cn('font-semibold text-foreground', isLg ? 'text-sm' : 'text-xs')}>
           {t(locale, 'outcome_impact')}
         </h3>
-        <Badge variant={CONF_VARIANT[confidence] ?? 'low'}>
-          {t(locale, CONF_KEY[confidence] as any)}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={CONF_VARIANT[confidence] ?? 'low'}>
+            {t(locale, CONF_KEY[confidence] as any)}
+          </Badge>
+          <InfoTooltip content={t(locale, 'tooltip_confidence')} side="left" />
+        </div>
       </div>
 
       {/* 2-column metrics */}
       <div className="grid grid-cols-2 gap-3">
         {metrics.map((m) => (
           <div key={m.label} className="text-center">
-            <div className={cn('text-muted-foreground mb-1', isLg ? 'text-xs' : 'text-[0.625rem]')}>
+            <div className={cn('inline-flex items-center justify-center gap-1 text-muted-foreground mb-1', isLg ? 'text-xs' : 'text-[0.625rem]')}>
               {m.label}
+              <InfoTooltip content={m.tooltip} />
             </div>
             {/* Values: baseline → depleted */}
             <div className={cn('font-bold tabular-nums', isLg ? 'text-base' : 'text-sm')}>
