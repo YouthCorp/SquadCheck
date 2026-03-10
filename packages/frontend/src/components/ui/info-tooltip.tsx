@@ -1,13 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Popover } from "@base-ui/react/popover";
 import { Info } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface InfoTooltipProps {
@@ -17,44 +11,24 @@ interface InfoTooltipProps {
 }
 
 export function InfoTooltip({ content, side = "top", className }: InfoTooltipProps) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleOutside = (e: MouseEvent | TouchEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("touchstart", handleOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("touchstart", handleOutside);
-    };
-  }, [open]);
-
   return (
-    <TooltipProvider>
-      <Tooltip open={open} onOpenChange={setOpen}>
-        <TooltipTrigger
-          ref={triggerRef}
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((v) => !v);
-          }}
-          className={cn(
-            "inline-flex cursor-pointer items-center justify-center p-1 -m-1 text-muted-foreground/40 transition-colors hover:text-muted-foreground",
-            className,
-          )}
-        >
-          <Info size={11} />
-        </TooltipTrigger>
-        <TooltipContent side={side} className="max-w-[220px] text-center leading-relaxed">
-          {content}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover.Root>
+      <Popover.Trigger
+        className={cn(
+          "inline-flex cursor-pointer items-center justify-center p-1 -m-1 text-muted-foreground/40 transition-colors hover:text-muted-foreground",
+          className,
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Info size={11} />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side={side} sideOffset={6} className="isolate z-50">
+          <Popover.Popup className="max-w-[220px] rounded-md bg-foreground px-3 py-1.5 text-center text-xs leading-relaxed text-background shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
+            {content}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
