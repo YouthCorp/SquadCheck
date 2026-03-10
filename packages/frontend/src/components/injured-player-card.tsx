@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { t, tPos, tInjury, type Locale } from '@/lib/i18n';
 import { SEV_KEY, ROLE_KEY, CTX_KEY, SEV_TAG } from '@/lib/constants';
 import { isDisciplinaryReason, fmtDate, daysAgo, timeAgo } from '@/lib/format';
-import type { InjuredPlayer } from '@/lib/types';
+import type { InjuredPlayer, PlayerOutcomeRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ interface InjuredPlayerCardProps {
   severity: 'high' | 'other';
   /** Query string appended to /player/{id} link. e.g. "?team=11&league=39" */
   playerLinkSuffix?: string;
+  /** Per-player outcome record (W-D-L with/without) from outcomeImpact */
+  playerRecord?: PlayerOutcomeRecord;
 }
 
 export function InjuredPlayerCard({
@@ -24,6 +26,7 @@ export function InjuredPlayerCard({
   variant,
   severity,
   playerLinkSuffix = '',
+  playerRecord,
 }: InjuredPlayerCardProps) {
   const isTeam = variant === 'team';
   const isHigh = severity === 'high';
@@ -135,6 +138,44 @@ export function InjuredPlayerCard({
     </div>
   );
 
+  // ── W-D-L outcome record (only for high severity with playerRecord) ──────
+  const outcomeRow = isHigh && playerRecord && (playerRecord.withPlayer.matches > 0 || playerRecord.withoutPlayer.matches > 0) ? (
+    <div className={cn('flex mt-1 font-mono flex-wrap', isTeam ? 'text-[0.6875rem] gap-x-3' : 'text-[0.625rem] gap-x-2')}>
+      {playerRecord.withPlayer.matches > 0 && (
+        <span className="text-foreground/80">
+          <span className="text-muted-foreground">{t(locale, 'outcome_with')} </span>
+          <span className="text-[var(--sc-green)]">{playerRecord.withPlayer.W}W</span>
+          -{playerRecord.withPlayer.D}D
+          -<span className="text-[var(--sc-red)]">{playerRecord.withPlayer.L}L</span>
+          {playerRecord.withPlayer.xgAvg != null && (
+            <span className="text-muted-foreground ml-1">xG {playerRecord.withPlayer.xgAvg.toFixed(2)}</span>
+          )}
+        </span>
+      )}
+      {playerRecord.withoutPlayer.matches > 0 && (
+        <span className={cn('text-foreground/80', !playerRecord.hasSignificantSample && 'opacity-60')}>
+          <span className="text-muted-foreground">{t(locale, 'outcome_without')} </span>
+          <span className="text-[var(--sc-green)]">{playerRecord.withoutPlayer.W}W</span>
+          -{playerRecord.withoutPlayer.D}D
+          -<span className="text-[var(--sc-red)]">{playerRecord.withoutPlayer.L}L</span>
+          {playerRecord.withoutPlayer.xgAvg != null && (
+            <span className="text-muted-foreground ml-1">xG {playerRecord.withoutPlayer.xgAvg.toFixed(2)}</span>
+          )}
+          {!playerRecord.hasSignificantSample && (
+            <span className="text-muted-foreground ml-1">
+              ({t(locale, 'outcome_matches', { n: playerRecord.withoutPlayer.matches })})
+            </span>
+          )}
+        </span>
+      )}
+      {playerRecord.withoutPlayer.matches === 0 && (
+        <span className="text-muted-foreground opacity-60">
+          {t(locale, 'outcome_without')}: {t(locale, 'outcome_no_data')}
+        </span>
+      )}
+    </div>
+  ) : null;
+
   const infoLine = (full: boolean) => (
     <div className={cn('text-muted-foreground mt-0.5', isTeam ? 'text-xs' : 'text-[0.6875rem]')}>
       {tPos(locale, ip.player.position)}
@@ -162,6 +203,7 @@ export function InjuredPlayerCard({
             {tagsRow}
             {infoLine(true)}
             {statsRow}
+            {outcomeRow}
           </div>
         </div>
         <div className="text-right shrink-0 ml-4">
@@ -218,6 +260,7 @@ export function InjuredPlayerCard({
         </div>
         {infoLine(true)}
         {statsRow}
+        {outcomeRow}
         <div className={cn('text-[0.6875rem] text-muted-foreground mt-0.5', ip.player.photo ? 'pl-9' : '')}>
           {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           {ip.winRateBoost > 0 && (

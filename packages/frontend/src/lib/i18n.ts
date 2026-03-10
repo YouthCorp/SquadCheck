@@ -158,6 +158,22 @@ const translations = {
     step3_title: '3. Power Loss',
     step3_desc: 'Team power loss percentage shows how much a squad is weakened by current absences.',
 
+    // outcome impact
+    outcome_impact: 'Injury Outcome Impact',
+    outcome_xg: 'xG / Match',
+    outcome_xga: 'xGA / Match',
+    outcome_win_rate: 'Win Rate',
+    outcome_baseline: 'Full strength',
+    outcome_depleted: 'Current',
+    outcome_with: 'With',
+    outcome_without: 'Without',
+    outcome_matches: '{n} matches',
+    outcome_no_data: 'No data',
+    outcome_injured_starters: '{n} injured starters',
+    outcome_confidence_high: 'High confidence',
+    outcome_confidence_medium: 'Medium confidence',
+    outcome_confidence_low: 'Low confidence',
+
     // countries
     country_england: 'England',
     country_spain: 'Spain',
@@ -321,6 +337,22 @@ const translations = {
     step2_desc: '실시간 부상 데이터를 통해 다음 경기에 출전 불가능한 선수를 파악합니다.',
     step3_title: '3. 전력 손실',
     step3_desc: '현재 결장 선수들로 인한 팀의 전력 손실 비율을 산출합니다.',
+
+    // outcome impact
+    outcome_impact: '부상 결과 영향',
+    outcome_xg: '경기당 xG',
+    outcome_xga: '경기당 xGA',
+    outcome_win_rate: '승률',
+    outcome_baseline: '풀 전력',
+    outcome_depleted: '현재',
+    outcome_with: '출전',
+    outcome_without: '결장',
+    outcome_matches: '{n}경기',
+    outcome_no_data: '데이터 없음',
+    outcome_injured_starters: '{n}명 주전 부상',
+    outcome_confidence_high: '신뢰도 높음',
+    outcome_confidence_medium: '신뢰도 보통',
+    outcome_confidence_low: '신뢰도 낮음',
 
     // countries
     country_england: '잉글랜드',

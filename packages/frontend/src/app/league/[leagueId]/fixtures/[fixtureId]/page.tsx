@@ -44,6 +44,7 @@ import type {
 import { formatRoundLabel, parseRoundNumber } from "@/lib/format";
 import { ClientMatchDateTime } from "@/components/client-date";
 import { InjuredPlayerCard } from "@/components/injured-player-card";
+import { OutcomeImpactCard } from "@/components/outcome-impact-card";
 import { PitchLineup } from "@/components/pitch-lineup";
 import { SectionHeader } from "@/components/section-header";
 import { PowerLossGauge } from "@/components/power-loss-gauge";
@@ -103,6 +104,12 @@ function InjuryColumn({
               {t(locale, "players_out")}
             </div>
           </div>
+        </div>
+      )}
+
+      {impact?.outcomeImpact && impact.outcomeImpact.playerRecords.length > 0 && (
+        <div className="px-3 py-3 border-b border-border">
+          <OutcomeImpactCard outcome={impact.outcomeImpact} locale={locale} size="sm" />
         </div>
       )}
 

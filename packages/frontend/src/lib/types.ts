@@ -41,6 +41,42 @@ export interface InjuredPlayer {
   };
 }
 
+export interface PlayerOutcomeRecord {
+  playerId: number;
+  playerName: string;
+  position: string | null;
+  severity: string;
+  withPlayer: { W: number; D: number; L: number; matches: number; xgAvg: number | null };
+  withoutPlayer: { W: number; D: number; L: number; matches: number; xgAvg: number | null };
+  xgDelta: number | null;
+  winRateDelta: number;
+  hasSignificantSample: boolean;
+}
+
+export interface TeamOutcomeImpact {
+  baseline: {
+    xgPerMatch: number;
+    xgaPerMatch: number;
+    goalsPerMatch: number;
+    concededPerMatch: number;
+    winRate: number;
+    matches: number;
+  };
+  depleted: {
+    estimatedXg: number;
+    estimatedXga: number;
+    estimatedWinRate: number;
+  };
+  impact: {
+    xgDelta: number | null;
+    xgaDelta: number | null;
+    winRateDelta: number;
+  };
+  playerRecords: PlayerOutcomeRecord[];
+  confidence: 'high' | 'medium' | 'low';
+  injuredStarterCount: number;
+}
+
 export interface InjuryImpact {
   team: Team;
   season: number;
@@ -51,6 +87,7 @@ export interface InjuryImpact {
   totalInjuries: number;
   uniquePlayers: number;
   severitySummary: { critical: number; high: number; moderate: number; low: number };
+  outcomeImpact?: TeamOutcomeImpact | null;
   injuredPlayers: InjuredPlayer[];
 }
 

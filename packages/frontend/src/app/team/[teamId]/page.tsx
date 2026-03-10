@@ -4,6 +4,7 @@ import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
 import type { Team, InjuryImpact } from '@/lib/types';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
+import { OutcomeImpactCard } from '@/components/outcome-impact-card';
 import { PowerLossGauge } from '@/components/power-loss-gauge';
 import { SectionHeader } from '@/components/section-header';
 import { StatCard } from '@/components/stat-card';
@@ -129,24 +130,37 @@ export default async function TeamPage({
         </div>
       )}
 
-      {/* Key injuries */}
-      {highImpact.length > 0 && (
+      {/* Outcome Impact */}
+      {impact?.outcomeImpact && impact.outcomeImpact.playerRecords.length > 0 && (
         <div className="mb-6">
-          <SectionHeader label={t(locale, 'key_absences')} count={highImpact.length} accent="destructive" />
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            {highImpact.map((ip) => (
-              <InjuredPlayerCard
-                key={ip.player.id}
-                ip={ip}
-                locale={locale}
-                variant="team"
-                severity="high"
-                playerLinkSuffix={playerLinkSuffix}
-              />
-            ))}
-          </div>
+          <OutcomeImpactCard outcome={impact.outcomeImpact} locale={locale} size="lg" />
         </div>
       )}
+
+      {/* Key injuries */}
+      {highImpact.length > 0 && (() => {
+        const recordMap = new Map(
+          impact?.outcomeImpact?.playerRecords.map(r => [r.playerId, r]) ?? []
+        );
+        return (
+          <div className="mb-6">
+            <SectionHeader label={t(locale, 'key_absences')} count={highImpact.length} accent="destructive" />
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              {highImpact.map((ip) => (
+                <InjuredPlayerCard
+                  key={ip.player.id}
+                  ip={ip}
+                  locale={locale}
+                  variant="team"
+                  severity="high"
+                  playerLinkSuffix={playerLinkSuffix}
+                  playerRecord={recordMap.get(ip.player.id)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Other injuries */}
       {otherInjured.length > 0 && (

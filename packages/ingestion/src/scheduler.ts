@@ -73,8 +73,10 @@ if (process.env.ANTHROPIC_API_KEY) {
   console.log('[Scheduler] Signal collection disabled (no ANTHROPIC_API_KEY)');
 }
 
-// Run once immediately on startup
-runSync();
-if (process.env.ANTHROPIC_API_KEY) {
-  runSignalCollection();
+// Run once immediately on startup (set SKIP_STARTUP_SYNC=true to disable for local dev)
+if (process.env.SKIP_STARTUP_SYNC !== 'true') {
+  runSync();
+  if (process.env.ANTHROPIC_API_KEY) {
+    runSignalCollection();
+  }
 }

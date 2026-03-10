@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { computePlayerWeights, PlayerWeight } from './player-weight';
-import { computeTeamPerformanceDeltas, PerformanceDeltaSummary } from './performance-delta';
+import { computeTeamPerformanceDeltas, PerformanceDeltaSummary, MatchAggregates } from './performance-delta';
 
 // ── Starter Profile ─────────────────────────────────────────
 export type StarterRole = 'regular_starter' | 'rotation' | 'bench';
@@ -127,6 +127,8 @@ export interface EnrichedInjuredPlayer extends InjuredPlayer {
   starterProfile: StarterProfile;
   injuryContext: InjuryContext;
   performanceDelta: PerformanceDeltaSummary['delta'] | null;
+  withPlayer: MatchAggregates | null;
+  withoutPlayer: MatchAggregates | null;
   hasSignificantSample: boolean;
   winRateBoost: number;
   compositeImpactScore: number;
@@ -374,6 +376,8 @@ export async function computeTeamPowerLoss(
       starterProfile: starter,
       injuryContext: injCtx,
       performanceDelta: perf ? perf.delta : null,
+      withPlayer: perf?.withPlayer ?? null,
+      withoutPlayer: perf?.withoutPlayer ?? null,
       hasSignificantSample: perf?.hasSignificantSample ?? false,
       winRateBoost,
       compositeImpactScore: round(compositeImpactScore),

@@ -17,7 +17,7 @@ export interface PerformanceDelta {
   };
 }
 
-interface MatchAggregates {
+export interface MatchAggregates {
   matches: number;
   wins: number;
   draws: number;

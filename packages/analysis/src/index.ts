@@ -48,3 +48,14 @@ export {
   type FormationSlot,
   type SpecificPosition,
 } from './formation-templates';
+
+export {
+  computeTeamOutcomeImpact,
+  type TeamOutcomeImpact,
+  type OutcomeBaseline,
+  type PlayerOutcomeRecord,
+  type TeamSeasonStatsInput,
+  type StandingEntryInput,
+} from './team-outcome-impact';
+
+export { type MatchAggregates } from './performance-delta';

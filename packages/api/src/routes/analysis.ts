@@ -8,6 +8,7 @@ import {
   computePerformanceDelta,
   computeTeamPowerLoss,
   computePredictedLineup,
+  computeTeamOutcomeImpact,
 } from '@squadcheck/analysis';
 
 export const analysisRouter = Router();
@@ -135,7 +136,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       // Fetch current-season stats directly — avoids showing prior-season
       // goals/assists for players who were injured all current season.
       const playerIds = rich.enrichedInjuredPlayers.map(p => p.playerId);
-      const [players, currentSeasonStats, availabilities] = await Promise.all([
+      const [players, currentSeasonStats, availabilities, teamSeasonStats, standingEntry] = await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
           select: { id: true, name: true, photo: true, position: true },
@@ -156,6 +157,15 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
             signalCount: true,
           },
         }),
+        prisma.teamSeasonStats.findUnique({
+          where: { teamId_seasonId: { teamId, seasonId: chain.ids[0] } },
+          select: { avgXg: true, avgXgAgainst: true, totalGoals: true, totalConceded: true },
+        }),
+        prisma.standingEntry.findFirst({
+          where: { teamId, seasonId: chain.ids[0] },
+          select: { played: true, wins: true, draws: true, losses: true, goalsFor: true, goalsAgainst: true },
+          orderBy: { rank: 'asc' },
+        }),
       ]);
       const photoMap = new Map(players.map(p => [p.id, p]));
       const currentStatsMap = new Map(currentSeasonStats.map(s => [s.playerId, s]));
@@ -164,6 +174,13 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       for (const a of availabilities) {
         if (!availMap.has(a.playerId)) availMap.set(a.playerId, a);
       }
+
+      // Compute outcome impact from enriched players + season stats
+      const outcomeImpact = computeTeamOutcomeImpact(
+        rich.enrichedInjuredPlayers,
+        teamSeasonStats,
+        standingEntry,
+      );
 
       return {
         team,
@@ -175,6 +192,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
         totalInjuries: rich.totalInjuries,
         uniquePlayers: rich.uniquePlayers,
         severitySummary: rich.severitySummary,
+        outcomeImpact,
         injuredPlayers: rich.enrichedInjuredPlayers.map(p => {
           const cs = currentStatsMap.get(p.playerId);
           const avail = availMap.get(p.playerId);
