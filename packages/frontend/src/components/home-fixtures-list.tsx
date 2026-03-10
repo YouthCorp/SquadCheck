@@ -5,7 +5,6 @@ import Link from 'next/link';
 import type { Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import type { FixtureWithLeague } from '@/lib/types';
-import { LEAGUE_API_ID_BY_NAME } from '@/lib/constants';
 import { TeamLogo } from '@/components/team-logo';
 
 interface HomeFixturesListProps {
@@ -44,9 +43,7 @@ export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
       ) : (
         <div className="flex-1 overflow-auto">
           {fixtures.map((fix) => {
-            const leagueName = fix.league?.name ?? '';
-            const apiId = LEAGUE_API_ID_BY_NAME[leagueName];
-            const href = apiId ? `/league/${apiId}/fixtures/${fix.id}` : '#';
+            const href = fix.league?.id ? `/league/${fix.league.id}/fixtures/${fix.id}` : '#';
 
             return (
               <Link key={fix.id} href={href} className="no-underline block">
