@@ -196,12 +196,6 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
             <span>{t(locale, 'nav_leaderboard')}</span>
           </div>
         </Link>
-        <Link href="/matchup" className="no-underline block">
-          <div className={navItemCls(pathname === '/matchup')}>
-            <span>⚔</span>
-            <span>{t(locale, 'nav_matchup')}</span>
-          </div>
-        </Link>
       </nav>
 
       {/* Footer */}
