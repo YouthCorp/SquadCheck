@@ -10,6 +10,8 @@ import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
@@ -18,18 +20,18 @@ export async function generateMetadata({
   const playerId = parseInt(params.playerId);
   try {
     const player = await fetchApi<Player>(`/api/players/${playerId}`);
-    const title = player.name;
     const pos = player.position ?? '';
     const nat = player.nationality ?? '';
-    const description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — injury history, season stats, and recovery status across European leagues.`;
+    const title = `${player.name} Injury Report`;
+    const description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — full injury history, missed matches, and current availability status.`;
     return {
       title,
       description,
-      openGraph: { title: `${player.name} | SquadCheck`, description },
+      openGraph: { title: `${player.name} Injury Report | SquadCheck`, description },
       alternates: { canonical: `/player/${playerId}` },
     };
   } catch {
-    return { title: 'Player Profile' };
+    return { title: 'Player Injury Report' };
   }
 }
 
@@ -159,8 +161,23 @@ export default async function PlayerPage({
   const episodesBySeason = buildEpisodes(injuries, appearances);
   const sortedSeasons = Array.from(episodesBySeason.keys()).sort((a, b) => b - a);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: player.name,
+    ...(player.position ? { jobTitle: player.position } : {}),
+    ...(player.nationality ? { nationality: player.nationality } : {}),
+    ...(player.birthDate ? { birthDate: player.birthDate } : {}),
+    url: `${siteUrl}/player/${playerId}`,
+  };
+
   return (
     <div className="max-w-[56rem] mx-auto">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       {/* Back button */}
       {backTeamId && (
         <Link
@@ -179,6 +196,7 @@ export default async function PlayerPage({
         </Avatar>
         <div>
           <h1 className="text-3xl font-light text-foreground m-0">{player.name}</h1>
+          <p className="text-xs text-muted-foreground/60 mt-0.5 mb-0 tracking-wide uppercase">Injury Report</p>
           <div className="flex gap-4 mt-1.5 flex-wrap">
             {[tPos(locale, player.position), player.nationality, player.birthDate && fmtDate(player.birthDate), player.height]
               .filter(Boolean)

@@ -63,5 +63,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
+  // Player routes — fetched from each team's player list
+  const playerIds = new Set<number>();
+  await Promise.allSettled(
+    Array.from(teamIds).map(async (teamId) => {
+      try {
+        const res = await fetch(`${apiBase}/api/teams/${teamId}/players`, {
+          next: { revalidate: 3600 },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            for (const entry of data) {
+              if (entry.player?.id) playerIds.add(entry.player.id);
+            }
+          }
+        }
+      } catch {}
+    }),
+  );
+
+  for (const playerId of Array.from(playerIds)) {
+    routes.push({
+      url: `${baseUrl}/player/${playerId}`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.6,
+    });
+  }
+
   return routes;
 }
