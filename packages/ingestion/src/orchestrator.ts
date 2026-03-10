@@ -215,6 +215,11 @@ export class Orchestrator {
       }
     }
 
+    // Re-aggregate team season stats to pick up newly completed fixtures
+    const syncLeagueIds = [...new Set(currentSeasons.map((s) => s.league.apiFootballId))];
+    const syncYears = [...new Set(currentSeasons.map((s) => s.year))];
+    await this.computeTeamSeasonStats(syncLeagueIds, syncYears);
+
     // Mark expired PlayerAvailability rows for fixtures that are now completed
     await this.expireCompletedFixtureAvailability();
 
@@ -683,7 +688,15 @@ export class Orchestrator {
         });
         if (!seasonRecord) continue;
 
+        const avg = (arr: (number | null)[]) => {
+          const valid = arr.filter((v): v is number => v !== null);
+          return valid.length > 0
+            ? valid.reduce((a, b) => a + b, 0) / valid.length
+            : null;
+        };
+
         for (const { teamId } of teams) {
+          // Own fixture statistics (avgXg, possession, shots, etc.)
           const stats = await this.prisma.fixtureStatistics.findMany({
             where: {
               teamId,
@@ -693,20 +706,44 @@ export class Orchestrator {
 
           if (stats.length === 0) continue;
 
-          const avg = (arr: (number | null)[]) => {
-            const valid = arr.filter((v): v is number => v !== null);
-            return valid.length > 0
-              ? valid.reduce((a, b) => a + b, 0) / valid.length
-              : null;
-          };
+          // Completed fixtures: goals scored/conceded + opponent xG
+          const fixtures = await this.prisma.fixture.findMany({
+            where: {
+              leagueId: league.id,
+              season,
+              status: { in: ['FT', 'AET', 'PEN', 'AWD', 'WO'] },
+              OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+            },
+            select: { id: true, homeTeamId: true, goalsHome: true, goalsAway: true },
+          });
+
+          let totalGoals = 0;
+          let totalConceded = 0;
+          for (const f of fixtures) {
+            const isHome = f.homeTeamId === teamId;
+            totalGoals += isHome ? (f.goalsHome ?? 0) : (f.goalsAway ?? 0);
+            totalConceded += isHome ? (f.goalsAway ?? 0) : (f.goalsHome ?? 0);
+          }
+
+          // avgXgAgainst: opponent's expectedGoals in fixtures our team played
+          const fixtureIds = fixtures.map((f) => f.id);
+          const opponentStats = fixtureIds.length > 0
+            ? await this.prisma.fixtureStatistics.findMany({
+                where: { fixtureId: { in: fixtureIds }, NOT: { teamId } },
+                select: { expectedGoals: true },
+              })
+            : [];
 
           const aggData = {
             avgPossession: avg(stats.map((s) => s.possession)),
             avgXg: avg(stats.map((s) => s.expectedGoals)),
+            avgXgAgainst: avg(opponentStats.map((s) => s.expectedGoals)),
             avgShots: avg(stats.map((s) => s.totalShots)),
             avgShotsOnTarget: avg(stats.map((s) => s.shotsOnGoal)),
             avgPasses: avg(stats.map((s) => s.totalPasses)),
             avgPassAccuracy: avg(stats.map((s) => s.passPercent)),
+            totalGoals: fixtures.length > 0 ? totalGoals : null,
+            totalConceded: fixtures.length > 0 ? totalConceded : null,
           };
 
           await this.prisma.teamSeasonStats.upsert({
