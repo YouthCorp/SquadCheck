@@ -120,7 +120,12 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
 
     const cacheKey = `analysis:injury-impact:${teamId}:${season}`;
 
-    const result = await cached(cacheKey, 300, async () => {
+    const result = await cached(cacheKey, (r) => {
+      // Short TTL when outcomeImpact is missing despite having injured players
+      // so the result is retried quickly once DB stats are populated
+      if (r && (r as any).outcomeImpact === null && (r as any).injuredPlayers?.length > 0) return 30;
+      return 300;
+    }, async () => {
       const team = await prisma.team.findUnique({ where: { id: teamId } });
       if (!team) return null;
 
