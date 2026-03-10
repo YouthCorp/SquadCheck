@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { Sidebar } from './sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Locale } from '@/lib/i18n';
@@ -50,9 +51,15 @@ export function LayoutShell({
             </svg>
           </button>
 
-          <a href="/" className="no-underline flex items-baseline gap-0.5">
-            <span className="text-lg font-semibold text-primary tracking-tight">Squad</span>
-            <span className="text-lg font-semibold text-foreground tracking-tight">Check</span>
+          <a href="/" className="no-underline flex items-center">
+            <Image
+              src="/logo_with_text.png"
+              alt="SquadCheck"
+              width={112}
+              height={28}
+              className="h-7 w-auto object-contain dark:brightness-90"
+              priority
+            />
           </a>
 
           <div className="w-10 shrink-0" />

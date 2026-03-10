@@ -183,9 +183,9 @@ function computeAggregateImpact(players: EnrichedInjuredPlayer[]): {
   winRateDelta: number;
   injuredStarterCount: number;
 } {
-  // Only aggregate players with performance delta data and meaningful samples
+  // Only aggregate players with performance delta data and moderate+ impact (score >= 0.30)
   const eligible = players.filter(
-    p => p.performanceDelta && p.withPlayer && p.withoutPlayer,
+    p => p.performanceDelta && p.withPlayer && p.withoutPlayer && p.compositeImpactScore >= 0.30,
   );
 
   if (eligible.length === 0) {

@@ -16,15 +16,8 @@ function getSeverity(pct: number): Severity {
 const severityColor: Record<Severity, string> = {
   low:      'var(--sc-green)',
   moderate: 'var(--sc-yellow)',
-  high:     'var(--sc-orange)',
+  high:     'var(--sc-red)',
   critical: 'var(--sc-red)',
-};
-
-const severityGlow: Record<Severity, string> = {
-  low:      'rgba(66,190,101,0.15)',
-  moderate: 'rgba(241,194,27,0.15)',
-  high:     'rgba(255,131,43,0.15)',
-  critical: 'rgba(255,131,137,0.15)',
 };
 
 const sizeClasses: Record<Size, { num: string; label: string; wrap: string }> = {
@@ -64,14 +57,10 @@ export function PowerLossGauge({
 
   const severity = getSeverity(value);
   const color = severityColor[severity];
-  const glow = severityGlow[severity];
   const { num, label: labelCls, wrap } = sizeClasses[size];
 
   return (
-    <div
-      className={cn('flex flex-col items-center justify-center relative rounded-lg', wrap, className)}
-      style={{ background: `radial-gradient(ellipse at center, ${glow} 0%, transparent 70%)` }}
-    >
+    <div className={cn('flex flex-col items-center justify-center relative rounded-lg', wrap, className)}>
       <span
         className={cn('font-mono font-semibold tabular-nums leading-none', num)}
         style={{ color }}

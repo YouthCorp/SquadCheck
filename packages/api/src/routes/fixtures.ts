@@ -25,12 +25,17 @@ fixturesRouter.get('/upcoming', async (req, res, next) => {
       include: {
         homeTeam: { select: { id: true, name: true, logo: true } },
         awayTeam: { select: { id: true, name: true, logo: true } },
-        league: { select: { id: true, name: true, logo: true } },
+        league: { select: { id: true, apiFootballId: true, name: true, logo: true } },
       },
       orderBy: { date: 'asc' },
       take: limit,
     });
-    res.json(fixtures);
+    // Expose apiFootballId as league.id for URL routing
+    const mapped = fixtures.map(f => ({
+      ...f,
+      league: f.league ? { id: f.league.apiFootballId, name: f.league.name, logo: f.league.logo } : null,
+    }));
+    res.json(mapped);
   } catch (err) {
     next(err);
   }

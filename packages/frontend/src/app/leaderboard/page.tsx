@@ -147,7 +147,7 @@ export default async function LeaderboardPage({
       ) : (
         <Card className="p-0 gap-0">
           {/* Table header */}
-          <div className="grid grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-2.5 border-b border-border bg-muted/30 items-center">
+          <div className="grid grid-cols-[2rem_1fr_4rem_5rem] md:grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-2.5 border-b border-border bg-muted/30 items-center">
             <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">#</span>
             <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
               {locale === 'ko' ? '팀' : 'Team'}
@@ -156,9 +156,9 @@ export default async function LeaderboardPage({
               {locale === 'ko' ? '결장' : 'Out'}
             </span>
             <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground text-right">
-              {locale === 'ko' ? '전력 손실' : 'Power Loss'}
+              {locale === 'ko' ? '전력 손실' : 'Loss%'}
             </span>
-            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+            <span className="hidden md:block text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
               {locale === 'ko' ? '주요 결장자' : 'Key Absentees'}
             </span>
           </div>
@@ -170,7 +170,7 @@ export default async function LeaderboardPage({
               className="no-underline block hover:bg-accent transition-colors"
             >
               <div className={cn(
-                'grid grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-3 items-center',
+                'grid grid-cols-[2rem_1fr_4rem_5rem] md:grid-cols-[2.5rem_1fr_5rem_6rem_1fr] gap-2 px-4 py-3 items-center',
                 idx < sorted.length - 1 ? 'border-b border-border' : ''
               )}>
                 {/* Rank */}
@@ -182,11 +182,11 @@ export default async function LeaderboardPage({
                 </span>
 
                 {/* Team */}
-                <div className="flex items-center gap-2.5">
-                  <TeamLogo logo={r.team.logo} size="md" />
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[0.9375rem] text-foreground">{r.team.name}</span>
-                    <span className="text-[0.6875rem] text-muted-foreground">
+                <div className="flex items-center gap-2 min-w-0">
+                  <TeamLogo logo={r.team.logo} size="sm" className="shrink-0 hidden sm:block" />
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-[0.8125rem] md:text-[0.9375rem] text-foreground truncate">{r.team.name}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground truncate">
                       {LEAGUE_NAMES[r.leagueId as keyof typeof LEAGUE_NAMES]}
                     </span>
                   </div>
@@ -195,7 +195,7 @@ export default async function LeaderboardPage({
                 {/* Out count */}
                 <div className="text-center">
                   <span className={cn(
-                    'text-xl font-light font-mono',
+                    'text-lg md:text-xl font-light font-mono',
                     r.currentOut >= 5 ? 'text-[var(--sc-red)]' :
                     r.currentOut >= 3 ? 'text-[var(--sc-yellow)]' : 'text-foreground'
                   )}>
@@ -206,7 +206,7 @@ export default async function LeaderboardPage({
                 {/* Power Loss */}
                 <div className="text-right">
                   {r.powerLossPct > 0 ? (
-                    <span className={cn('text-base font-light font-mono', powerLossColor(r.powerLossPct))}>
+                    <span className={cn('text-sm md:text-base font-light font-mono', powerLossColor(r.powerLossPct))}>
                       −{r.powerLossPct.toFixed(1)}%
                     </span>
                   ) : (
@@ -214,8 +214,8 @@ export default async function LeaderboardPage({
                   )}
                 </div>
 
-                {/* Key absentees */}
-                <div className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                {/* Key absentees — desktop only */}
+                <div className="hidden md:block text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                   {r.topPlayers.length > 0
                     ? r.topPlayers.join(', ')
                     : r.impact?.injuredPlayers.slice(0, 2).map((p) => p.player.name).join(', ') ?? '—'}

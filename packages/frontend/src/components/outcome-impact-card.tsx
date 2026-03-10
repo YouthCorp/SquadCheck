@@ -20,23 +20,22 @@ const CONF_KEY: Record<string, string> = {
   low: 'outcome_confidence_low',
 };
 
-function fmtDelta(val: number | null, suffix = '', forceSign = true): string {
+function fmtDelta(val: number | null, forceSign = true): string {
   if (val === null) return '—';
   const sign = forceSign && val > 0 ? '+' : '';
-  return `${sign}${val.toFixed(2)}${suffix}`;
+  return `${sign}${val.toFixed(2)}`;
 }
 
-function fmtPctDelta(val: number, forceSign = true): string {
-  const sign = forceSign && val > 0 ? '+' : '';
-  return `${sign}${val.toFixed(1)}%`;
-}
-
-function deltaColor(val: number | null, invertSign = false): string {
+// xG: positive = good (green), negative = bad (red)
+function xgColor(val: number | null): string {
   if (val === null || Math.abs(val) < 0.05) return 'text-muted-foreground';
-  const effective = invertSign ? -val : val;
-  if (effective <= -0.3 || effective <= -5) return 'text-[var(--sc-red)]';
-  if (effective <= -0.1 || effective <= -2) return 'text-[var(--sc-orange)]';
-  return 'text-muted-foreground';
+  return val > 0 ? 'text-[var(--sc-green)]' : 'text-[var(--sc-red)]';
+}
+
+// xGA: positive = bad (red), negative = good (green)
+function xgaColor(val: number | null): string {
+  if (val === null || Math.abs(val) < 0.05) return 'text-muted-foreground';
+  return val > 0 ? 'text-[var(--sc-red)]' : 'text-[var(--sc-green)]';
 }
 
 export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpactCardProps) {
@@ -46,31 +45,17 @@ export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpac
   const metrics = [
     {
       label: t(locale, 'outcome_xg'),
-      delta: impact.xgDelta,
       baseline: baseline.xgPerMatch,
       depleted: depleted.estimatedXg,
-      format: (v: number) => v.toFixed(2),
-      colorClass: deltaColor(impact.xgDelta),
       deltaStr: fmtDelta(impact.xgDelta),
+      colorClass: xgColor(impact.xgDelta),
     },
     {
       label: t(locale, 'outcome_xga'),
-      delta: impact.xgaDelta,
       baseline: baseline.xgaPerMatch,
       depleted: depleted.estimatedXga,
-      format: (v: number) => v.toFixed(2),
-      // xGA: positive delta = MORE goals conceded = bad (invertSign for color threshold)
-      colorClass: deltaColor(impact.xgaDelta, true),
       deltaStr: fmtDelta(impact.xgaDelta),
-    },
-    {
-      label: t(locale, 'outcome_win_rate'),
-      delta: impact.winRateDelta,
-      baseline: baseline.winRate,
-      depleted: depleted.estimatedWinRate,
-      format: (v: number) => `${v.toFixed(1)}%`,
-      colorClass: deltaColor(impact.winRateDelta),
-      deltaStr: fmtPctDelta(impact.winRateDelta),
+      colorClass: xgaColor(impact.xgaDelta),
     },
   ];
 
@@ -89,20 +74,22 @@ export function OutcomeImpactCard({ outcome, locale, size = 'lg' }: OutcomeImpac
         </Badge>
       </div>
 
-      {/* 3-column metrics */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* 2-column metrics */}
+      <div className="grid grid-cols-2 gap-3">
         {metrics.map((m) => (
           <div key={m.label} className="text-center">
-            <div className={cn('text-muted-foreground', isLg ? 'text-xs' : 'text-[0.625rem]')}>
+            <div className={cn('text-muted-foreground mb-1', isLg ? 'text-xs' : 'text-[0.625rem]')}>
               {m.label}
             </div>
-            <div className={cn('font-bold', m.colorClass, isLg ? 'text-xl' : 'text-base')}>
-              {m.deltaStr}
+            {/* Values: baseline → depleted */}
+            <div className={cn('font-bold tabular-nums', isLg ? 'text-base' : 'text-sm')}>
+              {m.baseline.toFixed(2)}
+              <span className="mx-1 text-muted-foreground/50 font-normal">→</span>
+              {m.depleted.toFixed(2)}
             </div>
-            <div className={cn('text-muted-foreground font-mono', isLg ? 'text-[0.6875rem]' : 'text-[0.625rem]')}>
-              {m.format(m.baseline)}
-              <span className="mx-1">→</span>
-              {m.format(m.depleted)}
+            {/* Delta below, smaller */}
+            <div className={cn('font-medium tabular-nums', m.colorClass, isLg ? 'text-sm' : 'text-xs')}>
+              {m.deltaStr}
             </div>
           </div>
         ))}

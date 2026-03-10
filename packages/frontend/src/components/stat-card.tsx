@@ -4,7 +4,7 @@ type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'neutral';
 
 const severityColor: Record<Severity, string> = {
   critical: 'text-[var(--sc-red)]',
-  high:     'text-[var(--sc-orange)]',
+  high:     'text-[var(--sc-red)]',
   moderate: 'text-[var(--sc-yellow)]',
   low:      'text-muted-foreground',
   neutral:  'text-foreground',

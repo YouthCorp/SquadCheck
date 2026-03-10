@@ -43,7 +43,7 @@ export function MatchupSelector({
 
   return (
     <div className="bg-card border border-border rounded-lg p-4">
-      <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-3 items-end">
+      <div className="grid grid-cols-[1fr_auto_1fr] sm:grid-cols-[1fr_auto_1fr_auto] gap-3 items-end">
         {/* Home team */}
         <div>
           <label className="text-[0.6875rem] font-semibold tracking-widest uppercase text-muted-foreground mb-1.5 block">
@@ -101,12 +101,12 @@ export function MatchupSelector({
           </div>
         </div>
 
-        {/* Compare button */}
+        {/* Compare button — full width on mobile, auto on sm+ */}
         <button
           onClick={handleCompare}
           disabled={!canCompare}
           className={cn(
-            'px-5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap',
+            'col-span-3 sm:col-span-1 px-5 py-2.5 text-sm font-semibold rounded transition-colors whitespace-nowrap',
             canCompare
               ? 'bg-primary text-white cursor-pointer hover:bg-primary/90'
               : 'bg-muted text-muted-foreground cursor-not-allowed'

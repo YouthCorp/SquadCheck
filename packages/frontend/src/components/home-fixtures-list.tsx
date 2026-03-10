@@ -7,6 +7,12 @@ import { t } from '@/lib/i18n';
 import type { FixtureWithLeague } from '@/lib/types';
 import { TeamLogo } from '@/components/team-logo';
 
+const COMPETITION_SHORT: Record<number, string> = {
+  39: 'Premier League', 140: 'La Liga', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1',
+  2: 'UCL', 3: 'UEL', 848: 'UECL',
+  45: 'FA Cup', 48: 'EFL Cup', 143: 'Copa del Rey', 137: 'Coppa Italia', 81: 'DFB-Pokal',
+};
+
 interface HomeFixturesListProps {
   fixtures: FixtureWithLeague[];
   locale: Locale;
@@ -61,13 +67,20 @@ export function HomeFixturesList({ fixtures, locale }: HomeFixturesListProps) {
                     </span>
                   </div>
 
-                  {/* Date — client-side for local timezone */}
-                  <span
-                    suppressHydrationWarning
-                    className="text-xs text-muted-foreground whitespace-nowrap shrink-0 font-mono"
-                  >
-                    {mounted ? formatDate(fix.date, locale) : ''}
-                  </span>
+                  {/* Competition + Date — right column, single line */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {fix.league && (
+                      <span className="text-[0.625rem] text-muted-foreground/60 whitespace-nowrap">
+                        {COMPETITION_SHORT[fix.league.id] ?? fix.league.name}
+                      </span>
+                    )}
+                    <span
+                      suppressHydrationWarning
+                      className="text-xs text-muted-foreground whitespace-nowrap font-mono"
+                    >
+                      {mounted ? formatDate(fix.date, locale) : ''}
+                    </span>
+                  </div>
                 </div>
               </Link>
             );

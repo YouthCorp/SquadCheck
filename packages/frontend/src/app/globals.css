@@ -107,7 +107,7 @@ html, body {
 
   /* Severity / status */
   --color-severity-critical: var(--sc-red);
-  --color-severity-high:     var(--sc-orange);
+  --color-severity-high:     var(--sc-red);
   --color-severity-moderate: var(--sc-yellow);
   --color-severity-low:      var(--sc-gray);
   --color-success:           var(--sc-green);
@@ -457,10 +457,41 @@ aside[data-sidebar] {
 
 /* Home hero radial float */
 @keyframes sc-hero-glow {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50%      { opacity: 0.5;  transform: scale(1.08); }
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50%      { opacity: 0.28; transform: scale(1.05); }
 }
 .sc-hero-glow {
-  animation: sc-hero-glow 6s ease-in-out infinite;
+  animation: sc-hero-glow 8s ease-in-out infinite;
   pointer-events: none;
+}
+
+/* ============================================================
+   Sidebar scrollbar — subtle, blends with dark sidebar bg
+   ============================================================ */
+.sc-sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.sc-sidebar-nav:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Webkit (Chrome / Edge / Safari) */
+.sc-sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.sc-sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sc-sidebar-nav::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+.sc-sidebar-nav:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+.sc-sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

@@ -19,9 +19,9 @@ export function HomeInjuryCard({ impact, locale, leagueId }: HomeInjuryCardProps
   return (
     <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20">
       {/* Team header */}
-      <div className="flex items-center gap-2">
-        <TeamLogo logo={impact.team.logo} size="md" />
-        <span className="text-[0.8125rem] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+      <div className="flex items-center gap-2 min-w-0">
+        <TeamLogo logo={impact.team.logo} size="md" className="shrink-0" />
+        <span className="text-[0.8125rem] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {impact.team.name}
         </span>
       </div>

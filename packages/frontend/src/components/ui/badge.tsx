@@ -23,7 +23,7 @@ const badgeVariants = cva(
         critical:
           "bg-[color-mix(in_srgb,var(--sc-red)_18%,transparent)] text-[var(--sc-red)] border-transparent sc-badge-critical",
         high:
-          "bg-[color-mix(in_srgb,var(--sc-orange)_18%,transparent)] text-[var(--sc-orange)] border-transparent",
+          "bg-[color-mix(in_srgb,var(--sc-red)_18%,transparent)] text-[var(--sc-red)] border-transparent",
         moderate:
           "bg-[color-mix(in_srgb,var(--sc-yellow)_18%,transparent)] text-[var(--sc-yellow)] border-transparent",
         low:

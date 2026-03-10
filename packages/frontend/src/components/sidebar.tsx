@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { LangSelector } from './lang-selector';
@@ -57,7 +58,8 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
   useEffect(() => {
     const initial: Record<number, boolean> = {};
     for (const item of allItems) {
-      if (pathname?.startsWith(`/league/${item.id}`)) {
+      const base = `/league/${item.id}`;
+      if (pathname === base || pathname?.startsWith(`${base}/`)) {
         initial[item.id] = true;
       }
     }
@@ -87,15 +89,16 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
   return (
     <div className="w-64 min-w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
       {/* Brand header */}
-      <div className="px-4 py-5 border-b border-sidebar-border flex items-start justify-between gap-2">
-        <Link href="/" className="no-underline">
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-lg font-semibold text-primary tracking-tight">Squad</span>
-            <span className="text-lg font-semibold text-foreground tracking-tight">Check</span>
-          </div>
-          <div className="text-[0.6875rem] text-muted-foreground tracking-wider uppercase mt-0.5">
-            Injury Impact Analysis
-          </div>
+      <div className="pl-3 pr-4 py-3 border-b border-sidebar-border flex items-center justify-between gap-2">
+        <Link href="/" className="no-underline flex-1 min-w-0">
+          <Image
+            src="/logo_with_text.png"
+            alt="SquadCheck"
+            width={800}
+            height={200}
+            className="w-[85%] h-auto object-left object-contain dark:brightness-90"
+            priority
+          />
         </Link>
 
         {/* Close button — only visible on mobile via CSS */}
@@ -111,7 +114,7 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav className="flex-1 overflow-y-auto py-2 sc-sidebar-nav">
         {sections.map((section, sIdx) => (
           <div key={section.labelKey}>
             {/* Section header */}
@@ -124,11 +127,12 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
 
             {section.items.map((item) => {
               const base = `/league/${item.id}`;
-              const isActive = pathname?.startsWith(base);
+              const isUnderBase = pathname === base || pathname?.startsWith(`${base}/`);
+              const isActive = isUnderBase;
               const isExpanded = !!expanded[item.id];
               const isStandingsActive =
                 pathname === base ||
-                (pathname?.startsWith(base) && !pathname?.includes('/fixtures'));
+                (isUnderBase && !pathname?.includes('/fixtures'));
               const isFixturesActive = pathname?.startsWith(`${base}/fixtures`);
 
               return (

@@ -75,7 +75,7 @@ function PlayerNode({ player, index }: { player: PredictedPlayer; index: number 
           isSignalRecovered
             ? 'ring-2 ring-primary ring-offset-0 [outline:2px_dashed_var(--primary)]'
             : player.recentReturn
-            ? 'ring-2 ring-[var(--sc-orange)]'
+            ? 'ring-2 ring-[var(--sc-yellow)]'
             : 'ring-2 ring-white/70'
         )}
       >
