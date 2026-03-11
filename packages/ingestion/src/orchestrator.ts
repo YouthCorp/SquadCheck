@@ -197,7 +197,7 @@ export class Orchestrator {
         },
         select: { id: true, apiFootballId: true },
         orderBy: { date: "desc" },
-        take: 50,
+        take: 8,
       });
 
       for (const f of recentFixtures) {
