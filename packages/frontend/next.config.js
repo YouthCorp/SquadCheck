@@ -6,6 +6,16 @@ const nextConfig = {
       { protocol: 'https', hostname: 'media-*.api-sports.io' },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.squadcheck.xyz' }],
+        destination: 'https://squadcheck.xyz/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
