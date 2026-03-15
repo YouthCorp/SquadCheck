@@ -75,19 +75,30 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
       };
 
-      // Query A: top 20 players ranked by most recent injury start (5대 리그만)
-      const injuryStarts = await prisma.injury.groupBy({
-        by: ['playerId'],
-        where: {
-          season,
-          fixtureDate: { lte: now },
-          league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
-          ...NOT_DISCIPLINARY,
-        },
-        _min: { fixtureDate: true },
-        orderBy: { _min: { fixtureDate: 'desc' } },
-        take: 20,
-      });
+      // Query A: 최근 N일 이내에 "처음" 부상한 선수만 (= 신규 부상자)
+      // HAVING MIN(fixtureDate) >= cutoff 를 사용해 장기 결장자 제외
+      // 45일 윈도우 → 결과 5명 미만이면 90일로 확장 (비시즌 기간 등 대비)
+      const buildInjuryGroupBy = (cutoff: Date) =>
+        prisma.injury.groupBy({
+          by: ['playerId'],
+          where: {
+            season,
+            fixtureDate: { lte: now },
+            league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+            ...NOT_DISCIPLINARY,
+          },
+          _min: { fixtureDate: true },
+          having: { fixtureDate: { _min: { gte: cutoff } } },
+          orderBy: { _min: { fixtureDate: 'desc' } },
+          take: 20,
+        });
+
+      const cutoff45 = new Date(Date.now() - 45 * 86_400_000);
+      let injuryStarts = await buildInjuryGroupBy(cutoff45);
+      if (injuryStarts.length < 5) {
+        const cutoff90 = new Date(Date.now() - 90 * 86_400_000);
+        injuryStarts = await buildInjuryGroupBy(cutoff90);
+      }
 
       // Query B: fetch full record for each player (their earliest fixture = start date)
       const playerIds = injuryStarts.map((s) => s.playerId);
@@ -125,6 +136,14 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         orderBy: { lastSignalAt: 'desc' },
         include: {
           player: { select: { id: true, name: true, photo: true, position: true } },
+          fixture: {
+            select: {
+              id: true,
+              date: true,
+              homeTeam: { select: { id: true, name: true, logo: true } },
+              awayTeam: { select: { id: true, name: true, logo: true } },
+            },
+          },
         },
         take: 200,
       });
@@ -156,6 +175,12 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         lastSignalAt: pa.lastSignalAt,
         signalCount: pa.signalCount,
         officialStatus: pa.officialStatus,
+        upcomingFixture: pa.fixture ? {
+          id: pa.fixture.id,
+          date: pa.fixture.date,
+          homeTeam: { id: pa.fixture.homeTeam.id, name: pa.fixture.homeTeam.name, logo: pa.fixture.homeTeam.logo },
+          awayTeam: { id: pa.fixture.awayTeam.id, name: pa.fixture.awayTeam.name, logo: pa.fixture.awayTeam.logo },
+        } : null,
       }));
 
       return { recentInjuries, recentSignals };

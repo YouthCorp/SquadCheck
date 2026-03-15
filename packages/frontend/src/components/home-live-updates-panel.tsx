@@ -131,7 +131,7 @@ function SignalRow({ entry, locale }: { entry: RecentSignalEntry; locale: Locale
         )}
       </div>
 
-      {/* Player + team */}
+      {/* Player + team + upcoming fixture */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium text-foreground truncate leading-tight">
@@ -149,6 +149,22 @@ function SignalRow({ entry, locale }: { entry: RecentSignalEntry; locale: Locale
             {entry.team?.name ?? "—"}
           </span>
         </div>
+        {entry.upcomingFixture && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] text-muted-foreground/60 truncate">
+              {locale === "ko" ? "다음 경기: " : "Next: "}
+              <span className="text-muted-foreground/80">
+                {entry.upcomingFixture.homeTeam.name} vs {entry.upcomingFixture.awayTeam.name}
+              </span>
+              <span className="ml-1 text-muted-foreground/50">
+                {new Date(entry.upcomingFixture.date).toLocaleDateString(
+                  locale === "ko" ? "ko-KR" : "en-GB",
+                  { month: "numeric", day: "numeric" }
+                )}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Signal stage + probability + time */}

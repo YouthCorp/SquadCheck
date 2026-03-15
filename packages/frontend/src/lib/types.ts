@@ -169,6 +169,12 @@ export interface RecentSignalEntry {
   lastSignalAt: string | null;
   signalCount: number;
   officialStatus: string;
+  upcomingFixture: {
+    id: number;
+    date: string;
+    homeTeam: { id: number; name: string; logo: string | null };
+    awayTeam: { id: number; name: string; logo: string | null };
+  } | null;
 }
 
 export interface LiveUpdatesData {
