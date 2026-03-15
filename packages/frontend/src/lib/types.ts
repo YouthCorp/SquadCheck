@@ -21,6 +21,7 @@ export interface InjuredPlayer {
     starterFrequency: number;
     role: string;
     lastStartFixtureDate: string | null;
+    lastAppearanceFixtureDate: string | null;
   };
   performanceDelta: { winRateDelta: number; avgGoalsDelta: number; avgConcededDelta: number } | null;
   hasSignificantSample: boolean;

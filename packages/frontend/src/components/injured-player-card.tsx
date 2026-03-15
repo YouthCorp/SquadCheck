@@ -33,7 +33,8 @@ export function InjuredPlayerCard({
   const isHigh = severity === 'high';
 
   const disciplinary = isDisciplinaryReason(ip.injury.reason);
-  const triggerDate = ip.starterProfile.lastStartFixtureDate ?? ip.injury.date;
+  // lastAppearanceFixtureDate = most recent lineup appearance (start OR sub) = best injury date proxy
+  const triggerDate = ip.starterProfile.lastAppearanceFixtureDate ?? ip.starterProfile.lastStartFixtureDate ?? ip.injury.date;
   const triggerDays = daysAgo(triggerDate);
   const isLongTerm =
     !isHigh &&

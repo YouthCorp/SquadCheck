@@ -13,6 +13,7 @@ export interface StarterProfile {
   starterFrequency: number;
   role: StarterRole;
   lastStartFixtureDate: Date | null;
+  lastAppearanceFixtureDate: Date | null; // most recent appearance (start OR sub) — best injury date proxy
 }
 
 function classifyStarterRole(frequency: number): StarterRole {
@@ -219,6 +220,7 @@ export async function computeTeamPowerLoss(
     const substituteCount = subs.length;
     const freq = teamFixtures > 0 ? starterCount / teamFixtures : 0;
 
+    const lastAppearanceEntry = entries[0]; // entries ordered desc — includes starters + subs
     starterProfiles.set(pid, {
       starterCount,
       substituteCount,
@@ -226,6 +228,7 @@ export async function computeTeamPowerLoss(
       starterFrequency: round(freq),
       role: classifyStarterRole(freq),
       lastStartFixtureDate: lastStartEntry ? lastStartEntry.lineup.fixture.date : null,
+      lastAppearanceFixtureDate: lastAppearanceEntry ? lastAppearanceEntry.lineup.fixture.date : null,
     });
   }
 

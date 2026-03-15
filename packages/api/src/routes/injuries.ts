@@ -178,7 +178,8 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         if (injuryStart && appDate.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
           returnedIds.add(app.playerId);
         }
-        if (app.isStarting && injuryStart && appDate < injuryStart) {
+        // Track last appearance (start OR sub) before injury — best injury date proxy
+        if (injuryStart && appDate < injuryStart) {
           const existing = lastStartBeforeInjury.get(app.playerId);
           if (!existing || appDate > existing) lastStartBeforeInjury.set(app.playerId, appDate);
         }
