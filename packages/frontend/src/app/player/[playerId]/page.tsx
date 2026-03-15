@@ -10,8 +10,6 @@ import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {

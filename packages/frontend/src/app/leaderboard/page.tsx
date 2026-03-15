@@ -19,8 +19,6 @@ export const metadata: Metadata = {
   alternates: { canonical: '/leaderboard' },
 };
 
-export const revalidate = 600;
-
 const LEAGUE_IDS = [39, 140, 135, 78, 61] as const;
 
 function powerLossColor(pct: number): string {
