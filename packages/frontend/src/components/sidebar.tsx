@@ -237,6 +237,15 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
         <p className="text-[0.6875rem] text-muted-foreground px-4 tracking-wide">
           {t(locale, 'nav_data')}
         </p>
+        <div className="flex gap-3 px-4">
+          <Link href="/terms" className="text-[0.6875rem] text-muted-foreground/60 hover:text-muted-foreground transition-colors no-underline">
+            {locale === 'ko' ? '이용약관' : 'Terms'}
+          </Link>
+          <span className="text-[0.6875rem] text-muted-foreground/30">·</span>
+          <Link href="/privacy" className="text-[0.6875rem] text-muted-foreground/60 hover:text-muted-foreground transition-colors no-underline">
+            {locale === 'ko' ? '개인정보처리방침' : 'Privacy'}
+          </Link>
+        </div>
       </div>
     </div>
   );
