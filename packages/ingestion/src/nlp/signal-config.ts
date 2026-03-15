@@ -68,6 +68,19 @@ export const SIGNAL_CONFIG = {
 export type SignalStage = keyof typeof SIGNAL_CONFIG.stageScores;
 export const SIGNAL_STAGES = Object.keys(SIGNAL_CONFIG.stageScores) as SignalStage[];
 
+/**
+ * Injury reasons that indicate a disciplinary absence (red card / suspension / yellow cards).
+ * These players are NOT real injury cases — they serve fixed match bans and return automatically.
+ * Used in buildInjuredPlayerIndex() to exclude them from the recovery signal pipeline.
+ */
+export const DISCIPLINARY_REASONS = [
+  'red card',
+  'suspended',
+  'suspension',
+  'yellow card',
+  'yellow cards',
+] as const;
+
 // ── Team aliases dictionary ──
 // key = normalizeName(team.name) EXACTLY as stored in DB
 // Verified against season=2025 fixture data across all 5 leagues.

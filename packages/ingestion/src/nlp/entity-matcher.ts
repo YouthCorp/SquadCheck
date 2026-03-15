@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { TEAM_ALIASES, PLAYER_NICKNAMES } from './signal-config';
+import { TEAM_ALIASES, PLAYER_NICKNAMES, DISCIPLINARY_REASONS } from './signal-config';
 
 export interface PlayerRecord {
   id: number;
@@ -27,8 +27,19 @@ export async function buildInjuredPlayerIndex(
   prisma: PrismaClient,
   season: number,
 ): Promise<Map<string, PlayerRecord[]>> {
+  // Exclude disciplinary absences (red card, suspension, yellow card bans).
+  // These are fixed-match bans, not injuries — they don't need recovery signals.
+  // A player with both a real injury AND a suspension in the same season is still
+  // included because the NOT filter removes only disciplinary rows; the injury row remains.
   const injuries = await prisma.injury.findMany({
-    where: { season },
+    where: {
+      season,
+      NOT: {
+        OR: DISCIPLINARY_REASONS.map((r) => ({
+          reason: { contains: r, mode: 'insensitive' as const },
+        })),
+      },
+    },
     select: {
       playerId: true,
       teamId: true,
