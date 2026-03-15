@@ -118,17 +118,42 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
       });
 
-      // Keep only the first (earliest) record per player, then sort by start date DESC
+      // Keep only the first (earliest) record per player
       const seenInjury = new Set<number>();
       const dedupedFull = fullRecords.filter((r) => {
         if (seenInjury.has(r.playerId)) return false;
         seenInjury.add(r.playerId);
         return true;
       });
-      dedupedFull.sort(
-        (a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime(),
+
+      // Query C: lineup cross-check — 부상일 이후 출전한 선수 제외 (복귀 처리)
+      // injury-resolver / entity-matcher 와 동일한 1일 버퍼 적용 (UTC 타임존 보정)
+      const ONE_DAY_MS = 86_400_000;
+      const injuryStartByPlayer = new Map(
+        dedupedFull.map((r) => [r.playerId, new Date(r.fixtureDate)]),
       );
-      const recentInjuries = dedupedFull;
+      const lineupAppearances = await prisma.fixtureLineupPlayer.findMany({
+        where: {
+          playerId: { in: playerIds },
+          lineup: { fixture: { date: { gte: new Date(Date.now() - 90 * ONE_DAY_MS) } } },
+        },
+        select: {
+          playerId: true,
+          lineup: { select: { fixture: { select: { date: true } } } },
+        },
+      });
+      const returnedIds = new Set<number>();
+      for (const app of lineupAppearances) {
+        const injuryStart = injuryStartByPlayer.get(app.playerId);
+        if (injuryStart && app.lineup.fixture.date.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
+          returnedIds.add(app.playerId);
+        }
+      }
+
+      const recentInjuries = dedupedFull
+        .filter((r) => !returnedIds.has(r.playerId))
+        .sort((a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime())
+        .slice(0, 20);
 
       // 2. Recovery signals — from player_availability (deduplicated by player)
       const allSignals = await prisma.playerAvailability.findMany({
