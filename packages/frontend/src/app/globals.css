@@ -466,6 +466,35 @@ aside[data-sidebar] {
 }
 
 /* ============================================================
+   Generic panel scrollbar — same pattern as sidebar, for card panels
+   ============================================================ */
+.sc-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.sc-panel-scroll:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.sc-panel-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sc-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sc-panel-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+.sc-panel-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+.sc-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================
    Sidebar scrollbar — subtle, blends with dark sidebar bg
    ============================================================ */
 .sc-sidebar-nav {

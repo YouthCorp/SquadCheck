@@ -6,11 +6,13 @@ import type {
   InjurySummaryEntry,
   Standing,
   FixtureWithLeague,
+  LiveUpdatesData,
 } from "@/lib/types";
 import { CURRENT_SEASON } from "@/lib/constants";
 import { HomeFixturesList } from "@/components/home-fixtures-list";
 import { HomeStandingsPanel } from "@/components/home-standings-panel";
 import { HomeInjuryWatchPanel } from "@/components/home-injury-watch-panel";
+import { HomeLiveUpdatesPanel } from "@/components/home-live-updates-panel";
 
 const LEAGUE_IDS = [39, 140, 135, 78, 61] as const;
 
@@ -19,6 +21,7 @@ export default async function Home() {
 
   const [
     fixtures,
+    liveUpdates,
     s39,
     s140,
     s135,
@@ -32,6 +35,9 @@ export default async function Home() {
   ] = await Promise.all([
     fetchApi<FixtureWithLeague[]>("/api/fixtures/upcoming?all=true").catch(
       () => [] as FixtureWithLeague[],
+    ),
+    fetchApi<LiveUpdatesData>("/api/injuries/live-updates").catch(
+      () => ({ recentInjuries: [], recentSignals: [] }) as LiveUpdatesData,
     ),
     fetchApi<Standing>(
       `/api/standings?league=39&season=${CURRENT_SEASON}`,
@@ -166,6 +172,9 @@ export default async function Home() {
         <HomeFixturesList fixtures={upcoming} locale={locale} />
         <HomeStandingsPanel standingsMap={standingsMap} locale={locale} />
       </div>
+
+      {/* Live Updates */}
+      <HomeLiveUpdatesPanel data={liveUpdates} locale={locale} />
 
       {/* Injury Watch */}
       <HomeInjuryWatchPanel injuryMap={injuryMap} locale={locale} />

@@ -149,6 +149,33 @@ export interface FormationSlotInfo {
   pitchY: number;
 }
 
+export interface RecentInjuryEntry {
+  id: number;
+  type: string;
+  reason: string;
+  fixtureDate: string;
+  player: { id: number; name: string; photo: string | null; position: string | null };
+  team: { id: number; name: string; logo: string | null };
+  league: { id: number; name: string; logo: string | null; apiFootballId: number };
+}
+
+export interface RecentSignalEntry {
+  playerId: number;
+  player: { id: number; name: string; photo: string | null; position: string | null };
+  team: { id: number; name: string; logo: string | null } | null;
+  predictedAvailability: number;
+  confidenceLevel: number;
+  latestSignalStage: string | null;
+  lastSignalAt: string | null;
+  signalCount: number;
+  officialStatus: string;
+}
+
+export interface LiveUpdatesData {
+  recentInjuries: RecentInjuryEntry[];
+  recentSignals: RecentSignalEntry[];
+}
+
 export interface InjurySummaryEntry {
   team: { id: number; name: string; logo: string | null } | undefined;
   injuryCount: number;

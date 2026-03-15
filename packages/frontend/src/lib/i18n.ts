@@ -140,6 +140,18 @@ const translations = {
     event_red: "Red Card",
     events_show_all: "All Events",
 
+    // live updates section
+    live_updates: "Live Updates",
+    recent_injuries: "Recent Injuries",
+    recovery_signals: "Recovery Signals",
+    no_recent_injuries: "No recent injuries",
+    no_recovery_signals: "No recovery signals",
+    signal_partial_training: "Partial Training",
+    signal_full_training: "Full Training",
+    signal_available: "Available",
+    signal_expected_to_start: "Expected to Start",
+    return_probability: "{n}% return",
+
     // home
     home_hero_title: "Live Football Intelligence",
     upcoming_fixtures: "Upcoming Fixtures",
@@ -354,6 +366,18 @@ const translations = {
     event_yellow: "경고",
     event_red: "퇴장",
     events_show_all: "전체 이벤트 보기",
+
+    // live updates section
+    live_updates: "실시간 업데이트",
+    recent_injuries: "최근 부상 소식",
+    recovery_signals: "복귀 신호",
+    no_recent_injuries: "최근 부상 소식 없음",
+    no_recovery_signals: "복귀 신호 없음",
+    signal_partial_training: "부분 훈련",
+    signal_full_training: "전체 훈련",
+    signal_available: "복귀 가능",
+    signal_expected_to_start: "선발 예상",
+    return_probability: "복귀 확률 {n}%",
 
     // home
     home_hero_title: "실시간 축구 분석",

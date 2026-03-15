@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { LangSelector } from './lang-selector';
 import { ThemeToggle } from './theme-toggle';
 import { t, type Locale } from '@/lib/i18n';
@@ -70,6 +71,30 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
     setExpanded((prev) => ({ ...prev, [leagueId]: !prev[leagueId] }));
   }
 
+  const navRef = useRef<HTMLElement>(null);
+  const [showNavHint, setShowNavHint] = useState(false);
+
+  const checkNavScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight + 4;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 16;
+    setShowNavHint(hasOverflow && !atBottom);
+  }, []);
+
+  useEffect(() => {
+    checkNavScroll();
+    const el = navRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkNavScroll, { passive: true });
+    const ro = new ResizeObserver(checkNavScroll);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', checkNavScroll);
+      ro.disconnect();
+    };
+  }, [checkNavScroll]);
+
   const navItemCls = (active: boolean) =>
     cn(
       'flex items-center gap-3 px-4 py-2.5 text-sm border-l-2 transition-colors duration-150 cursor-pointer select-none',
@@ -114,7 +139,8 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 sc-sidebar-nav">
+      <div className="relative flex-1 min-h-0">
+      <nav ref={navRef} className="h-full overflow-y-auto py-2 sc-sidebar-nav">
         {sections.map((section, sIdx) => (
           <div key={section.labelKey}>
             {/* Section header */}
@@ -197,6 +223,12 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
           </div>
         </Link>
       </nav>
+      {showNavHint && (
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-14 flex items-end justify-center pb-2 bg-gradient-to-t from-sidebar to-transparent">
+          <ChevronDown className="w-4 h-4 text-sidebar-foreground/30 animate-bounce" />
+        </div>
+      )}
+      </div>
 
       {/* Footer */}
       <div className="border-t border-sidebar-border py-3 space-y-2.5">

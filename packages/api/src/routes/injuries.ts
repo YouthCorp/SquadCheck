@@ -45,6 +45,84 @@ injuriesRouter.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/injuries/live-updates?season=2025
+injuriesRouter.get('/live-updates', async (req, res, next) => {
+  try {
+    const prisma = getPrisma(req);
+    const season = await resolveSeason(prisma, req.query.season as string);
+
+    const cacheKey = `injuries:live-updates:${season}`;
+
+    const result = await cached(cacheKey, 60, async () => {
+      // 1. Recent injuries — deduplicated by player (latest fixtureDate per player)
+      const allInjuries = await prisma.injury.findMany({
+        where: { season },
+        orderBy: { fixtureDate: 'desc' },
+        include: {
+          player: { select: { id: true, name: true, photo: true, position: true } },
+          team: { select: { id: true, name: true, logo: true } },
+          league: { select: { id: true, name: true, logo: true, apiFootballId: true } },
+        },
+        take: 200,
+      });
+
+      const seenInjury = new Set<number>();
+      const recentInjuries = allInjuries
+        .filter((inj) => {
+          if (seenInjury.has(inj.playerId)) return false;
+          seenInjury.add(inj.playerId);
+          return true;
+        })
+        .slice(0, 20);
+
+      // 2. Recovery signals — from player_availability (deduplicated by player)
+      const allSignals = await prisma.playerAvailability.findMany({
+        where: { expired: false, signalCount: { gt: 0 } },
+        orderBy: { lastSignalAt: 'desc' },
+        include: {
+          player: { select: { id: true, name: true, photo: true, position: true } },
+        },
+        take: 200,
+      });
+
+      const seenSignal = new Set<number>();
+      const dedupedSignals = allSignals
+        .filter((pa) => {
+          if (seenSignal.has(pa.playerId)) return false;
+          seenSignal.add(pa.playerId);
+          return true;
+        })
+        .slice(0, 20);
+
+      // Fetch team info separately (no team relation on PlayerAvailability)
+      const teamIds = [...new Set(dedupedSignals.map((s) => s.teamId))];
+      const teams = await prisma.team.findMany({
+        where: { id: { in: teamIds } },
+        select: { id: true, name: true, logo: true },
+      });
+      const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+      const recentSignals = dedupedSignals.map((pa) => ({
+        playerId: pa.playerId,
+        player: pa.player,
+        team: teamMap.get(pa.teamId) ?? null,
+        predictedAvailability: pa.predictedAvailability,
+        confidenceLevel: pa.confidenceLevel,
+        latestSignalStage: pa.latestSignalStage,
+        lastSignalAt: pa.lastSignalAt,
+        signalCount: pa.signalCount,
+        officialStatus: pa.officialStatus,
+      }));
+
+      return { recentInjuries, recentSignals };
+    });
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/injuries/summary?league=39&season=2024
 injuriesRouter.get('/summary', async (req, res, next) => {
   try {

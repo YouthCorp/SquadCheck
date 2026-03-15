@@ -25,7 +25,7 @@ export function HomeInjuryWatchPanel({ injuryMap, locale }: HomeInjuryWatchPanel
   const impacts = injuryMap[activeLeague] ?? [];
 
   return (
-    <div className="mb-8">
+    <div className="mt-8 mb-8">
       {/* Section header */}
       <div className="mb-3 flex justify-between items-center flex-wrap gap-2">
         <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
