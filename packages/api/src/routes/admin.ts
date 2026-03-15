@@ -446,3 +446,133 @@ adminRouter.get('/signals/injuries', async (req, res, next) => {
     next(err);
   }
 });
+
+// POST /api/admin/signals/expire-stale
+// 잘못 수집된 player_availability 즉시 만료 처리
+// ① 완료된 경기(FT/AET/PEN)에 연결된 레코드
+// ② 부상 기록 자체가 없는 선수의 레코드
+// ③ 부상 기록은 있지만 그 이후 라인업에 출전한 선수의 레코드
+adminRouter.post('/signals/expire-stale', async (req, res, next) => {
+  try {
+    const prisma = getPrisma(req);
+
+    // ① 완료된 경기에 연결된 가용성 레코드 만료
+    const { count: expiredByFixture } = await prisma.playerAvailability.updateMany({
+      where: {
+        expired: false,
+        fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
+      },
+      data: { expired: true },
+    });
+
+    // 남은 활성 레코드 대상 추가 정리
+    const activeAvail = await prisma.playerAvailability.findMany({
+      where: { expired: false },
+      select: { id: true, playerId: true, teamId: true, lastSignalAt: true },
+    });
+
+    if (activeAvail.length === 0) {
+      return res.json({
+        expiredByFixture,
+        expiredByNoInjury: 0,
+        expiredByLineupReturn: 0,
+        totalExpired: expiredByFixture,
+        remainingActive: 0,
+      });
+    }
+
+    const playerIds = [...new Set(activeAvail.map(a => a.playerId))];
+
+    // 활성 부상 기록 조회 (부상 날짜 포함)
+    const injuries = await prisma.injury.findMany({
+      where: { playerId: { in: playerIds } },
+      select: { playerId: true, fixtureDate: true },
+      orderBy: { fixtureDate: 'desc' },
+    });
+    const latestInjuryDateByPlayer = new Map<number, Date>();
+    for (const inj of injuries) {
+      if (!latestInjuryDateByPlayer.has(inj.playerId)) {
+        latestInjuryDateByPlayer.set(inj.playerId, inj.fixtureDate);
+      }
+    }
+
+    // 라인업 출전 기록 조회 (최근 90일)
+    const appearances = await prisma.fixtureLineupPlayer.findMany({
+      where: {
+        playerId: { in: playerIds },
+        lineup: {
+          fixture: {
+            date: { gte: new Date(Date.now() - 90 * 86_400_000) },
+            status: { in: ['FT', 'AET', 'PEN'] },
+          },
+        },
+      },
+      select: {
+        playerId: true,
+        lineup: { select: { fixture: { select: { date: true } } } },
+      },
+    });
+    const latestAppearanceByPlayer = new Map<number, Date>();
+    for (const app of appearances) {
+      const d = app.lineup.fixture.date;
+      const prev = latestAppearanceByPlayer.get(app.playerId);
+      if (!prev || d > prev) latestAppearanceByPlayer.set(app.playerId, d);
+    }
+
+    // ② 부상 기록 없는 선수, ③ 복귀 확인된 선수
+    const toExpireIds: number[] = [];
+    for (const avail of activeAvail) {
+      const injuryDate = latestInjuryDateByPlayer.get(avail.playerId);
+      const lastPlayed = latestAppearanceByPlayer.get(avail.playerId);
+
+      if (!injuryDate) {
+        // 부상 기록 자체가 없음 → 잘못 수집된 신호
+        toExpireIds.push(avail.id);
+      } else if (lastPlayed && lastPlayed > injuryDate) {
+        // 부상 이후 경기에 출전 → 이미 복귀
+        toExpireIds.push(avail.id);
+      }
+    }
+
+    let expiredByNoInjury = 0;
+    let expiredByLineupReturn = 0;
+
+    if (toExpireIds.length > 0) {
+      // 구분을 위해 두 번에 나눠서 업데이트
+      const noInjuryIds = activeAvail
+        .filter(a => toExpireIds.includes(a.id) && !latestInjuryDateByPlayer.has(a.playerId))
+        .map(a => a.id);
+      const returnedIds = toExpireIds.filter(id => !noInjuryIds.includes(id));
+
+      if (noInjuryIds.length > 0) {
+        const r = await prisma.playerAvailability.updateMany({
+          where: { id: { in: noInjuryIds } },
+          data: { expired: true },
+        });
+        expiredByNoInjury = r.count;
+      }
+      if (returnedIds.length > 0) {
+        const r = await prisma.playerAvailability.updateMany({
+          where: { id: { in: returnedIds } },
+          data: { expired: true },
+        });
+        expiredByLineupReturn = r.count;
+      }
+    }
+
+    const totalExpired = expiredByFixture + expiredByNoInjury + expiredByLineupReturn;
+    const remainingActive = await prisma.playerAvailability.count({ where: { expired: false } });
+
+    console.log(`[Admin] expire-stale: 경기완료=${expiredByFixture}, 부상없음=${expiredByNoInjury}, 복귀확인=${expiredByLineupReturn}, 총=${totalExpired}`);
+
+    res.json({
+      expiredByFixture,
+      expiredByNoInjury,
+      expiredByLineupReturn,
+      totalExpired,
+      remainingActive,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
