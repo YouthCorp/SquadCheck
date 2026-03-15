@@ -62,15 +62,21 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       const now = new Date();
       const TOP5_LEAGUE_IDS = [39, 140, 135, 78, 61];
 
-      // Disciplinary absences (red card / suspension / yellow card bans) are not real injuries.
-      // Exclude them so the live feed only shows genuine injury news.
+      // Only genuine injuries — exclude disciplinary, squad management, and non-injury absences.
       const NOT_DISCIPLINARY = {
         NOT: {
           OR: [
-            { reason: { contains: 'red card',    mode: 'insensitive' as const } },
-            { reason: { equals:   'suspended',   mode: 'insensitive' as const } },
-            { reason: { equals:   'suspension',  mode: 'insensitive' as const } },
-            { reason: { contains: 'yellow card', mode: 'insensitive' as const } },
+            { reason: { contains: 'red card',           mode: 'insensitive' as const } },
+            { reason: { equals:   'suspended',          mode: 'insensitive' as const } },
+            { reason: { equals:   'suspension',         mode: 'insensitive' as const } },
+            { reason: { contains: 'yellow card',        mode: 'insensitive' as const } },
+            // Non-injury exclusions
+            { reason: { equals:   'international duty', mode: 'insensitive' as const } },
+            { reason: { equals:   'inactive',           mode: 'insensitive' as const } },
+            { reason: { contains: 'coach',              mode: 'insensitive' as const } },
+            { reason: { equals:   'loan agreement',     mode: 'insensitive' as const } },
+            { reason: { equals:   'rest',               mode: 'insensitive' as const } },
+            { reason: { equals:   'doping',             mode: 'insensitive' as const } },
           ],
         },
       };
