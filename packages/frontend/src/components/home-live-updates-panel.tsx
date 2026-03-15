@@ -15,6 +15,7 @@ interface Props {
 function timeAgo(locale: Locale, dateStr: string | null): string {
   if (!dateStr) return "—";
   const diff = Date.now() - new Date(dateStr).getTime();
+  if (diff < 0) return "—";
   const minutes = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
   const days = Math.floor(diff / 86_400_000);

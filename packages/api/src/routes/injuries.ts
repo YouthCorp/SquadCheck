@@ -54,26 +54,55 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
     const cacheKey = `injuries:live-updates:${season}`;
 
     const result = await cached(cacheKey, 60, async () => {
-      // 1. Recent injuries — deduplicated by player (latest fixtureDate per player)
-      const allInjuries = await prisma.injury.findMany({
-        where: { season },
-        orderBy: { fixtureDate: 'desc' },
+      // 1. Recent injuries — show the 20 players whose injuries started most recently.
+      // "Injury start" = the earliest fixture they missed this season (MIN fixtureDate).
+      // Two-query strategy to avoid loading all 14k+ records:
+      //   Query A: groupBy playerId → MIN(fixtureDate) ordered DESC, take 20
+      //   Query B: fetch full details for those 20 players
+      const now = new Date();
+      const TOP5_LEAGUE_IDS = [39, 140, 135, 78, 61];
+
+      // Query A: top 20 players ranked by most recent injury start (5대 리그만)
+      const injuryStarts = await prisma.injury.groupBy({
+        by: ['playerId'],
+        where: {
+          season,
+          fixtureDate: { lte: now },
+          league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+        },
+        _min: { fixtureDate: true },
+        orderBy: { _min: { fixtureDate: 'desc' } },
+        take: 20,
+      });
+
+      // Query B: fetch full record for each player (their earliest fixture = start date)
+      const playerIds = injuryStarts.map((s) => s.playerId);
+      const fullRecords = await prisma.injury.findMany({
+        where: {
+          season,
+          playerId: { in: playerIds },
+          fixtureDate: { lte: now },
+          league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+        },
+        orderBy: { fixtureDate: 'asc' },
         include: {
           player: { select: { id: true, name: true, photo: true, position: true } },
           team: { select: { id: true, name: true, logo: true } },
           league: { select: { id: true, name: true, logo: true, apiFootballId: true } },
         },
-        take: 200,
       });
 
+      // Keep only the first (earliest) record per player, then sort by start date DESC
       const seenInjury = new Set<number>();
-      const recentInjuries = allInjuries
-        .filter((inj) => {
-          if (seenInjury.has(inj.playerId)) return false;
-          seenInjury.add(inj.playerId);
-          return true;
-        })
-        .slice(0, 20);
+      const dedupedFull = fullRecords.filter((r) => {
+        if (seenInjury.has(r.playerId)) return false;
+        seenInjury.add(r.playerId);
+        return true;
+      });
+      dedupedFull.sort(
+        (a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime(),
+      );
+      const recentInjuries = dedupedFull;
 
       // 2. Recovery signals — from player_availability (deduplicated by player)
       const allSignals = await prisma.playerAvailability.findMany({
