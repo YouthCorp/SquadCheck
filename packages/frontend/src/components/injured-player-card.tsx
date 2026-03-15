@@ -270,7 +270,7 @@ export function InjuredPlayerCard({
         {infoLine(true)}
         {statsRow}
         {outcomeRow}
-        <div className={cn('text-[0.6875rem] text-muted-foreground mt-0.5', ip.player.photo ? 'pl-9' : '')}>
+        <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
           {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           {ip.winRateBoost > 0 && (
             <span className="inline-flex items-center gap-1 ml-2 text-[var(--sc-red)]">

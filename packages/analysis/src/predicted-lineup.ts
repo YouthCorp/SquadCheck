@@ -527,7 +527,11 @@ export async function computePredictedLineup(
         playerId: { in: candidateIds },
         lineup: {
           teamId,
-          fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } },
+          fixture: {
+            season,
+            status: { in: ['FT', 'AET', 'PEN'] },
+            ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
+          },
         },
       },
       select: {

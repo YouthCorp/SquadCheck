@@ -227,7 +227,11 @@ export async function computeTeamPowerLoss(
         playerId: { in: candidatePlayerIds },
         lineup: {
           teamId,
-          fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } },
+          fixture: {
+            season,
+            status: { in: ['FT', 'AET', 'PEN'] },
+            ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
+          },
         },
       },
       select: {
