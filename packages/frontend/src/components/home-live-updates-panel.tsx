@@ -100,6 +100,11 @@ function InjuryRow({ entry, locale }: { entry: RecentInjuryEntry; locale: Locale
         </div>
         <div className="text-[11px] text-muted-foreground/50 mt-0.5">
           {timeAgo(locale, entry.fixtureDate)}
+          {" · "}
+          {new Date(entry.fixtureDate).toLocaleDateString(
+            locale === "ko" ? "ko-KR" : "en-GB",
+            { month: "numeric", day: "numeric" }
+          )}
         </div>
       </div>
     </Link>
