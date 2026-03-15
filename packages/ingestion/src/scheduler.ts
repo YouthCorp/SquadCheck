@@ -7,8 +7,9 @@ import { PrismaClient } from '@prisma/client';
 import { ApiFootballClient } from './client/api-football';
 import { Orchestrator } from './orchestrator';
 
-const CRON_SCHEDULE = process.env.SYNC_CRON_SCHEDULE || '10 * * * *';
-// Signal collection runs on odd hours to avoid overlap with main sync
+// Main sync: every hour at :30 — 30-min gap before/after signal collection at :00
+const CRON_SCHEDULE = process.env.SYNC_CRON_SCHEDULE || '30 * * * *';
+// Signal collection: every odd hour at :00 (30 min apart from sync)
 const SIGNAL_CRON_SCHEDULE = process.env.SIGNAL_CRON_SCHEDULE || '0 1,3,5,7,9,11,13,15,17,19,21,23 * * *';
 
 const prisma = new PrismaClient();
