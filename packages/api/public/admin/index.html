@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SquadCheck Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --card: #1a1d24; --border: #2a2d38; --border2: #343744;
+    --text: #e2e8f0; --muted: #8892a4; --muted2: #5a6375;
+    --green: #22c55e; --green-dim: #16a34a22; --yellow: #eab308;
+    --yellow-dim: #ca8a0422; --red: #ef4444; --red-dim: #ef444422;
+    --blue: #60a5fa; --blue-dim: #3b82f622;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─── Layout ───────────────────────────────── */
+  .navbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    background: var(--card); position: sticky; top: 0; z-index: 100;
+  }
+  .navbar-title { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+  .navbar-title span { color: var(--green); }
+  .navbar-meta { display: flex; align-items: center; gap: 12px; }
+  .navbar-time { font-size: 12px; color: var(--muted); }
+  .btn {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text); cursor: pointer; font-size: 12px;
+    font-family: var(--font); transition: background .15s;
+  }
+  .btn:hover { background: var(--border2); }
+  .btn.loading { opacity: .6; cursor: wait; }
+  .spin { display: inline-block; animation: spin .7s linear infinite; margin-right: 4px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ─── Stats grid ──────────────────────────── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
+  .stat-value { font-size: 24px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ─── Two-col ─────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ─── Cards ───────────────────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .card-body { padding: 0; overflow-y: auto; max-height: 400px; }
+
+  /* ─── Tables ──────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #ffffff08; }
+
+  /* ─── Badges / pills ──────────────────────── */
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 100px;
+    font-size: 10px; font-weight: 600; line-height: 1.6;
+  }
+  .badge-green { background: var(--green-dim); color: var(--green); }
+  .badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+  .badge-red { background: var(--red-dim); color: var(--red); }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); }
+  .badge-muted { background: #ffffff0f; color: var(--muted); }
+
+  /* ─── Dot indicators ──────────────────────── */
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); }
+  .dot-yellow { background: var(--yellow); }
+
+  /* ─── Tabs ────────────────────────────────── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 8px 16px; font-size: 12px; font-weight: 500; cursor: pointer;
+    border-bottom: 2px solid transparent; color: var(--muted); margin-bottom: -1px;
+    transition: color .15s;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--blue); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ─── Signal stage labels ─────────────────── */
+  .stage-pill {
+    font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500;
+  }
+  .stage-expected_to_start { background: #22c55e22; color: #22c55e; }
+  .stage-available { background: #22c55e15; color: #86efac; }
+  .stage-full_training { background: #3b82f620; color: #93c5fd; }
+  .stage-partial_training { background: #eab30820; color: #fde047; }
+  .stage-unknown { background: #ffffff0f; color: var(--muted); }
+
+  /* ─── Availability bar ────────────────────── */
+  .avail-bar { display: flex; align-items: center; gap: 8px; }
+  .avail-pct { font-size: 12px; font-weight: 700; min-width: 38px; }
+  .avail-pct.high { color: var(--green); }
+  .avail-pct.mid { color: var(--yellow); }
+  .avail-pct.low { color: var(--muted); }
+  .bar-track { flex: 1; height: 4px; background: var(--border2); border-radius: 2px; min-width: 40px; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
+
+  /* ─── Misc ────────────────────────────────── */
+  .text-muted { color: var(--muted); }
+  .text-green { color: var(--green); }
+  .text-yellow { color: var(--yellow); }
+  .text-red { color: var(--red); }
+  .text-blue { color: var(--blue); }
+  .mono { font-family: 'Fira Code', 'Cascadia Code', monospace; font-size: 11px; }
+  .empty { padding: 24px; text-align: center; color: var(--muted2); font-size: 12px; }
+  .error-box { padding: 12px 16px; background: var(--red-dim); border: 1px solid #ef44443a; border-radius: 6px; color: var(--red); font-size: 12px; }
+  .snippet {
+    background: #0d0f15; border: 1px solid var(--border); border-radius: 4px;
+    padding: 6px 8px; font-size: 11px; color: var(--muted); max-width: 300px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help;
+  }
+  details summary { cursor: pointer; color: var(--blue); font-size: 11px; user-select: none; }
+  details[open] summary { margin-bottom: 6px; }
+  .signal-list { padding: 6px 12px 10px; }
+  .signal-item { border-left: 2px solid var(--border2); padding: 4px 0 4px 10px; margin-bottom: 6px; }
+  .signal-item:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-title">Squad<span>Check</span> Admin</div>
+  <div class="navbar-meta">
+    <span class="navbar-time" id="last-updated">Loading...</span>
+    <button class="btn" id="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
+  </div>
+</nav>
+
+<main>
+  <!-- ① Overview stats -->
+  <section>
+    <div class="section-title">Overview</div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-label">Loading</div><div class="stat-value">…</div></div>
+    </div>
+  </section>
+
+  <!-- ② Signal pipeline + Active signals -->
+  <div class="two-col" style="margin-bottom:28px">
+    <!-- Pipeline status -->
+    <div class="card">
+      <div class="card-header">
+        Signal Pipeline
+        <span id="pipeline-badge"></span>
+      </div>
+      <div class="card-body" id="pipeline-body"><div class="empty">Loading…</div></div>
+    </div>
+    <!-- Active recovery signals -->
+    <div class="card">
+      <div class="card-header">
+        Active Recovery Signals
+        <span id="signals-badge"></span>
+      </div>
+      <div class="card-body" id="signals-body"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- ③ Injuries (tabbed) -->
+  <section>
+    <div class="section-title">Injury Status</div>
+    <div class="card">
+      <div class="tabs" id="injury-tabs">
+        <div class="tab active" onclick="switchTab('active')">Active Injuries <span id="tab-active-count" class="badge badge-red" style="margin-left:4px"></span></div>
+        <div class="tab" onclick="switchTab('stale')">Stale (returned) <span id="tab-stale-count" class="badge badge-muted" style="margin-left:4px"></span></div>
+      </div>
+      <div class="card-body" style="max-height:500px">
+        <div class="tab-panel active" id="panel-active"><div class="empty">Loading…</div></div>
+        <div class="tab-panel" id="panel-stale"><div class="empty">Loading…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ Sources table -->
+  <section>
+    <div class="section-title">RSS & Crawl Sources</div>
+    <div class="card">
+      <div class="card-body" style="max-height:460px" id="sources-body"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ─── Helpers ─────────────────────────────────────────────────────────────
+const API = ''; // relative — served from same origin as the API
+const $ = id => document.getElementById(id);
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '—';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+  if (d >= 1) return d + 'd ago';
+  if (h >= 1) return h + 'h ago';
+  if (m >= 1) return m + 'm ago';
+  return 'just now';
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function availColor(pct) {
+  if (pct >= 0.7) return 'high'; if (pct >= 0.4) return 'mid'; return 'low';
+}
+function availBarColor(pct) {
+  if (pct >= 0.7) return '#22c55e'; if (pct >= 0.4) return '#eab308'; return '#5a6375';
+}
+
+function stageClass(stage) {
+  return 'stage-' + (stage || 'unknown');
+}
+function stageLabel(stage) {
+  const m = { partial_training:'Partial Training', full_training:'Full Training', available:'Available', expected_to_start:'Expected to Start' };
+  return m[stage] || (stage || '—');
+}
+
+function badge(text, cls) { return `<span class="badge ${cls}">${text}</span>`; }
+
+function setLoading(on) {
+  const btn = $('refresh-btn');
+  btn.classList.toggle('loading', on);
+  btn.innerHTML = on ? '<span class="spin">⟳</span> Refreshing…' : '⟳ Refresh';
+}
+
+// ─── Tab switch ───────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['active','stale'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  $('panel-' + name).classList.add('active');
+}
+
+// ─── Section renderers ────────────────────────────────────────────────────
+function renderStats(stats, status) {
+  const avail = status?.availability ?? {};
+  const arts  = status?.articles ?? {};
+  const sigs  = status?.signals ?? {};
+  const items = [
+    { label: 'Injuries (DB)',     value: stats.injuries,      sub: `${stats.fixtures} fixtures` },
+    { label: 'Recovery Signals',  value: stats.recoverySignals, sub: `+${sigs.last24h ?? 0} today` },
+    { label: 'Active Avail.',     value: avail.activeRecords ?? stats.playerAvailability, sub: `${avail.aboveThreshold ?? 0} ≥70%` },
+    { label: 'RSS Sources',       value: status?.rssSources?.active ?? '…', sub: `/ ${status?.rssSources?.total ?? stats.rssFeedSources} total` },
+    { label: 'Crawl Sources',     value: status?.crawlSources?.active ?? '…', sub: `/ ${status?.crawlSources?.total ?? '?'} total` },
+    { label: 'Articles Tracked',  value: stats.rssArticles ?? arts.totalTracked, sub: `${arts.unprocessed ?? 0} unprocessed` },
+  ];
+  $('stats-grid').innerHTML = items.map(i => `
+    <div class="stat-card">
+      <div class="stat-label">${i.label}</div>
+      <div class="stat-value">${i.value ?? '—'}</div>
+      <div class="stat-sub">${i.sub}</div>
+    </div>`).join('');
+}
+
+function renderPipeline(status) {
+  const rss   = status.rssSources;
+  const crawl = status.crawlSources;
+  const sigs  = status.signals;
+  const arts  = status.articles;
+
+  const summary = `
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">RSS last fetch</div><div style="font-size:12px">${timeAgo(rss.lastFetchedAt)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Crawl last fetch</div><div style="font-size:12px">${timeAgo(crawl.lastFetchedAt)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Signals 24h / 7d</div><div style="font-size:12px">${sigs.last24h} / ${sigs.last7d}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Classifier split</div><div style="font-size:12px">${Object.entries(sigs.byClassifier||{}).map(([k,v])=>`${k}:${v}`).join(' | ') || '—'}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Articles today</div><div style="font-size:12px">${arts.discoveredLast24h} new / ${arts.unprocessed} unprocessed</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Top signal source</div><div style="font-size:12px">${sigs.topSourcesByVolume?.[0]?.sourceName ?? '—'}</div></div>
+      </div>
+    </div>`;
+
+  $('pipeline-badge').innerHTML = badge(sigs.last24h + ' signals today', sigs.last24h > 0 ? 'badge-green' : 'badge-muted');
+  $('pipeline-body').innerHTML = summary;
+}
+
+function renderSignals(data) {
+  const players = data.players || [];
+  $('signals-badge').innerHTML = badge(players.length + ' players', players.length > 0 ? 'badge-green' : 'badge-muted');
+
+  if (!players.length) {
+    $('signals-body').innerHTML = '<div class="empty">No active recovery signals</div>';
+    return;
+  }
+  const rows = players.map(p => {
+    const pct = Math.round(p.predictedAvailability * 100);
+    const conf = Math.round(p.confidenceLevel * 100);
+    const signalsHtml = p.recentSignals.slice(0,3).map(s => `
+      <div class="signal-item">
+        <div style="font-size:11px;color:var(--text)">${s.articleTitle || s.articleUrl}</div>
+        <div style="display:flex;gap:8px;margin-top:2px;align-items:center">
+          <span class="stage-pill ${stageClass(s.signalStage)}">${stageLabel(s.signalStage)}</span>
+          <span class="text-muted" style="font-size:10px">${s.sourceName}</span>
+          <span class="text-muted" style="font-size:10px">${timeAgo(s.publishedAt)}</span>
+          <span class="mono text-muted">conf:${Math.round(s.confidence*100)}%</span>
+        </div>
+        ${s.extractedSnippet ? `<div class="snippet" title="${s.extractedSnippet}">${s.extractedSnippet}</div>` : ''}
+      </div>`).join('');
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:600">${p.playerName}</div>
+          <div style="font-size:11px;color:var(--muted)">${p.teamName || '—'} · ${p.playerPosition || '?'}</div>
+        </td>
+        <td>
+          <div class="avail-bar">
+            <span class="avail-pct ${availColor(p.predictedAvailability)}">${pct}%</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${availBarColor(p.predictedAvailability)}"></div></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">conf ${conf}%</div>
+        </td>
+        <td>
+          <span class="stage-pill ${stageClass(p.latestSignalStage)}">${stageLabel(p.latestSignalStage)}</span>
+        </td>
+        <td>
+          <div style="font-size:11px">${timeAgo(p.lastSignalAt)}</div>
+          <div style="font-size:10px;color:var(--muted)">${p.signalCount} signal${p.signalCount!==1?'s':''}</div>
+        </td>
+        <td>
+          ${p.upcomingFixture ? `<div style="font-size:11px">${p.upcomingFixture.homeTeam} vs ${p.upcomingFixture.awayTeam}</div><div style="font-size:10px;color:var(--muted)">${fmtDate(p.upcomingFixture.date)}</div>` : '<span class="text-muted">—</span>'}
+        </td>
+      </tr>
+      ${signalsHtml ? `<tr><td colspan="5"><details><summary>Show ${p.recentSignals.length} signal source${p.recentSignals.length!==1?'s':''}</summary><div class="signal-list">${signalsHtml}</div></details></td></tr>` : ''}`;
+  }).join('');
+
+  $('signals-body').innerHTML = `
+    <table>
+      <thead><tr><th>Player</th><th>Availability</th><th>Stage</th><th>Updated</th><th>Next Fixture</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderInjuries(data) {
+  const active = data.activeInjuries || [];
+  const stale  = data.staleInjuries  || [];
+  const s      = data.summary || {};
+
+  $('tab-active-count').textContent = active.length;
+  $('tab-stale-count').textContent  = stale.length;
+
+  // Active injuries
+  if (!active.length) {
+    $('panel-active').innerHTML = '<div class="empty">No active injuries found</div>';
+  } else {
+    const rows = active.map(i => {
+      const pct  = i.predictedAvailability != null ? Math.round(i.predictedAvailability*100) : null;
+      const conf = i.confidenceLevel != null ? Math.round(i.confidenceLevel*100) : null;
+      return `<tr>
+        <td><div style="font-weight:600">${i.playerName}</div><div style="font-size:11px;color:var(--muted)">${i.teamName}</div></td>
+        <td><span style="font-size:12px">${i.reason}</span><br><span class="text-muted" style="font-size:11px">${i.type} · ${i.league}</span></td>
+        <td style="color:var(--muted);font-size:11px">${fmtDate(i.injuryDate)}</td>
+        <td>
+          ${i.hasRecoverySignal
+            ? `<div class="avail-bar"><span class="avail-pct ${availColor(i.predictedAvailability)}">${pct}%</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${availBarColor(i.predictedAvailability)}"></div></div></div>
+               <div style="font-size:10px;color:var(--muted);margin-top:2px">${stageLabel(i.latestSignalStage)} · conf ${conf}%</div>`
+            : '<span class="badge badge-muted">No signal</span>'}
+        </td>
+      </tr>`;
+    }).join('');
+    $('panel-active').innerHTML = `<table><thead><tr><th>Player</th><th>Reason</th><th>Since</th><th>Recovery Signal</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // Stale injuries
+  if (!stale.length) {
+    $('panel-stale').innerHTML = '<div class="empty">No stale injury records detected ✓</div>';
+  } else {
+    const rows = stale.map(i => `<tr>
+      <td><div style="font-weight:600">${i.playerName}</div><div style="font-size:11px;color:var(--muted)">${i.teamName}</div></td>
+      <td style="font-size:12px">${i.reason}<br><span class="text-muted" style="font-size:11px">${i.type} · ${i.league}</span></td>
+      <td style="color:var(--muted);font-size:11px">${fmtDate(i.injuryDate)}</td>
+      <td><span class="text-green" style="font-size:12px">✓ Returned</span><div style="font-size:11px;color:var(--muted)">${fmtDate(i.returnedAt)}</div><div style="font-size:10px;color:var(--muted2)">${i.returnedFixture || ''}</div></td>
+    </tr>`).join('');
+    $('panel-stale').innerHTML = `
+      <div style="padding:8px 14px;font-size:12px;color:var(--yellow);background:var(--yellow-dim);border-bottom:1px solid var(--border)">
+        ⚠ ${stale.length} injury records exist for players who have already returned to play. These should not appear in recovery signals.
+      </div>
+      <table><thead><tr><th>Player</th><th>Injury</th><th>Injury Date</th><th>Returned</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+}
+
+function renderSources(status) {
+  const all = [
+    ...(status.rssSources.sources || []).map(s => ({...s, sourceType:'rss'})),
+    ...(status.crawlSources.sources || []).map(s => ({...s, sourceType:'crawl'})),
+  ].sort((a,b) => (b.lastFetched||'').localeCompare(a.lastFetched||''));
+
+  if (!all.length) { $('sources-body').innerHTML = '<div class="empty">No sources configured</div>'; return; }
+
+  // Enrich with signal counts from topSourcesByVolume
+  const sigMap = new Map((status.signals.topSourcesByVolume||[]).map(s=>[s.sourceId, s.count]));
+
+  const rows = all.map(s => {
+    const sigCount = sigMap.get(s.id) || 0;
+    return `<tr>
+      <td><span class="dot ${s.active ? 'dot-green' : 'dot-red'}"></span>${s.name}</td>
+      <td>${badge(s.sourceType, s.sourceType==='rss' ? 'badge-blue' : 'badge-yellow')}</td>
+      <td style="color:var(--muted);font-size:11px">${timeAgo(s.lastFetched)}<br><span style="color:var(--muted2);font-size:10px">${s.lastFetched ? fmtDate(s.lastFetched) : 'never'}</span></td>
+      <td>${sigCount > 0 ? `<span class="text-green">${sigCount}</span>` : '<span class="text-muted">0</span>'}</td>
+      <td>
+        <div class="avail-bar">
+          <span style="font-size:11px;color:var(--muted);min-width:32px">${Math.round(s.reliability*100)}%</span>
+          <div class="bar-track" style="min-width:60px"><div class="bar-fill" style="width:${Math.round(s.reliability*100)}%;background:var(--blue)"></div></div>
+        </div>
+      </td>
+      <td><a href="${s.url}" target="_blank" style="font-size:10px;color:var(--blue)">${s.url.replace(/^https?:\/\//,'').slice(0,40)}</a></td>
+    </tr>`;
+  }).join('');
+
+  $('sources-body').innerHTML = `
+    <table>
+      <thead><tr><th>Source</th><th>Type</th><th>Last Fetch</th><th>Signals (all-time)</th><th>Reliability</th><th>URL</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ─── Main load ────────────────────────────────────────────────────────────
+async function loadAll() {
+  setLoading(true);
+  try {
+    const season = new URLSearchParams(location.search).get('season') || '2025';
+    const [statsRes, statusRes, playersRes, injuriesRes] = await Promise.allSettled([
+      fetch(`${API}/api/admin/stats`).then(r=>r.json()),
+      fetch(`${API}/api/admin/signals/status`).then(r=>r.json()),
+      fetch(`${API}/api/admin/signals/players`).then(r=>r.json()),
+      fetch(`${API}/api/admin/signals/injuries?season=${season}`).then(r=>r.json()),
+    ]);
+
+    const stats    = statsRes.status    === 'fulfilled' ? statsRes.value    : {};
+    const status   = statusRes.status   === 'fulfilled' ? statusRes.value   : null;
+    const players  = playersRes.status  === 'fulfilled' ? playersRes.value  : {};
+    const injuries = injuriesRes.status === 'fulfilled' ? injuriesRes.value : {};
+
+    if (stats && status)  renderStats(stats, status);
+    if (status)           renderPipeline(status);
+    if (players)          renderSignals(players);
+    if (injuries)         renderInjuries(injuries);
+    if (status)           renderSources(status);
+
+    $('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('ko-KR');
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Auto-refresh every 60s
+loadAll();
+setInterval(loadAll, 60_000);
+</script>
+</body>
+</html>

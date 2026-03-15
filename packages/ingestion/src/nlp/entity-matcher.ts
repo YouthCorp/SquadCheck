@@ -43,15 +43,51 @@ export async function buildInjuredPlayerIndex(
     select: {
       playerId: true,
       teamId: true,
+      fixtureDate: true,
       player: { select: { name: true } },
       team:   { select: { name: true } },
     },
     distinct: ['playerId'],
+    orderBy: { fixtureDate: 'desc' },
   });
+
+  // Filter out players who have since returned to play.
+  // A player is considered "recovered" if they appeared in any fixture lineup
+  // after the date of their most recent injury.
+  const playerIds = injuries.map((i) => i.playerId);
+  const injuryStartByPlayer = new Map(injuries.map((i) => [i.playerId, i.fixtureDate]));
+
+  const lineupAppearances = playerIds.length > 0
+    ? await prisma.fixtureLineupPlayer.findMany({
+        where: {
+          playerId: { in: playerIds },
+          lineup: {
+            fixture: {
+              season,
+              date: { gte: new Date(Date.now() - 90 * 86_400_000) },
+            },
+          },
+        },
+        select: {
+          playerId: true,
+          lineup: { select: { fixture: { select: { date: true } } } },
+        },
+      })
+    : [];
+
+  const returnedIds = new Set<number>();
+  for (const app of lineupAppearances) {
+    const injuryStart = injuryStartByPlayer.get(app.playerId);
+    if (injuryStart && app.lineup.fixture.date > injuryStart) {
+      returnedIds.add(app.playerId);
+    }
+  }
+
+  const activeInjuries = injuries.filter((i) => !returnedIds.has(i.playerId));
 
   const index = new Map<string, PlayerRecord[]>();
 
-  for (const inj of injuries) {
+  for (const inj of activeInjuries) {
     const key = normalizeName(inj.player.name);
     const entry: PlayerRecord = {
       id:       inj.playerId,

@@ -27,21 +27,23 @@ export async function computePlayerAvailability(
       OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
     },
     orderBy: { date: 'asc' },
-    select: { id: true },
+    select: { id: true, date: true },
   });
 
   if (!upcomingFixture) return; // No upcoming fixture — nothing to compute
 
   const fixtureId = upcomingFixture.id;
 
-  // Step 2: Get recent signals within the aggregation window
+  // Step 2: Get recent signals within the aggregation window.
+  // Upper bound = fixture date: only signals published BEFORE the match count.
+  // Post-match articles (e.g. "Player returned in 2-1 win") must not inflate availability.
   const { SIGNAL_WINDOW_DAYS, RECENCY_HALF_LIFE_DAYS } = SIGNAL_CONFIG.aggregation;
   const windowStart = new Date(Date.now() - SIGNAL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   const signals = await prisma.recoverySignal.findMany({
     where: {
       playerId,
-      publishedAt: { gte: windowStart },
+      publishedAt: { gte: windowStart, lte: upcomingFixture.date },
     },
     include: { source: { select: { reliability: true } } },
     orderBy: { publishedAt: 'desc' },

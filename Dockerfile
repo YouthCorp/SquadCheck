@@ -55,6 +55,9 @@ COPY --from=builder /app/packages/analysis/dist/ packages/analysis/dist/
 COPY --from=builder /app/packages/ingestion/dist/ packages/ingestion/dist/
 COPY --from=builder /app/packages/api/dist/ packages/api/dist/
 
+# Copy static assets (admin dashboard HTML)
+COPY packages/api/public/ packages/api/public/
+
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

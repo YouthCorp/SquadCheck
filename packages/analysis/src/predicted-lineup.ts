@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { computePlayerWeights } from './player-weight';
+import { resolveActiveInjuries } from './utils/injury-resolver';
 import type { PositionGroup } from './player-weight';
 import {
   getFormationTemplate,
@@ -477,85 +478,14 @@ export async function computePredictedLineup(
 
   let positionSlots = parseFormation(formation);
 
-  // 7. Build injured player ID set
-  const injuries = await prisma.injury.findMany({
-    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
-    orderBy: { fixtureDate: 'desc' },
-  });
+  // 7. Build injured player ID set using shared resolver.
+  // Cross-competition recovery is handled inside resolveActiveInjuries
+  // (lineup check has no league filter — recovery in any competition counts).
+  const latestInjuryByPlayer = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
 
-  const latestInjuryByPlayer = new Map<number, typeof injuries[0]>();
-  for (const inj of injuries) {
-    if (!latestInjuryByPlayer.has(inj.playerId)) {
-      latestInjuryByPlayer.set(inj.playerId, inj);
-    }
-  }
-
-  // Remove already-served absences
-  const latestTeamInjuryDate = injuries.length > 0 ? injuries[0].fixtureDate : new Date(0);
-  {
-    const completedFixtureIds = new Set<number>();
-    const fixtureStatuses = await prisma.fixture.findMany({
-      where: {
-        id: { in: [...latestInjuryByPlayer.values()].map(i => i.fixtureId) },
-        status: { in: ['FT', 'AET', 'PEN'] },
-      },
-      select: { id: true },
-    });
-    for (const f of fixtureStatuses) completedFixtureIds.add(f.id);
-    for (const [pid, injury] of latestInjuryByPlayer) {
-      const r = injury.reason.toLowerCase();
-      const isDisciplinary =
-        r.includes('red card') ||
-        r === 'suspended' ||
-        r === 'suspension' ||
-        r.includes('yellow card');
-      if (
-        isDisciplinary &&
-        injury.fixtureDate < latestTeamInjuryDate &&
-        completedFixtureIds.has(injury.fixtureId)
-      ) {
-        latestInjuryByPlayer.delete(pid);
-      }
-    }
-  }
-
-  // Filter out recovered players (appeared in lineup AFTER their last injury)
-  const candidateIds = [...latestInjuryByPlayer.keys()];
-  if (candidateIds.length > 0) {
-    const postInjuryAppearances = await prisma.fixtureLineupPlayer.findMany({
-      where: {
-        playerId: { in: candidateIds },
-        lineup: {
-          teamId,
-          fixture: {
-            season,
-            status: { in: ['FT', 'AET', 'PEN'] },
-            ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
-          },
-        },
-      },
-      select: {
-        playerId: true,
-        lineup: { select: { fixture: { select: { date: true } } } },
-      },
-    });
-
-    const latestAppearance = new Map<number, Date>();
-    for (const entry of postInjuryAppearances) {
-      const date = entry.lineup.fixture.date;
-      const prev = latestAppearance.get(entry.playerId);
-      if (!prev || date > prev) {
-        latestAppearance.set(entry.playerId, date);
-      }
-    }
-
-    for (const [pid, injury] of latestInjuryByPlayer) {
-      const lastPlayed = latestAppearance.get(pid);
-      if (lastPlayed && lastPlayed > injury.fixtureDate) {
-        latestInjuryByPlayer.delete(pid);
-      }
-    }
-  }
+  const latestTeamInjuryDate = latestInjuryByPlayer.size > 0
+    ? new Date(Math.max(...[...latestInjuryByPlayer.values()].map(i => i.fixtureDate.getTime())))
+    : new Date(0);
 
   const injuredIds = new Set(latestInjuryByPlayer.keys());
 
@@ -572,9 +502,9 @@ export async function computePredictedLineup(
   // 8. Detect recently-returned players
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const recentReturnIds = new Set<number>();
-  for (const inj of injuries) {
-    if (!effectiveInjuredIds.has(inj.playerId) && inj.fixtureDate >= thirtyDaysAgo) {
-      recentReturnIds.add(inj.playerId);
+  for (const [pid, inj] of latestInjuryByPlayer) {
+    if (!effectiveInjuredIds.has(pid) && inj.fixtureDate >= thirtyDaysAgo) {
+      recentReturnIds.add(pid);
     }
   }
 

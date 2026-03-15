@@ -278,6 +278,11 @@ export class Orchestrator {
   async collectSignals(): Promise<void> {
     console.log("[Signals] Starting recovery signal collection...");
 
+    // Expire completed fixtures first so availability is not recomputed for finished matches.
+    // (expireCompletedFixtureAvailability also runs at the end of incrementalSync, but
+    // collectSignals runs independently on odd hours and must not lag behind.)
+    await this.expireCompletedFixtureAvailability();
+
     await this.ensureRssSources();
     await this.ensureWebCrawlSources();
 

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { computePlayerWeights, PlayerWeight } from './player-weight';
 import { computeTeamPerformanceDeltas, PerformanceDeltaSummary, MatchAggregates } from './performance-delta';
+import { resolveActiveInjuries } from './utils/injury-resolver';
 
 // ── Starter Profile ─────────────────────────────────────────
 export type StarterRole = 'regular_starter' | 'rotation' | 'bench';
@@ -169,95 +170,15 @@ export async function computeTeamPowerLoss(
 
   const totalWeight = weights.reduce((sum, pw) => sum + pw.weight, 0);
 
-  // Get current injuries (latest per player)
-  const injuries = await prisma.injury.findMany({
-    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
-    orderBy: { fixtureDate: 'desc' },
-  });
+  // Resolve currently active injuries using shared utility.
+  // Cross-competition recovery is handled inside resolveActiveInjuries
+  // (lineup check has no league filter — recovery in any competition counts).
+  const latestInjuryByPlayer = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
 
-  const latestInjuryByPlayer = new Map<number, typeof injuries[0]>();
-  for (const inj of injuries) {
-    if (!latestInjuryByPlayer.has(inj.playerId)) {
-      latestInjuryByPlayer.set(inj.playerId, inj);
-    }
-  }
-
-  // ── Remove already-served absences ────────────────────────
-  // A player's absence is considered served when BOTH hold:
-  //   1. Their latest injury fixture is already completed (FT/AET/PEN), AND
-  //   2. Newer injury data exists for the team — if the player were still out
-  //      they would appear in that newer data too.
-  // This prevents false removal when no newer injury report has been ingested
-  // yet (e.g. all records are FT because the upcoming fixture's report isn't
-  // available yet — as is typical between match days).
-  const latestTeamInjuryDate = injuries.length > 0 ? injuries[0].fixtureDate : new Date(0);
-  {
-    const completedFixtureIds = new Set<number>();
-    const fixtureStatuses = await prisma.fixture.findMany({
-      where: {
-        id: { in: [...latestInjuryByPlayer.values()].map(i => i.fixtureId) },
-        status: { in: ['FT', 'AET', 'PEN'] },
-      },
-      select: { id: true },
-    });
-    for (const f of fixtureStatuses) completedFixtureIds.add(f.id);
-    for (const [playerId, injury] of latestInjuryByPlayer) {
-      const r = injury.reason.toLowerCase();
-      const isDisciplinary =
-        r.includes('red card') ||
-        r === 'suspended' ||
-        r === 'suspension' ||
-        r.includes('yellow card');
-      if (
-        isDisciplinary &&
-        injury.fixtureDate < latestTeamInjuryDate &&
-        completedFixtureIds.has(injury.fixtureId)
-      ) {
-        latestInjuryByPlayer.delete(playerId);
-      }
-    }
-  }
-
-  // ── Filter out recovered players ──────────────────────────
-  // If a player appeared in a lineup AFTER their last injury date, they've recovered
-  const candidatePlayerIds = [...latestInjuryByPlayer.keys()];
-  if (candidatePlayerIds.length > 0) {
-    const postInjuryAppearances = await prisma.fixtureLineupPlayer.findMany({
-      where: {
-        playerId: { in: candidatePlayerIds },
-        lineup: {
-          teamId,
-          fixture: {
-            season,
-            status: { in: ['FT', 'AET', 'PEN'] },
-            ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
-          },
-        },
-      },
-      select: {
-        playerId: true,
-        lineup: { select: { fixture: { select: { date: true } } } },
-      },
-    });
-
-    // Build player → latest appearance date
-    const latestAppearance = new Map<number, Date>();
-    for (const entry of postInjuryAppearances) {
-      const date = entry.lineup.fixture.date;
-      const prev = latestAppearance.get(entry.playerId);
-      if (!prev || date > prev) {
-        latestAppearance.set(entry.playerId, date);
-      }
-    }
-
-    // Remove players who appeared after their last injury
-    for (const [playerId, injury] of latestInjuryByPlayer) {
-      const lastPlayed = latestAppearance.get(playerId);
-      if (lastPlayed && lastPlayed > injury.fixtureDate) {
-        latestInjuryByPlayer.delete(playerId);
-      }
-    }
-  }
+  // latestTeamInjuryDate is used for the 90-day stale filter below
+  const latestTeamInjuryDate = latestInjuryByPlayer.size > 0
+    ? new Date(Math.max(...[...latestInjuryByPlayer.values()].map(i => i.fixtureDate.getTime())))
+    : new Date(0);
 
   const weightMap = new Map(weights.map((w) => [w.playerId, w]));
   const injuredPlayerIds = [...latestInjuryByPlayer.keys()].filter(id => weightMap.has(id));
