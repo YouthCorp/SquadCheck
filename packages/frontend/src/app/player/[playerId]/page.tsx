@@ -111,17 +111,16 @@ function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<numbe
 
 function finalize(raw: { reason: string; type: string; count: number; firstMissDate: Date; lastMissDate: Date; leagueId: number }, apps: Appearance[], isLast: boolean): InjuryEpisode {
   let match: InjuryEpisode['injuredInMatch'] = null;
-  // Filter to same competition so a UCL game isn't shown as the trigger for a PL suspension
-  const sameLeagueApps = apps.filter(a => a.leagueId === raw.leagueId);
-  for (let i = sameLeagueApps.length - 1; i >= 0; i--) {
-    const app = sameLeagueApps[i];
+  // Use all competitions to find last appearance before injury — cross-competition recovery counts
+  for (let i = apps.length - 1; i >= 0; i--) {
+    const app = apps[i];
     if (new Date(app.date).getTime() < raw.firstMissDate.getTime()) {
       const isHome = app.homeTeam.id === app.teamId;
       match = { date: app.date, round: app.round, opponentName: isHome ? app.awayTeam.name : app.homeTeam.name, homeAway: isHome ? 'H' : 'A' };
       break;
     }
   }
-  const hasReturnedAfter = isLast ? sameLeagueApps.some(app => new Date(app.date) > raw.lastMissDate) : false;
+  const hasReturnedAfter = isLast ? apps.some(app => new Date(app.date) > raw.lastMissDate) : false;
   return { reason: raw.reason, type: raw.type, missedCount: raw.count, ongoing: isLast && !hasReturnedAfter, isDisciplinary: isDisciplinaryReason(raw.reason), injuredInMatch: match };
 }
 
