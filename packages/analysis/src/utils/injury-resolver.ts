@@ -120,9 +120,11 @@ export async function resolveActiveInjuries(
       if (!prev || d > prev) latestAppearance.set(entry.playerId, d);
     }
 
+    // 1일 버퍼: 경기 킥오프(UTC)와 부상 기록 날짜(UTC 자정) 사이의 타임존 불일치 보정
+    const ONE_DAY_MS = 86_400_000;
     for (const [playerId, inj] of latestByPlayer) {
       const lastPlayed = latestAppearance.get(playerId);
-      if (lastPlayed && lastPlayed > inj.fixtureDate) {
+      if (lastPlayed && lastPlayed.getTime() >= inj.fixtureDate.getTime() - ONE_DAY_MS) {
         latestByPlayer.delete(playerId);
       }
     }

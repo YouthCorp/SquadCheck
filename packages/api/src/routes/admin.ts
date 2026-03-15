@@ -532,11 +532,14 @@ adminRouter.post('/signals/expire-stale', async (req, res, next) => {
       const injuryDate = latestInjuryDateByPlayer.get(avail.playerId);
       const lastPlayed = latestAppearanceByPlayer.get(avail.playerId);
 
+      // 1일 버퍼: 경기 킥오프(UTC)와 부상 기록 날짜(UTC 자정) 사이의 타임존 불일치 보정
+      // 예) 경기 2026-03-14T20:45Z → DB 2026-03-14, 부상 API 업데이트 → DB 2026-03-15T00:00Z
+      const ONE_DAY_MS = 86_400_000;
       if (!injuryDate) {
         // 부상 기록 자체가 없음 → 잘못 수집된 신호
         toExpireIds.push(avail.id);
-      } else if (lastPlayed && lastPlayed > injuryDate) {
-        // 부상 이후 경기에 출전 → 이미 복귀
+      } else if (lastPlayed && lastPlayed.getTime() >= injuryDate.getTime() - ONE_DAY_MS) {
+        // 부상 기록 날짜 기준 1일 이내 출전 → 복귀로 처리
         toExpireIds.push(avail.id);
       }
     }

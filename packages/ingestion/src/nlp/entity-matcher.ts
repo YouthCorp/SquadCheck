@@ -75,10 +75,13 @@ export async function buildInjuredPlayerIndex(
       })
     : [];
 
+  // 1일 버퍼: 경기 킥오프 시각(UTC)과 부상 기록 날짜(UTC 자정) 사이의 타임존 불일치 보정
+  // 예) 경기 2026-03-14T20:45Z → DB 2026-03-14, 부상 API 업데이트 → DB 2026-03-15T00:00Z
+  const ONE_DAY_MS = 86_400_000;
   const returnedIds = new Set<number>();
   for (const app of lineupAppearances) {
     const injuryStart = injuryStartByPlayer.get(app.playerId);
-    if (injuryStart && app.lineup.fixture.date > injuryStart) {
+    if (injuryStart && app.lineup.fixture.date.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
       returnedIds.add(app.playerId);
     }
   }
