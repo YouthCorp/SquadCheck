@@ -496,14 +496,14 @@ adminRouter.post('/signals/expire-stale', async (req, res, next) => {
       }
     }
 
-    // 라인업 출전 기록 조회 (최근 90일)
+    // 라인업 출전 기록 조회 (최근 90일) — status 필터 없음 (entity-matcher와 동일)
+    // 경기가 DB에 FT로 업데이트되지 않았더라도 라인업 데이터가 있으면 복귀로 처리
     const appearances = await prisma.fixtureLineupPlayer.findMany({
       where: {
         playerId: { in: playerIds },
         lineup: {
           fixture: {
             date: { gte: new Date(Date.now() - 90 * 86_400_000) },
-            status: { in: ['FT', 'AET', 'PEN'] },
           },
         },
       },
