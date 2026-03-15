@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SquadCheck Admin</title>
+<title>SquadCheck 관리자</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -151,62 +151,62 @@
 <body>
 
 <nav class="navbar">
-  <div class="navbar-title">Squad<span>Check</span> Admin</div>
+  <div class="navbar-title">Squad<span>Check</span> 관리자</div>
   <div class="navbar-meta">
-    <span class="navbar-time" id="last-updated">Loading...</span>
-    <button class="btn" id="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
+    <span class="navbar-time" id="last-updated">불러오는 중...</span>
+    <button class="btn" id="refresh-btn" onclick="loadAll()">⟳ 새로고침</button>
   </div>
 </nav>
 
 <main>
-  <!-- ① Overview stats -->
+  <!-- ① 전체 현황 -->
   <section>
-    <div class="section-title">Overview</div>
+    <div class="section-title">전체 현황</div>
     <div class="stats-grid" id="stats-grid">
-      <div class="stat-card"><div class="stat-label">Loading</div><div class="stat-value">…</div></div>
+      <div class="stat-card"><div class="stat-label">불러오는 중</div><div class="stat-value">…</div></div>
     </div>
   </section>
 
-  <!-- ② Signal pipeline + Active signals -->
+  <!-- ② 신호 파이프라인 + 활성 복귀 신호 -->
   <div class="two-col" style="margin-bottom:28px">
-    <!-- Pipeline status -->
+    <!-- 파이프라인 상태 -->
     <div class="card">
       <div class="card-header">
-        Signal Pipeline
+        신호 파이프라인
         <span id="pipeline-badge"></span>
       </div>
-      <div class="card-body" id="pipeline-body"><div class="empty">Loading…</div></div>
+      <div class="card-body" id="pipeline-body"><div class="empty">불러오는 중…</div></div>
     </div>
-    <!-- Active recovery signals -->
+    <!-- 활성 복귀 신호 -->
     <div class="card">
       <div class="card-header">
-        Active Recovery Signals
+        활성 복귀 신호
         <span id="signals-badge"></span>
       </div>
-      <div class="card-body" id="signals-body"><div class="empty">Loading…</div></div>
+      <div class="card-body" id="signals-body"><div class="empty">불러오는 중…</div></div>
     </div>
   </div>
 
-  <!-- ③ Injuries (tabbed) -->
+  <!-- ③ 부상 현황 (탭) -->
   <section>
-    <div class="section-title">Injury Status</div>
+    <div class="section-title">부상 현황</div>
     <div class="card">
       <div class="tabs" id="injury-tabs">
-        <div class="tab active" onclick="switchTab('active')">Active Injuries <span id="tab-active-count" class="badge badge-red" style="margin-left:4px"></span></div>
-        <div class="tab" onclick="switchTab('stale')">Stale (returned) <span id="tab-stale-count" class="badge badge-muted" style="margin-left:4px"></span></div>
+        <div class="tab active" onclick="switchTab('active')">활성 부상 <span id="tab-active-count" class="badge badge-red" style="margin-left:4px"></span></div>
+        <div class="tab" onclick="switchTab('stale')">복귀 완료 (stale) <span id="tab-stale-count" class="badge badge-muted" style="margin-left:4px"></span></div>
       </div>
       <div class="card-body" style="max-height:500px">
-        <div class="tab-panel active" id="panel-active"><div class="empty">Loading…</div></div>
-        <div class="tab-panel" id="panel-stale"><div class="empty">Loading…</div></div>
+        <div class="tab-panel active" id="panel-active"><div class="empty">불러오는 중…</div></div>
+        <div class="tab-panel" id="panel-stale"><div class="empty">불러오는 중…</div></div>
       </div>
     </div>
   </section>
 
-  <!-- ④ Sources table -->
+  <!-- ④ 소스 목록 -->
   <section>
-    <div class="section-title">RSS & Crawl Sources</div>
+    <div class="section-title">RSS & 크롤 소스</div>
     <div class="card">
-      <div class="card-body" style="max-height:460px" id="sources-body"><div class="empty">Loading…</div></div>
+      <div class="card-body" style="max-height:460px" id="sources-body"><div class="empty">불러오는 중…</div></div>
     </div>
   </section>
 </main>
@@ -220,10 +220,10 @@ function timeAgo(dateStr) {
   if (!dateStr) return '—';
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
-  if (d >= 1) return d + 'd ago';
-  if (h >= 1) return h + 'h ago';
-  if (m >= 1) return m + 'm ago';
-  return 'just now';
+  if (d >= 1) return d + '일 전';
+  if (h >= 1) return h + '시간 전';
+  if (m >= 1) return m + '분 전';
+  return '방금 전';
 }
 
 function fmtDate(dateStr) {
@@ -242,7 +242,12 @@ function stageClass(stage) {
   return 'stage-' + (stage || 'unknown');
 }
 function stageLabel(stage) {
-  const m = { partial_training:'Partial Training', full_training:'Full Training', available:'Available', expected_to_start:'Expected to Start' };
+  const m = {
+    partial_training: '부분 훈련',
+    full_training: '전체 훈련',
+    available: '출전 가능',
+    expected_to_start: '선발 예상',
+  };
   return m[stage] || (stage || '—');
 }
 
@@ -251,7 +256,7 @@ function badge(text, cls) { return `<span class="badge ${cls}">${text}</span>`; 
 function setLoading(on) {
   const btn = $('refresh-btn');
   btn.classList.toggle('loading', on);
-  btn.innerHTML = on ? '<span class="spin">⟳</span> Refreshing…' : '⟳ Refresh';
+  btn.innerHTML = on ? '<span class="spin">⟳</span> 새로고침 중…' : '⟳ 새로고침';
 }
 
 // ─── Tab switch ───────────────────────────────────────────────────────────
@@ -267,12 +272,12 @@ function renderStats(stats, status) {
   const arts  = status?.articles ?? {};
   const sigs  = status?.signals ?? {};
   const items = [
-    { label: 'Injuries (DB)',     value: stats.injuries,      sub: `${stats.fixtures} fixtures` },
-    { label: 'Recovery Signals',  value: stats.recoverySignals, sub: `+${sigs.last24h ?? 0} today` },
-    { label: 'Active Avail.',     value: avail.activeRecords ?? stats.playerAvailability, sub: `${avail.aboveThreshold ?? 0} ≥70%` },
-    { label: 'RSS Sources',       value: status?.rssSources?.active ?? '…', sub: `/ ${status?.rssSources?.total ?? stats.rssFeedSources} total` },
-    { label: 'Crawl Sources',     value: status?.crawlSources?.active ?? '…', sub: `/ ${status?.crawlSources?.total ?? '?'} total` },
-    { label: 'Articles Tracked',  value: stats.rssArticles ?? arts.totalTracked, sub: `${arts.unprocessed ?? 0} unprocessed` },
+    { label: '부상 기록 (DB)',    value: stats.injuries,        sub: `${stats.fixtures}경기 데이터` },
+    { label: '복귀 신호',         value: stats.recoverySignals, sub: `오늘 +${sigs.last24h ?? 0}건` },
+    { label: '활성 가용성',       value: avail.activeRecords ?? stats.playerAvailability, sub: `${avail.aboveThreshold ?? 0}명 ≥70%` },
+    { label: 'RSS 소스',          value: status?.rssSources?.active ?? '…', sub: `/ ${status?.rssSources?.total ?? stats.rssFeedSources}개` },
+    { label: '크롤 소스',         value: status?.crawlSources?.active ?? '…', sub: `/ ${status?.crawlSources?.total ?? '?'}개` },
+    { label: '수집 기사',         value: stats.rssArticles ?? arts.totalTracked, sub: `미처리 ${arts.unprocessed ?? 0}건` },
   ];
   $('stats-grid').innerHTML = items.map(i => `
     <div class="stat-card">
@@ -291,25 +296,25 @@ function renderPipeline(status) {
   const summary = `
     <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">RSS last fetch</div><div style="font-size:12px">${timeAgo(rss.lastFetchedAt)}</div></div>
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Crawl last fetch</div><div style="font-size:12px">${timeAgo(crawl.lastFetchedAt)}</div></div>
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Signals 24h / 7d</div><div style="font-size:12px">${sigs.last24h} / ${sigs.last7d}</div></div>
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Classifier split</div><div style="font-size:12px">${Object.entries(sigs.byClassifier||{}).map(([k,v])=>`${k}:${v}`).join(' | ') || '—'}</div></div>
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Articles today</div><div style="font-size:12px">${arts.discoveredLast24h} new / ${arts.unprocessed} unprocessed</div></div>
-        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">Top signal source</div><div style="font-size:12px">${sigs.topSourcesByVolume?.[0]?.sourceName ?? '—'}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">RSS 마지막 수집</div><div style="font-size:12px">${timeAgo(rss.lastFetchedAt)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">크롤 마지막 수집</div><div style="font-size:12px">${timeAgo(crawl.lastFetchedAt)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">신호 수집 24h / 7d</div><div style="font-size:12px">${sigs.last24h} / ${sigs.last7d}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">분류 방식</div><div style="font-size:12px">${Object.entries(sigs.byClassifier||{}).map(([k,v])=>`${k}:${v}`).join(' | ') || '—'}</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">오늘 기사</div><div style="font-size:12px">신규 ${arts.discoveredLast24h}건 / 미처리 ${arts.unprocessed}건</div></div>
+        <div><div class="text-muted" style="font-size:11px;margin-bottom:2px">최다 신호 소스</div><div style="font-size:12px">${sigs.topSourcesByVolume?.[0]?.sourceName ?? '—'}</div></div>
       </div>
     </div>`;
 
-  $('pipeline-badge').innerHTML = badge(sigs.last24h + ' signals today', sigs.last24h > 0 ? 'badge-green' : 'badge-muted');
+  $('pipeline-badge').innerHTML = badge('오늘 ' + sigs.last24h + '건', sigs.last24h > 0 ? 'badge-green' : 'badge-muted');
   $('pipeline-body').innerHTML = summary;
 }
 
 function renderSignals(data) {
   const players = data.players || [];
-  $('signals-badge').innerHTML = badge(players.length + ' players', players.length > 0 ? 'badge-green' : 'badge-muted');
+  $('signals-badge').innerHTML = badge(players.length + '명', players.length > 0 ? 'badge-green' : 'badge-muted');
 
   if (!players.length) {
-    $('signals-body').innerHTML = '<div class="empty">No active recovery signals</div>';
+    $('signals-body').innerHTML = '<div class="empty">활성 복귀 신호 없음</div>';
     return;
   }
   const rows = players.map(p => {
@@ -322,7 +327,7 @@ function renderSignals(data) {
           <span class="stage-pill ${stageClass(s.signalStage)}">${stageLabel(s.signalStage)}</span>
           <span class="text-muted" style="font-size:10px">${s.sourceName}</span>
           <span class="text-muted" style="font-size:10px">${timeAgo(s.publishedAt)}</span>
-          <span class="mono text-muted">conf:${Math.round(s.confidence*100)}%</span>
+          <span class="mono text-muted">신뢰도:${Math.round(s.confidence*100)}%</span>
         </div>
         ${s.extractedSnippet ? `<div class="snippet" title="${s.extractedSnippet}">${s.extractedSnippet}</div>` : ''}
       </div>`).join('');
@@ -338,25 +343,25 @@ function renderSignals(data) {
             <span class="avail-pct ${availColor(p.predictedAvailability)}">${pct}%</span>
             <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${availBarColor(p.predictedAvailability)}"></div></div>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">conf ${conf}%</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">신뢰도 ${conf}%</div>
         </td>
         <td>
           <span class="stage-pill ${stageClass(p.latestSignalStage)}">${stageLabel(p.latestSignalStage)}</span>
         </td>
         <td>
           <div style="font-size:11px">${timeAgo(p.lastSignalAt)}</div>
-          <div style="font-size:10px;color:var(--muted)">${p.signalCount} signal${p.signalCount!==1?'s':''}</div>
+          <div style="font-size:10px;color:var(--muted)">${p.signalCount}건</div>
         </td>
         <td>
           ${p.upcomingFixture ? `<div style="font-size:11px">${p.upcomingFixture.homeTeam} vs ${p.upcomingFixture.awayTeam}</div><div style="font-size:10px;color:var(--muted)">${fmtDate(p.upcomingFixture.date)}</div>` : '<span class="text-muted">—</span>'}
         </td>
       </tr>
-      ${signalsHtml ? `<tr><td colspan="5"><details><summary>Show ${p.recentSignals.length} signal source${p.recentSignals.length!==1?'s':''}</summary><div class="signal-list">${signalsHtml}</div></details></td></tr>` : ''}`;
+      ${signalsHtml ? `<tr><td colspan="5"><details><summary>신호 출처 ${p.recentSignals.length}건 보기</summary><div class="signal-list">${signalsHtml}</div></details></td></tr>` : ''}`;
   }).join('');
 
   $('signals-body').innerHTML = `
     <table>
-      <thead><tr><th>Player</th><th>Availability</th><th>Stage</th><th>Updated</th><th>Next Fixture</th></tr></thead>
+      <thead><tr><th>선수</th><th>출전 가능성</th><th>단계</th><th>최근 신호</th><th>다음 경기</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -369,9 +374,9 @@ function renderInjuries(data) {
   $('tab-active-count').textContent = active.length;
   $('tab-stale-count').textContent  = stale.length;
 
-  // Active injuries
+  // 활성 부상
   if (!active.length) {
-    $('panel-active').innerHTML = '<div class="empty">No active injuries found</div>';
+    $('panel-active').innerHTML = '<div class="empty">활성 부상자 없음</div>';
   } else {
     const rows = active.map(i => {
       const pct  = i.predictedAvailability != null ? Math.round(i.predictedAvailability*100) : null;
@@ -383,29 +388,29 @@ function renderInjuries(data) {
         <td>
           ${i.hasRecoverySignal
             ? `<div class="avail-bar"><span class="avail-pct ${availColor(i.predictedAvailability)}">${pct}%</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${availBarColor(i.predictedAvailability)}"></div></div></div>
-               <div style="font-size:10px;color:var(--muted);margin-top:2px">${stageLabel(i.latestSignalStage)} · conf ${conf}%</div>`
-            : '<span class="badge badge-muted">No signal</span>'}
+               <div style="font-size:10px;color:var(--muted);margin-top:2px">${stageLabel(i.latestSignalStage)} · 신뢰도 ${conf}%</div>`
+            : '<span class="badge badge-muted">신호 없음</span>'}
         </td>
       </tr>`;
     }).join('');
-    $('panel-active').innerHTML = `<table><thead><tr><th>Player</th><th>Reason</th><th>Since</th><th>Recovery Signal</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $('panel-active').innerHTML = `<table><thead><tr><th>선수</th><th>부상 사유</th><th>부상일</th><th>복귀 신호</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  // Stale injuries
+  // 복귀 완료 (stale)
   if (!stale.length) {
-    $('panel-stale').innerHTML = '<div class="empty">No stale injury records detected ✓</div>';
+    $('panel-stale').innerHTML = '<div class="empty">Stale 부상 기록 없음 ✓</div>';
   } else {
     const rows = stale.map(i => `<tr>
       <td><div style="font-weight:600">${i.playerName}</div><div style="font-size:11px;color:var(--muted)">${i.teamName}</div></td>
       <td style="font-size:12px">${i.reason}<br><span class="text-muted" style="font-size:11px">${i.type} · ${i.league}</span></td>
       <td style="color:var(--muted);font-size:11px">${fmtDate(i.injuryDate)}</td>
-      <td><span class="text-green" style="font-size:12px">✓ Returned</span><div style="font-size:11px;color:var(--muted)">${fmtDate(i.returnedAt)}</div><div style="font-size:10px;color:var(--muted2)">${i.returnedFixture || ''}</div></td>
+      <td><span class="text-green" style="font-size:12px">✓ 복귀 완료</span><div style="font-size:11px;color:var(--muted)">${fmtDate(i.returnedAt)}</div><div style="font-size:10px;color:var(--muted2)">${i.returnedFixture || ''}</div></td>
     </tr>`).join('');
     $('panel-stale').innerHTML = `
       <div style="padding:8px 14px;font-size:12px;color:var(--yellow);background:var(--yellow-dim);border-bottom:1px solid var(--border)">
-        ⚠ ${stale.length} injury records exist for players who have already returned to play. These should not appear in recovery signals.
+        ⚠ ${stale.length}명의 부상 기록이 남아있지만 이미 경기에 복귀한 선수입니다. 복귀 신호에 나타나면 안 됩니다.
       </div>
-      <table><thead><tr><th>Player</th><th>Injury</th><th>Injury Date</th><th>Returned</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table><thead><tr><th>선수</th><th>부상 내용</th><th>부상일</th><th>복귀 정보</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 }
 
@@ -415,7 +420,7 @@ function renderSources(status) {
     ...(status.crawlSources.sources || []).map(s => ({...s, sourceType:'crawl'})),
   ].sort((a,b) => (b.lastFetched||'').localeCompare(a.lastFetched||''));
 
-  if (!all.length) { $('sources-body').innerHTML = '<div class="empty">No sources configured</div>'; return; }
+  if (!all.length) { $('sources-body').innerHTML = '<div class="empty">설정된 소스 없음</div>'; return; }
 
   // Enrich with signal counts from topSourcesByVolume
   const sigMap = new Map((status.signals.topSourcesByVolume||[]).map(s=>[s.sourceId, s.count]));
@@ -424,8 +429,8 @@ function renderSources(status) {
     const sigCount = sigMap.get(s.id) || 0;
     return `<tr>
       <td><span class="dot ${s.active ? 'dot-green' : 'dot-red'}"></span>${s.name}</td>
-      <td>${badge(s.sourceType, s.sourceType==='rss' ? 'badge-blue' : 'badge-yellow')}</td>
-      <td style="color:var(--muted);font-size:11px">${timeAgo(s.lastFetched)}<br><span style="color:var(--muted2);font-size:10px">${s.lastFetched ? fmtDate(s.lastFetched) : 'never'}</span></td>
+      <td>${badge(s.sourceType === 'rss' ? 'RSS' : '크롤', s.sourceType==='rss' ? 'badge-blue' : 'badge-yellow')}</td>
+      <td style="color:var(--muted);font-size:11px">${timeAgo(s.lastFetched)}<br><span style="color:var(--muted2);font-size:10px">${s.lastFetched ? fmtDate(s.lastFetched) : '미수집'}</span></td>
       <td>${sigCount > 0 ? `<span class="text-green">${sigCount}</span>` : '<span class="text-muted">0</span>'}</td>
       <td>
         <div class="avail-bar">
@@ -439,7 +444,7 @@ function renderSources(status) {
 
   $('sources-body').innerHTML = `
     <table>
-      <thead><tr><th>Source</th><th>Type</th><th>Last Fetch</th><th>Signals (all-time)</th><th>Reliability</th><th>URL</th></tr></thead>
+      <thead><tr><th>소스명</th><th>유형</th><th>마지막 수집</th><th>신호 수 (전체)</th><th>신뢰도</th><th>URL</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -467,7 +472,7 @@ async function loadAll() {
     if (injuries)         renderInjuries(injuries);
     if (status)           renderSources(status);
 
-    $('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('ko-KR');
+    $('last-updated').textContent = new Date().toLocaleTimeString('ko-KR') + ' 업데이트됨';
   } catch (err) {
     console.error(err);
   } finally {
@@ -475,7 +480,7 @@ async function loadAll() {
   }
 }
 
-// Auto-refresh every 60s
+// 60초마다 자동 새로고침
 loadAll();
 setInterval(loadAll, 60_000);
 </script>
