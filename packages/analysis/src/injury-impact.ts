@@ -22,12 +22,13 @@ export async function computeInjuryImpact(
   prisma: PrismaClient,
   teamId: number,
   season: number,
+  injuryLeagueId?: number | null,
 ): Promise<InjuryImpactSummary | null> {
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team) return null;
 
   const injuries = await prisma.injury.findMany({
-    where: { teamId, season },
+    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
     include: { player: { select: { id: true, name: true } } },
     orderBy: { fixtureDate: 'asc' },
   });
@@ -125,13 +126,14 @@ export async function computeRichInjuryImpact(
   seasonIds: number[],
   seasonYears: number[],
   season: number,
+  injuryLeagueId?: number | null,
 ): Promise<RichInjuryImpact | null> {
   // Get base injury summary (backward-compatible)
-  const base = await computeInjuryImpact(prisma, teamId, season);
+  const base = await computeInjuryImpact(prisma, teamId, season, injuryLeagueId);
   if (!base) return null;
 
   // Get enriched power loss data
-  const powerLoss = await computeTeamPowerLoss(prisma, teamId, seasonIds, seasonYears, season);
+  const powerLoss = await computeTeamPowerLoss(prisma, teamId, seasonIds, seasonYears, season, injuryLeagueId);
 
   const enrichedPlayers = powerLoss?.enrichedInjuredPlayers ?? [];
 

@@ -366,6 +366,7 @@ export async function computePredictedLineup(
   seasonIds: number[],
   seasonYears: number[],
   season: number,
+  injuryLeagueId?: number | null,
 ): Promise<PredictedLineup | null> {
   // 1. Validate team exists
   const team = await prisma.team.findUnique({ where: { id: teamId } });
@@ -478,7 +479,7 @@ export async function computePredictedLineup(
 
   // 7. Build injured player ID set
   const injuries = await prisma.injury.findMany({
-    where: { teamId, season },
+    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
     orderBy: { fixtureDate: 'desc' },
   });
 

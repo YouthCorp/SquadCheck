@@ -705,16 +705,16 @@ export default async function FixtureDetailPage({
     try {
       const [hi, ai, hl, al] = await Promise.all([
         fetchApi<InjuryImpact>(
-          `/api/analysis/injury-impact/${fixture.homeTeam.id}`,
+          `/api/analysis/injury-impact/${fixture.homeTeam.id}?league=${leagueId}`,
         ),
         fetchApi<InjuryImpact>(
-          `/api/analysis/injury-impact/${fixture.awayTeam.id}`,
+          `/api/analysis/injury-impact/${fixture.awayTeam.id}?league=${leagueId}`,
         ),
         fetchApi<PredictedLineup>(
-          `/api/analysis/predicted-lineup/${fixture.homeTeam.id}`,
+          `/api/analysis/predicted-lineup/${fixture.homeTeam.id}?league=${leagueId}`,
         ).catch(() => null),
         fetchApi<PredictedLineup>(
-          `/api/analysis/predicted-lineup/${fixture.awayTeam.id}`,
+          `/api/analysis/predicted-lineup/${fixture.awayTeam.id}?league=${leagueId}`,
         ).catch(() => null),
       ]);
       homeImpact = hi;

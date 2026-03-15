@@ -58,6 +58,7 @@ interface Injury {
 
 interface Appearance {
   teamId: number; fixtureId: number; date: string; round: string | null; season: number;
+  leagueId: number;
   homeTeam: { id: number; name: string }; awayTeam: { id: number; name: string };
 }
 
@@ -78,7 +79,7 @@ function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<numbe
   bySeason.forEach((seasonInjuries, season) => {
     const sorted = [...seasonInjuries].sort((a, b) => new Date(a.fixtureDate).getTime() - new Date(b.fixtureDate).getTime());
     const episodes: InjuryEpisode[] = [];
-    let cur: { reason: string; type: string; count: number; firstMissDate: Date; lastMissDate: Date } | null = null;
+    let cur: { reason: string; type: string; count: number; firstMissDate: Date; lastMissDate: Date; leagueId: number } | null = null;
     for (const inj of sorted) {
       if (inj.type !== 'Missing Fixture') {
         if (cur) { episodes.push(finalize(cur, sortedApps, false)); cur = null; }
@@ -88,18 +89,18 @@ function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<numbe
       const injDate = new Date(inj.fixtureDate);
       if (cur && cur.reason === inj.reason) {
         const returnedBetween = sortedApps.some(
-          app => new Date(app.date) > cur!.lastMissDate && new Date(app.date) < injDate
+          app => app.leagueId === cur!.leagueId && new Date(app.date) > cur!.lastMissDate && new Date(app.date) < injDate
         );
         if (returnedBetween) {
           episodes.push(finalize(cur, sortedApps, false));
-          cur = { reason: inj.reason, type: 'Missing Fixture', count: 1, firstMissDate: injDate, lastMissDate: injDate };
+          cur = { reason: inj.reason, type: 'Missing Fixture', count: 1, firstMissDate: injDate, lastMissDate: injDate, leagueId: inj.league.id };
         } else {
           cur.count++;
           cur.lastMissDate = injDate;
         }
       } else {
         if (cur) episodes.push(finalize(cur, sortedApps, false));
-        cur = { reason: inj.reason, type: 'Missing Fixture', count: 1, firstMissDate: injDate, lastMissDate: injDate };
+        cur = { reason: inj.reason, type: 'Missing Fixture', count: 1, firstMissDate: injDate, lastMissDate: injDate, leagueId: inj.league.id };
       }
     }
     if (cur) episodes.push(finalize(cur, sortedApps, true));
@@ -108,17 +109,19 @@ function buildEpisodes(injuries: Injury[], appearances: Appearance[]): Map<numbe
   return result;
 }
 
-function finalize(raw: { reason: string; type: string; count: number; firstMissDate: Date; lastMissDate: Date }, apps: Appearance[], isLast: boolean): InjuryEpisode {
+function finalize(raw: { reason: string; type: string; count: number; firstMissDate: Date; lastMissDate: Date; leagueId: number }, apps: Appearance[], isLast: boolean): InjuryEpisode {
   let match: InjuryEpisode['injuredInMatch'] = null;
-  for (let i = apps.length - 1; i >= 0; i--) {
-    const app = apps[i];
+  // Filter to same competition so a UCL game isn't shown as the trigger for a PL suspension
+  const sameLeagueApps = apps.filter(a => a.leagueId === raw.leagueId);
+  for (let i = sameLeagueApps.length - 1; i >= 0; i--) {
+    const app = sameLeagueApps[i];
     if (new Date(app.date).getTime() < raw.firstMissDate.getTime()) {
       const isHome = app.homeTeam.id === app.teamId;
       match = { date: app.date, round: app.round, opponentName: isHome ? app.awayTeam.name : app.homeTeam.name, homeAway: isHome ? 'H' : 'A' };
       break;
     }
   }
-  const hasReturnedAfter = isLast ? apps.some(app => new Date(app.date) > raw.lastMissDate) : false;
+  const hasReturnedAfter = isLast ? sameLeagueApps.some(app => new Date(app.date) > raw.lastMissDate) : false;
   return { reason: raw.reason, type: raw.type, missedCount: raw.count, ongoing: isLast && !hasReturnedAfter, isDisciplinary: isDisciplinaryReason(raw.reason), injuredInMatch: match };
 }
 

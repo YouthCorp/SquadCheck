@@ -78,7 +78,7 @@ playersRouter.get('/:id/injuries', async (req, res, next) => {
               teamId: true,
               fixture: {
                 select: {
-                  id: true, date: true, round: true, season: true,
+                  id: true, date: true, round: true, season: true, leagueId: true,
                   homeTeam: { select: { id: true, name: true } },
                   awayTeam: { select: { id: true, name: true } },
                 },
@@ -96,6 +96,7 @@ playersRouter.get('/:id/injuries', async (req, res, next) => {
       date: a.lineup.fixture.date,
       round: a.lineup.fixture.round,
       season: a.lineup.fixture.season,
+      leagueId: a.lineup.fixture.leagueId,
       homeTeam: a.lineup.fixture.homeTeam,
       awayTeam: a.lineup.fixture.awayTeam,
     }));

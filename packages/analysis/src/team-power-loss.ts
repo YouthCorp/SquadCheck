@@ -159,6 +159,7 @@ export async function computeTeamPowerLoss(
   seasonIds: number[],
   seasonYears: number[],
   season: number,
+  injuryLeagueId?: number | null,
 ): Promise<EnrichedTeamPowerLoss | null> {
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team) return null;
@@ -170,7 +171,7 @@ export async function computeTeamPowerLoss(
 
   // Get current injuries (latest per player)
   const injuries = await prisma.injury.findMany({
-    where: { teamId, season },
+    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
     orderBy: { fixtureDate: 'desc' },
   });
 

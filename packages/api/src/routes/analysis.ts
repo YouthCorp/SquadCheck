@@ -111,14 +111,15 @@ analysisRouter.get('/team-power/:teamId', async (req, res, next) => {
   }
 });
 
-// ── GET /api/analysis/injury-impact/:teamId?season=2024 ─────
+// ── GET /api/analysis/injury-impact/:teamId?season=2024&league=39 ─────
 analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
   try {
     const prisma = getPrisma(req);
     const teamId = parseInt(req.params.teamId);
     const season = await resolveSeason(prisma, req.query.season as string);
+    const requestedLeagueId = req.query.league ? parseInt(req.query.league as string) : null;
 
-    const cacheKey = `analysis:injury-impact:${teamId}:${season}`;
+    const cacheKey = `analysis:injury-impact:${teamId}:${season}:${requestedLeagueId ?? 'all'}`;
 
     const result = await cached(cacheKey, (r) => {
       // Short TTL when outcomeImpact is missing despite having injured players
@@ -135,7 +136,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       const chain = await resolveSeasonChain(prisma, leagueId, season);
       if (chain.ids.length === 0) return null;
 
-      const rich = await computeRichInjuryImpact(prisma, teamId, chain.ids, chain.years, season);
+      const rich = await computeRichInjuryImpact(prisma, teamId, chain.ids, chain.years, season, requestedLeagueId);
       if (!rich) return null;
 
       // Fetch current-season stats directly — avoids showing prior-season
@@ -438,14 +439,15 @@ analysisRouter.get('/team-impact-report/:teamId', async (req, res, next) => {
   }
 });
 
-// ── GET /api/analysis/predicted-lineup/:teamId?season=2024 ──
+// ── GET /api/analysis/predicted-lineup/:teamId?season=2024&league=39 ──
 analysisRouter.get('/predicted-lineup/:teamId', async (req, res, next) => {
   try {
     const prisma = getPrisma(req);
     const teamId = parseInt(req.params.teamId);
     const season = await resolveSeason(prisma, req.query.season as string);
+    const requestedLeagueId = req.query.league ? parseInt(req.query.league as string) : null;
 
-    const cacheKey = `analysis:predicted-lineup:${teamId}:${season}`;
+    const cacheKey = `analysis:predicted-lineup:${teamId}:${season}:${requestedLeagueId ?? 'all'}`;
 
     const result = await cached(cacheKey, 300, async () => {
       const leagueId = await resolveTeamLeague(prisma, teamId);
@@ -454,7 +456,7 @@ analysisRouter.get('/predicted-lineup/:teamId', async (req, res, next) => {
       const chain = await resolveSeasonChain(prisma, leagueId, season);
       if (chain.ids.length === 0) return null;
 
-      const lineup = await computePredictedLineup(prisma, teamId, chain.ids, chain.years, season);
+      const lineup = await computePredictedLineup(prisma, teamId, chain.ids, chain.years, season, requestedLeagueId);
       if (!lineup) return null;
 
       return lineup;
