@@ -132,14 +132,19 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         return true;
       });
 
-      // Query C-0: fringe player filter — 이번 시즌 탑5 리그 선발 0회인 선수 제외
-      // (명단 제외/Inactive/2군 선수가 reason="Injury"로 잘못 포함되는 것 방지)
+      // Query C-0: moderate-impact filter — 프린지/2군 선수 제외
+      // player_season_stats.rating >= 6.8 (Moderate 수준 이상) + lineups >= 5
+      // rating은 player-weight 계산의 핵심 인자 → injury-impact 카드의 severity와 상관관계 높음
+      // OR lineups >= 8: 주전급이면 rating 무관하게 포함 (비율: ~1/3 시즌 선발)
       const firstTeamStats = await prisma.playerSeasonStats.findMany({
         where: {
           playerId: { in: playerIds },
           season: { year: season },
           leagueApiId: { in: TOP5_LEAGUE_IDS },
-          lineups: { gte: 1 },
+          OR: [
+            { lineups: { gte: 5 }, rating: { gte: 6.8 } },
+            { lineups: { gte: 8 } },
+          ],
         },
         select: { playerId: true },
       });
