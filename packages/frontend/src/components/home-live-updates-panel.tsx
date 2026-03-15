@@ -53,7 +53,10 @@ function availabilityColor(pct: number): string {
 }
 
 function InjuryRow({ entry, locale }: { entry: RecentInjuryEntry; locale: Locale }) {
-  const isNewEntry = isNew(entry.fixtureDate);
+  // lastStartFixtureDate = last match player started before injury (better proxy for actual injury date)
+  // Falls back to fixtureDate (the fixture they were listed as absent for) if unavailable
+  const displayDate = entry.lastStartFixtureDate ?? entry.fixtureDate;
+  const isNewEntry = isNew(displayDate);
   return (
     <Link
       href={`/team/${entry.team.id}?league=${entry.league.apiFootballId}`}
@@ -99,9 +102,9 @@ function InjuryRow({ entry, locale }: { entry: RecentInjuryEntry; locale: Locale
           {tInjury(locale, entry.reason)}
         </div>
         <div className="text-[11px] text-muted-foreground/50 mt-0.5">
-          {timeAgo(locale, entry.fixtureDate)}
+          {timeAgo(locale, displayDate)}
           {" · "}
-          {new Date(entry.fixtureDate).toLocaleDateString(
+          {new Date(displayDate).toLocaleDateString(
             locale === "ko" ? "ko-KR" : "en-GB",
             { month: "numeric", day: "numeric" }
           )}

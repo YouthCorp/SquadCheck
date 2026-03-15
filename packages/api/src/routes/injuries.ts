@@ -165,21 +165,33 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
         select: {
           playerId: true,
+          isStarting: true,
           lineup: { select: { fixture: { select: { date: true } } } },
         },
       });
       const returnedIds = new Set<number>();
+      // Last start BEFORE injury date — used as a better proxy for "when injury happened"
+      const lastStartBeforeInjury = new Map<number, Date>();
       for (const app of lineupAppearances) {
         const injuryStart = injuryStartByPlayer.get(app.playerId);
-        if (injuryStart && app.lineup.fixture.date.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
+        const appDate = app.lineup.fixture.date;
+        if (injuryStart && appDate.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
           returnedIds.add(app.playerId);
+        }
+        if (app.isStarting && injuryStart && appDate < injuryStart) {
+          const existing = lastStartBeforeInjury.get(app.playerId);
+          if (!existing || appDate > existing) lastStartBeforeInjury.set(app.playerId, appDate);
         }
       }
 
       const recentInjuries = firstTeamDedupedFull
         .filter((r) => !returnedIds.has(r.playerId))
         .sort((a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime())
-        .slice(0, 20);
+        .slice(0, 20)
+        .map((r) => ({
+          ...r,
+          lastStartFixtureDate: lastStartBeforeInjury.get(r.playerId)?.toISOString() ?? null,
+        }));
 
       // 2. Recovery signals — from player_availability (deduplicated by player)
       const allSignals = await prisma.playerAvailability.findMany({
