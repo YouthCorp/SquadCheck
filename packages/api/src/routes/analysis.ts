@@ -117,9 +117,13 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
     const prisma = getPrisma(req);
     const teamId = parseInt(req.params.teamId);
     const season = await resolveSeason(prisma, req.query.season as string);
-    const requestedLeagueId = req.query.league ? parseInt(req.query.league as string) : null;
+    // ?league= is passed as apiFootballId (e.g. 39) — convert to internal DB id
+    const leagueApiFootballId = req.query.league ? parseInt(req.query.league as string) : null;
+    const requestedLeagueId = leagueApiFootballId
+      ? await prisma.league.findUnique({ where: { apiFootballId: leagueApiFootballId } }).then((l) => l?.id ?? null)
+      : null;
 
-    const cacheKey = `analysis:injury-impact:${teamId}:${season}:${requestedLeagueId ?? 'all'}`;
+    const cacheKey = `analysis:injury-impact:${teamId}:${season}:${leagueApiFootballId ?? 'all'}`;
 
     const result = await cached(cacheKey, (r) => {
       // Short TTL when outcomeImpact is missing despite having injured players
@@ -445,9 +449,13 @@ analysisRouter.get('/predicted-lineup/:teamId', async (req, res, next) => {
     const prisma = getPrisma(req);
     const teamId = parseInt(req.params.teamId);
     const season = await resolveSeason(prisma, req.query.season as string);
-    const requestedLeagueId = req.query.league ? parseInt(req.query.league as string) : null;
+    // ?league= is passed as apiFootballId (e.g. 39) — convert to internal DB id
+    const leagueApiFootballId = req.query.league ? parseInt(req.query.league as string) : null;
+    const requestedLeagueId = leagueApiFootballId
+      ? await prisma.league.findUnique({ where: { apiFootballId: leagueApiFootballId } }).then((l) => l?.id ?? null)
+      : null;
 
-    const cacheKey = `analysis:predicted-lineup:${teamId}:${season}:${requestedLeagueId ?? 'all'}`;
+    const cacheKey = `analysis:predicted-lineup:${teamId}:${season}:${leagueApiFootballId ?? 'all'}`;
 
     const result = await cached(cacheKey, 300, async () => {
       const leagueId = await resolveTeamLeague(prisma, teamId);
