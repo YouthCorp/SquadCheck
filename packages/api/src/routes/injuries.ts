@@ -132,15 +132,30 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         return true;
       });
 
+      // Query C-0: fringe player filter — 이번 시즌 탑5 리그 선발 0회인 선수 제외
+      // (명단 제외/Inactive/2군 선수가 reason="Injury"로 잘못 포함되는 것 방지)
+      const firstTeamStats = await prisma.playerSeasonStats.findMany({
+        where: {
+          playerId: { in: playerIds },
+          season: { year: season },
+          leagueApiId: { in: TOP5_LEAGUE_IDS },
+          lineups: { gte: 1 },
+        },
+        select: { playerId: true },
+      });
+      const firstTeamPlayerIds = new Set(firstTeamStats.map((s) => s.playerId));
+      const firstTeamDedupedFull = dedupedFull.filter((r) => firstTeamPlayerIds.has(r.playerId));
+
       // Query C: lineup cross-check — 부상일 이후 출전한 선수 제외 (복귀 처리)
       // injury-resolver / entity-matcher 와 동일한 1일 버퍼 적용 (UTC 타임존 보정)
       const ONE_DAY_MS = 86_400_000;
       const injuryStartByPlayer = new Map(
-        dedupedFull.map((r) => [r.playerId, new Date(r.fixtureDate)]),
+        firstTeamDedupedFull.map((r) => [r.playerId, new Date(r.fixtureDate)]),
       );
+      const firstTeamPlayerIdList = [...firstTeamPlayerIds];
       const lineupAppearances = await prisma.fixtureLineupPlayer.findMany({
         where: {
-          playerId: { in: playerIds },
+          playerId: { in: firstTeamPlayerIdList },
           lineup: { fixture: { date: { gte: new Date(Date.now() - 90 * ONE_DAY_MS) } } },
         },
         select: {
@@ -156,7 +171,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         }
       }
 
-      const recentInjuries = dedupedFull
+      const recentInjuries = firstTeamDedupedFull
         .filter((r) => !returnedIds.has(r.playerId))
         .sort((a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime())
         .slice(0, 20);
