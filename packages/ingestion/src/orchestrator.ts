@@ -188,15 +188,22 @@ export class Orchestrator {
       await this.injuryCollector.collect(leagueApiId, year);
 
       // Collect details for recently finished fixtures not yet processed.
-      // Require BOTH statistics and lineups to be absent — if either exists the
-      // fixture was already processed (some competitions never return statistics).
+      // Also re-processes fixtures where lineup rows exist but have no players
+      // (partial sync: lineup shell created but player insert failed or API returned empty).
       const recentFixtures = await this.prisma.fixture.findMany({
         where: {
           leagueId: season.leagueId,
           season: year,
           status: "FT",
-          statistics: { none: {} },
-          lineups: { none: {} },
+          OR: [
+            // Never processed (some competitions never return statistics so only lineups checked)
+            {
+              statistics: { none: {} },
+              lineups: { none: {} },
+            },
+            // Partial sync: lineup row exists but has no players — re-sync
+            { lineups: { some: { players: { none: {} } } } },
+          ],
         },
         select: { id: true, apiFootballId: true },
         orderBy: { date: "desc" },
