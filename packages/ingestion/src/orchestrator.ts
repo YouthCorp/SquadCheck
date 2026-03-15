@@ -7,6 +7,7 @@ import { InjuryCollector } from "./collectors/injury.collector";
 import { PlayerCollector } from "./collectors/player.collector";
 import { FixtureDetailCollector } from "./collectors/fixture-detail.collector";
 import { RecoverySignalCollector } from "./collectors/recovery-signal.collector";
+import { WebCrawlCollector } from "./collectors/web-crawl.collector";
 import { computePlayerAvailability } from "./aggregators/availability-aggregator";
 
 const LEAGUE_LEAGUES = [39, 140, 135, 78, 61]; // EPL, La Liga, Serie A, Bundesliga, Ligue 1
@@ -30,6 +31,7 @@ export class Orchestrator {
   private playerCollector: PlayerCollector;
   private fixtureDetailCollector: FixtureDetailCollector;
   private recoverySignalCollector: RecoverySignalCollector;
+  private webCrawlCollector: WebCrawlCollector;
 
   constructor(
     private api: ApiFootballClient,
@@ -42,6 +44,7 @@ export class Orchestrator {
     this.playerCollector = new PlayerCollector(api, prisma);
     this.fixtureDetailCollector = new FixtureDetailCollector(api, prisma);
     this.recoverySignalCollector = new RecoverySignalCollector(prisma);
+    this.webCrawlCollector = new WebCrawlCollector(prisma);
   }
 
   async fullSeed(options: SeedOptions = {}): Promise<void> {
@@ -276,6 +279,7 @@ export class Orchestrator {
     console.log("[Signals] Starting recovery signal collection...");
 
     await this.ensureRssSources();
+    await this.ensureWebCrawlSources();
 
     const currentSeasons = await this.prisma.season.findMany({
       where: { current: true },
@@ -287,14 +291,51 @@ export class Orchestrator {
       ? Math.max(...currentSeasons.map(s => s.year))
       : 2025;
 
-    const inserted = await this.recoverySignalCollector.collect(seasonYear);
+    const rssInserted   = await this.recoverySignalCollector.collect(seasonYear);
+    const crawlInserted = await this.webCrawlCollector.collect(seasonYear);
 
     // After inserting new signals, recompute availability for affected players
-    if (inserted > 0) {
+    if (rssInserted + crawlInserted > 0) {
       await this.recomputeAvailabilityFromRecentSignals(seasonYear);
     }
 
     console.log("[Signals] Recovery signal collection complete");
+  }
+
+  /** Upserts EPL club official news pages as crawl sources (idempotent). */
+  private async ensureWebCrawlSources(): Promise<void> {
+    const sources = [
+      // Premier League official
+      { name: 'PL Official News',      url: 'https://www.premierleague.com/latest-news',          reliability: 0.90 },
+      // EPL 2025/26 clubs
+      { name: 'Arsenal News',          url: 'https://www.arsenal.com/news',                        reliability: 0.88 },
+      { name: 'Chelsea News',          url: 'https://www.chelseafc.com/en/news',                   reliability: 0.88 },
+      { name: 'Liverpool News',        url: 'https://www.liverpoolfc.com/news',                    reliability: 0.88 },
+      { name: 'Man City News',         url: 'https://www.mancity.com/news',                        reliability: 0.88 },
+      { name: 'Man United News',       url: 'https://www.manutd.com/en/news',                      reliability: 0.88 },
+      { name: 'Tottenham News',        url: 'https://www.tottenhamhotspur.com/news/',               reliability: 0.88 },
+      { name: 'Aston Villa News',      url: 'https://www.avfc.co.uk/news',                         reliability: 0.85 },
+      { name: 'Brighton News',         url: 'https://www.brightonandhovealbion.com/news',           reliability: 0.85 },
+      { name: 'Newcastle News',        url: 'https://www.nufc.co.uk/news',                         reliability: 0.85 },
+      { name: 'Wolves News',           url: 'https://www.wolves.co.uk/news',                       reliability: 0.85 },
+      { name: 'Brentford News',        url: 'https://www.brentfordfc.com/en/news',                  reliability: 0.83 },
+      { name: 'Crystal Palace News',   url: 'https://www.cpfc.co.uk/news',                         reliability: 0.83 },
+      { name: 'Everton News',          url: 'https://www.evertonfc.com/news',                      reliability: 0.83 },
+      { name: 'Fulham News',           url: 'https://www.fulhamfc.com/news',                       reliability: 0.83 },
+      { name: 'West Ham News',         url: 'https://www.whufc.com/news',                          reliability: 0.83 },
+      { name: 'Bournemouth News',      url: 'https://www.afcb.co.uk/news',                         reliability: 0.83 },
+      { name: 'Nottm Forest News',     url: 'https://www.nottinghamforest.co.uk/news',             reliability: 0.83 },
+      { name: 'Leeds News',            url: 'https://www.leedsunited.com/news',                    reliability: 0.83 },
+      { name: 'Burnley News',          url: 'https://www.burnleyfc.com/news',                      reliability: 0.83 },
+      { name: 'Sunderland News',       url: 'https://www.safc.com/news',                           reliability: 0.83 },
+    ];
+    for (const s of sources) {
+      await this.prisma.rssFeedSource.upsert({
+        where:  { url: s.url },
+        create: { ...s, language: 'en', sourceType: 'crawl', active: true },
+        update: { reliability: s.reliability },
+      });
+    }
   }
 
   /**

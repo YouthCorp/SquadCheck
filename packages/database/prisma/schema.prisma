@@ -519,6 +519,7 @@ model RssFeedSource {
   reliability Float     @default(0.5)
   active      Boolean   @default(true)
   lastFetched DateTime? @map("last_fetched")
+  sourceType  String    @default("rss") @map("source_type") // "rss" | "crawl"
 
   signals RecoverySignal[]
 

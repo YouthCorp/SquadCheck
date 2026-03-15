@@ -159,7 +159,7 @@ export class RecoverySignalCollector {
     const queue = new SignalQueue();
 
     const sources = await this.prisma.rssFeedSource.findMany({
-      where: { active: true },
+      where: { active: true, sourceType: 'rss' },
     });
 
     if (sources.length === 0) {

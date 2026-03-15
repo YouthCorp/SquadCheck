@@ -29,8 +29,14 @@ export const SIGNAL_CONFIG = {
 
   // ── Official-status → predictedAvailability conversion ──
   // predictedAvailability = BASE + recoverySignalScore × SIGNAL_WEIGHT
+  //
+  // SIGNAL_WEIGHT for injured = 1.00 (changed from 0.80):
+  //   With 0.80, even an 'available' stage RSS signal (recoveryScore=0.75)
+  //   only reached predictedAvailability=0.60, below the 0.70 lineup threshold.
+  //   With 1.00: available(0.75)→0.75 ✓, expected_to_start(0.90)→0.90 ✓,
+  //   full_training(0.55)→0.55 ✗ (correct — training ≠ match availability).
   availability: {
-    injured:   { BASE: 0.00, SIGNAL_WEIGHT: 0.80 },
+    injured:   { BASE: 0.00, SIGNAL_WEIGHT: 1.00 },
     doubtful:  { BASE: 0.30, SIGNAL_WEIGHT: 0.50 },
     available: { BASE: 1.00, SIGNAL_WEIGHT: 0.00 }, // API-confirmed: always 1.0
   } as Record<string, { BASE: number; SIGNAL_WEIGHT: number }>,

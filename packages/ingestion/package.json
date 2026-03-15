@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",
+    "@lightpanda/browser": "^1.2.0",
     "@squadcheck/database": "*",
     "axios": "^1.7.0",
+    "cheerio": "^1.0.0",
     "dotenv": "^16.4.0",
     "node-cron": "^3.0.0",
+    "playwright": "^1.50.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

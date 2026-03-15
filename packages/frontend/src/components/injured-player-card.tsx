@@ -148,7 +148,7 @@ export function InjuredPlayerCard({
 
   // ── W-D-L outcome record (only for high severity with playerRecord) ──────
   const outcomeRow = isHigh && playerRecord && (playerRecord.withPlayer.matches > 0 || playerRecord.withoutPlayer.matches > 0) ? (
-    <div className={cn('flex mt-1 font-mono flex-wrap', isTeam ? 'text-[0.6875rem] gap-x-3' : 'text-[0.625rem] gap-x-2')}>
+    <div className={cn('flex flex-col mt-1 font-mono gap-y-0.5', isTeam ? 'text-[0.6875rem]' : 'text-[0.625rem]')}>
       {playerRecord.withPlayer.matches > 0 && (
         <span className="text-foreground/80">
           <span className="text-muted-foreground">{t(locale, 'outcome_with')} </span>
@@ -204,17 +204,17 @@ export function InjuredPlayerCard({
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTeam && isHigh) {
     return (
-      <div className={cn(cardCls, 'flex items-center justify-between')}>
-        <div className="flex items-center gap-3">
+      <div className={cn(cardCls, 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2')}>
+        <div className="flex items-center gap-3 min-w-0">
           {photo}
-          <div>
+          <div className="min-w-0">
             {tagsRow}
             {infoLine(true)}
             {statsRow}
             {outcomeRow}
           </div>
         </div>
-        <div className="text-right shrink-0 ml-4">
+        <div className="shrink-0 sm:ml-4 sm:text-right">
           <div className="text-xs text-muted-foreground">
             {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
           </div>
