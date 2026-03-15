@@ -187,7 +187,11 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
 
       const recentInjuries = firstTeamDedupedFull
         .filter((r) => !returnedIds.has(r.playerId))
-        .sort((a, b) => new Date(b.fixtureDate).getTime() - new Date(a.fixtureDate).getTime())
+        .sort((a, b) => {
+          const dateA = lastStartBeforeInjury.get(a.playerId) ?? new Date(a.fixtureDate);
+          const dateB = lastStartBeforeInjury.get(b.playerId) ?? new Date(b.fixtureDate);
+          return dateB.getTime() - dateA.getTime();
+        })
         .slice(0, 20)
         .map((r) => ({
           ...r,
