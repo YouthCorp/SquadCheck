@@ -456,11 +456,18 @@ adminRouter.post('/signals/expire-stale', async (req, res, next) => {
   try {
     const prisma = getPrisma(req);
 
-    // ① 완료된 경기에 연결된 가용성 레코드 만료
+    // ① 완료된 경기 OR 이미 지난 날짜의 경기에 연결된 가용성 레코드 만료
+    // (DB status가 FT로 업데이트 안 됐어도 과거 경기면 만료 처리)
+    const now = new Date();
     const { count: expiredByFixture } = await prisma.playerAvailability.updateMany({
       where: {
         expired: false,
-        fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
+        fixture: {
+          OR: [
+            { status: { in: ['FT', 'AET', 'PEN'] } },
+            { date: { lt: now } },
+          ],
+        },
       },
       data: { expired: true },
     });
@@ -561,9 +568,46 @@ adminRouter.post('/signals/expire-stale', async (req, res, next) => {
     }
 
     const totalExpired = expiredByFixture + expiredByNoInjury + expiredByLineupReturn;
-    const remainingActive = await prisma.playerAvailability.count({ where: { expired: false } });
 
-    console.log(`[Admin] expire-stale: 경기완료=${expiredByFixture}, 부상없음=${expiredByNoInjury}, 복귀확인=${expiredByLineupReturn}, 총=${totalExpired}`);
+    // 디버그: 만료 안 된 활성 레코드의 선수 정보 조회
+    const stillActive = await prisma.playerAvailability.findMany({
+      where: { expired: false },
+      select: {
+        id: true,
+        playerId: true,
+        predictedAvailability: true,
+        lastSignalAt: true,
+        player: { select: { name: true } },
+        fixture: { select: { date: true, status: true, homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } } } },
+      },
+    });
+
+    const remainingActive = stillActive.length;
+
+    // 각 선수에 대해 왜 만료 안 됐는지 진단 정보 추가
+    const debugInfo = stillActive.map(a => {
+      const injuryDate = latestInjuryDateByPlayer.get(a.playerId);
+      const lastPlayed = latestAppearanceByPlayer.get(a.playerId);
+      let reason = '알 수 없음';
+      if (!injuryDate) reason = '부상 기록 없음인데 만료 안 됨 (버그)';
+      else if (!lastPlayed) reason = `라인업 출전 기록 없음 (부상일: ${injuryDate.toISOString().slice(0,10)})`;
+      else if (lastPlayed <= injuryDate) reason = `최근 출전(${lastPlayed.toISOString().slice(0,10)}) ≤ 부상일(${injuryDate.toISOString().slice(0,10)})`;
+      return {
+        playerName: a.player?.name,
+        playerId: a.playerId,
+        fixtureDate: a.fixture?.date,
+        fixtureStatus: a.fixture?.status,
+        fixture: a.fixture ? `${a.fixture.homeTeam?.name} vs ${a.fixture.awayTeam?.name}` : null,
+        injuryDate: injuryDate?.toISOString().slice(0,10) ?? null,
+        lastLineupAppearance: lastPlayed?.toISOString().slice(0,10) ?? null,
+        reason,
+      };
+    });
+
+    console.log(`[Admin] expire-stale: 경기완료/과거=${expiredByFixture}, 부상없음=${expiredByNoInjury}, 복귀확인=${expiredByLineupReturn}, 총=${totalExpired}, 잔여=${remainingActive}`);
+    if (debugInfo.length > 0) {
+      console.log('[Admin] expire-stale 잔여 활성 선수:', JSON.stringify(debugInfo, null, 2));
+    }
 
     res.json({
       expiredByFixture,
@@ -571,6 +615,7 @@ adminRouter.post('/signals/expire-stale', async (req, res, next) => {
       expiredByLineupReturn,
       totalExpired,
       remainingActive,
+      debug: debugInfo,
     });
   } catch (err) {
     next(err);

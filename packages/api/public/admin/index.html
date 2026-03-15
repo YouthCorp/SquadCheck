@@ -489,14 +489,22 @@ async function expireStale() {
   try {
     const res = await fetch(`${API}/api/admin/signals/expire-stale`, { method: 'POST' });
     const data = await res.json();
-    const msg = [
+    const lines = [
       `✅ 만료 처리 완료`,
-      `경기완료: ${data.expiredByFixture}건`,
+      `경기완료/과거: ${data.expiredByFixture}건`,
       `부상없음: ${data.expiredByNoInjury}건`,
       `복귀확인: ${data.expiredByLineupReturn}건`,
       `총 ${data.totalExpired}건 만료 → 잔여 활성: ${data.remainingActive}건`,
-    ].join('\n');
-    alert(msg);
+    ];
+    if (data.debug && data.debug.length > 0) {
+      lines.push('');
+      lines.push('─ 만료 안 된 선수 ─');
+      for (const d of data.debug) {
+        lines.push(`• ${d.playerName}: ${d.reason}`);
+        lines.push(`  경기: ${d.fixture} (${d.fixtureStatus}) / ${d.fixtureDate ? new Date(d.fixtureDate).toLocaleDateString('ko-KR') : '?'}`);
+      }
+    }
+    alert(lines.join('\n'));
     loadAll();
   } catch (err) {
     alert('오류 발생: ' + err.message);
