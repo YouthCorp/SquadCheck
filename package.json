@@ -17,6 +17,8 @@
     "db:sync": "npm run sync -w packages/ingestion",
     "dev:api": "npm run dev -w packages/api",
     "dev:frontend": "npm run dev -w packages/frontend",
-    "build": "npm run build -w packages/database && npm run build -w packages/analysis && npm run build -w packages/ingestion && npm run build -w packages/api && npm run build -w packages/frontend"
+    "build": "npm run build -w packages/database && npm run build -w packages/analysis && npm run build -w packages/ingestion && npm run build -w packages/api && npm run build -w packages/frontend",
+    "check": "node scripts/check-deploy.js",
+    "check:prod": "node scripts/check-deploy.js https://squadcheck-api-production.up.railway.app"
   }
 }

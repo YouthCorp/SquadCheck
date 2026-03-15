@@ -62,6 +62,19 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       const now = new Date();
       const TOP5_LEAGUE_IDS = [39, 140, 135, 78, 61];
 
+      // Disciplinary absences (red card / suspension / yellow card bans) are not real injuries.
+      // Exclude them so the live feed only shows genuine injury news.
+      const NOT_DISCIPLINARY = {
+        NOT: {
+          OR: [
+            { reason: { contains: 'red card',    mode: 'insensitive' as const } },
+            { reason: { equals:   'suspended',   mode: 'insensitive' as const } },
+            { reason: { equals:   'suspension',  mode: 'insensitive' as const } },
+            { reason: { contains: 'yellow card', mode: 'insensitive' as const } },
+          ],
+        },
+      };
+
       // Query A: top 20 players ranked by most recent injury start (5대 리그만)
       const injuryStarts = await prisma.injury.groupBy({
         by: ['playerId'],
@@ -69,6 +82,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
           season,
           fixtureDate: { lte: now },
           league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+          ...NOT_DISCIPLINARY,
         },
         _min: { fixtureDate: true },
         orderBy: { _min: { fixtureDate: 'desc' } },
@@ -83,6 +97,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
           playerId: { in: playerIds },
           fixtureDate: { lte: now },
           league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+          ...NOT_DISCIPLINARY,
         },
         orderBy: { fixtureDate: 'asc' },
         include: {
