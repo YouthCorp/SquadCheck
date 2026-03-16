@@ -194,7 +194,7 @@ export class Orchestrator {
         where: {
           leagueId: season.leagueId,
           season: year,
-          status: "FT",
+          status: { in: ["FT", "AET", "PEN"] },
           OR: [
             // Never processed (some competitions never return statistics so only lineups checked)
             {

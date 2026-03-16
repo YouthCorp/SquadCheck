@@ -509,7 +509,6 @@ export async function computePredictedLineup(
   }
 
   // 9. Compute composite scores for all available (non-injured) players
-  const weightMap = new Map(weights.map(w => [w.playerId, w]));
   const maxWeight = Math.max(...weights.map(w => w.weight), 0.001);
 
   const availablePlayers: ScoredPlayer[] = [];
@@ -599,12 +598,7 @@ export async function computePredictedLineup(
   const finalAssignments = assignPlayersToSlots(formationTemplate, availablePlayers);
 
   // 11. Determine wouldHaveStarted for injured players
-  const lowestFitScore = finalAssignments.length > 0
-    ? Math.min(...finalAssignments.map(a => a.fitScore))
-    : 0;
-
   // For each injured player, check if they would have displaced any starter
-  const starterIds = new Set(finalAssignments.map(a => a.player.playerId));
 
   // 12. Fetch photos for all players
   const allRelevantIds = [
