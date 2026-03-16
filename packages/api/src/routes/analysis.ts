@@ -146,7 +146,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       // Fetch current-season stats directly — avoids showing prior-season
       // goals/assists for players who were injured all current season.
       const playerIds = rich.enrichedInjuredPlayers.map(p => p.playerId);
-      const [players, currentSeasonStats, availabilities, teamSeasonStats, standingEntry] = await Promise.all([
+      const [players, currentSeasonStats, availabilities, teamSeasonStats, standingEntry, leagues] = await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
           select: { id: true, name: true, photo: true, position: true },
@@ -176,8 +176,10 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
           select: { played: true, wins: true, draws: true, losses: true, goalsFor: true, goalsAgainst: true },
           orderBy: { rank: 'asc' },
         }),
+        prisma.league.findMany({ select: { id: true, apiFootballId: true } }),
       ]);
       const photoMap = new Map(players.map(p => [p.id, p]));
+      const leagueApiIdMap = new Map(leagues.map(l => [l.id, l.apiFootballId]));
       const currentStatsMap = new Map(currentSeasonStats.map(s => [s.playerId, s]));
       // Take only the first (most recent) availability record per player
       const availMap = new Map<number, typeof availabilities[number]>();
@@ -213,7 +215,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
             weightPct: p.weightPct,
             positionGroup: p.positionGroup,
             dataSource: p.dataSource,
-            injury: { type: p.injuryType, reason: p.injuryReason, date: p.injuryDate },
+            injury: { type: p.injuryType, reason: p.injuryReason, date: p.injuryDate, leagueApiId: leagueApiIdMap.get(p.injuryLeagueId) ?? null },
             injuryContext: p.injuryContext,
             starterProfile: p.starterProfile,
             performanceDelta: p.performanceDelta,

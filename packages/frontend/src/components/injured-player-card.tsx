@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { t, tPos, tInjury, type Locale } from '@/lib/i18n';
-import { SEV_KEY, ROLE_KEY, CTX_KEY, SEV_TAG } from '@/lib/constants';
+import { SEV_KEY, ROLE_KEY, CTX_KEY, SEV_TAG, LEAGUE_SHORT_NAMES } from '@/lib/constants';
 import { isDisciplinaryReason, fmtDate, daysAgo, timeAgo } from '@/lib/format';
 import type { InjuredPlayer, PlayerOutcomeRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -33,8 +33,15 @@ export function InjuredPlayerCard({
   const isHigh = severity === 'high';
 
   const disciplinary = isDisciplinaryReason(ip.injury.reason);
-  // lastAppearanceFixtureDate = most recent lineup appearance (start OR sub) = best injury date proxy
-  const triggerDate = ip.starterProfile.lastAppearanceFixtureDate ?? ip.starterProfile.lastStartFixtureDate ?? ip.injury.date;
+  // Disciplinary: use injury.date (= the fixture they're banned FOR) — no need for last-appearance proxy
+  // Injury: use lastAppearanceFixtureDate (most recent lineup appearance) as best injury date proxy
+  const triggerDate = disciplinary
+    ? ip.injury.date
+    : (ip.starterProfile.lastAppearanceFixtureDate ?? ip.starterProfile.lastStartFixtureDate ?? ip.injury.date);
+  // Competition label for disciplinary absences (e.g. "UCL" or "PL")
+  const suspensionLeague = disciplinary && ip.injury.leagueApiId
+    ? LEAGUE_SHORT_NAMES[ip.injury.leagueApiId] ?? null
+    : null;
   const triggerDays = daysAgo(triggerDate);
   const isLongTerm =
     !isHigh &&
@@ -189,7 +196,7 @@ export function InjuredPlayerCard({
     <div className={cn('text-muted-foreground mt-0.5', isTeam ? 'text-xs' : 'text-[0.6875rem]')}>
       {tPos(locale, ip.player.position)}
       {full && <>
-        {' · '}{tInjury(locale, ip.injury.reason)}{' · '}{fmtDate(triggerDate)}
+        {' · '}{tInjury(locale, ip.injury.reason)}{suspensionLeague && <span className="ml-1 text-[0.65rem] opacity-70">({suspensionLeague})</span>}{' · '}{fmtDate(triggerDate)}
         <span className="ml-1.5 text-[var(--sc-orange)]">{t(locale, 'days_ago', { n: triggerDays })}</span>
       </>}
     </div>
@@ -247,9 +254,12 @@ export function InjuredPlayerCard({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-xs text-foreground/80">{tInjury(locale, ip.injury.reason)}</div>
+          <div className="text-xs text-foreground/80">
+            {tInjury(locale, ip.injury.reason)}
+            {suspensionLeague && <span className="ml-1 text-[0.65rem] text-muted-foreground">({suspensionLeague})</span>}
+          </div>
           <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
-            {ip.starterProfile.lastStartFixtureDate
+            {(disciplinary || ip.starterProfile.lastStartFixtureDate)
               ? fmtDate(triggerDate)
               : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
           </div>
@@ -293,8 +303,8 @@ export function InjuredPlayerCard({
       <div className="min-w-0 flex-1">
         {tagsRow}
         <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
-          {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)} ·{' '}
-          {ip.starterProfile.lastStartFixtureDate
+          {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)}{suspensionLeague && ` (${suspensionLeague})`} ·{' '}
+          {(disciplinary || ip.starterProfile.lastStartFixtureDate)
             ? fmtDate(triggerDate)
             : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
         </div>

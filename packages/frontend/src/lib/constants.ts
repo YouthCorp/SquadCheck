@@ -50,6 +50,13 @@ export const LEAGUE_NAMES: Record<number, string> = {
   81: 'DFB-Pokal',
 };
 
+/** Short competition labels used in disciplinary absence badges. */
+export const LEAGUE_SHORT_NAMES: Record<number, string> = {
+  39: 'PL', 140: 'La Liga', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1',
+  2: 'UCL', 3: 'UEL', 848: 'UECL',
+  45: 'FA Cup', 48: 'EFL Cup', 143: 'Copa del Rey', 137: 'Coppa Italia', 81: 'DFB-Pokal',
+};
+
 /** All league names → apiFootballId (covers all seeded leagues including cups). */
 export const LEAGUE_API_ID_BY_NAME: Record<string, number> = Object.fromEntries(
   Object.entries(LEAGUE_NAMES).map(([id, name]) => [name, parseInt(id)])

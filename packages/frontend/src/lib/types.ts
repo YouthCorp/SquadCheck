@@ -12,7 +12,7 @@ export interface Team {
 
 export interface InjuredPlayer {
   player: { id: number; name: string; photo: string | null; position: string | null };
-  injury: { type: string; reason: string; date: string };
+  injury: { type: string; reason: string; date: string; leagueApiId: number | null };
   injuryContext: { type: string; timingMultiplier: number; description: string };
   starterProfile: {
     starterCount: number;

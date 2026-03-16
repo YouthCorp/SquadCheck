@@ -121,6 +121,7 @@ export interface InjuredPlayer {
   injuryType: string;
   injuryReason: string;
   injuryDate: Date;
+  injuryLeagueId: number;
 }
 
 export interface EnrichedInjuredPlayer extends InjuredPlayer {
@@ -294,6 +295,7 @@ export async function computeTeamPowerLoss(
       injuryType: injury.type,
       injuryReason: injury.reason,
       injuryDate: injury.fixtureDate,
+      injuryLeagueId: injury.leagueId,
     };
 
     injuredPlayers.push(basePlayer);
