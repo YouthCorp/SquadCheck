@@ -116,8 +116,8 @@ export class FixtureDetailCollector {
       await this.prisma.fixtureLineupPlayer.deleteMany({ where: { lineupId: lineup.id } });
 
       const allPlayers = [
-        ...item.startXI.map((p) => ({ ...p, isStarting: true })),
-        ...item.substitutes.map((p) => ({ ...p, isStarting: false })),
+        ...(item.startXI ?? []).map((p) => ({ ...p, isStarting: true })),
+        ...(item.substitutes ?? []).map((p) => ({ ...p, isStarting: false })),
       ];
 
       // Resolve all players in parallel, then batch-insert

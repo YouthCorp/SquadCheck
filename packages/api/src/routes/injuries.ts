@@ -54,15 +54,24 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
     const cacheKey = `injuries:live-updates:${season}`;
 
     const result = await cached(cacheKey, 60, async () => {
-      // 1. Recent injuries — show the 20 players whose injuries started most recently.
-      // "Injury start" = the earliest fixture they missed this season (MIN fixtureDate).
-      // Two-query strategy to avoid loading all 14k+ records:
-      //   Query A: groupBy playerId → MIN(fixtureDate) ordered DESC, take 20
-      //   Query B: fetch full details for those 20 players
+      // 1. Recent injuries — "absence transition" panel.
+      // Shows players who were playing and then became absent, sorted by when they last played.
+      // Correctly handles re-injuries after recovery (old logic missed these).
+      //
+      // Algorithm:
+      //   Step 1. Candidate player IDs — anyone with injury records in last 90 days
+      //   Step 2. Last lineup date per candidate (MAX across full season)
+      //   Step 3. Per player: find first injury record AFTER last lineup date
+      //           If that date is within the cutoff → "new absence" (was playing, now not)
+      //           Long-term absent players (lastPlayed far in past) naturally filter out.
+      //           Players who returned after injury also filter out (their new lastPlayed > any new injury).
+      //   Step 4. Quality filter
+      //   Step 5. Fetch full records (with player/team/league) for final set, sort & return.
       const now = new Date();
       const TOP5_LEAGUE_IDS = [39, 140, 135, 78, 61];
+      const ONE_DAY_MS = 86_400_000;
 
-      // Only genuine injuries — exclude disciplinary, squad management, and non-injury absences.
+      // Exclude disciplinary, squad management, and non-injury absences.
       const NOT_DISCIPLINARY = {
         NOT: {
           OR: [
@@ -70,7 +79,6 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
             { reason: { equals:   'suspended',          mode: 'insensitive' as const } },
             { reason: { equals:   'suspension',         mode: 'insensitive' as const } },
             { reason: { contains: 'yellow card',        mode: 'insensitive' as const } },
-            // Non-injury exclusions
             { reason: { equals:   'international duty', mode: 'insensitive' as const } },
             { reason: { equals:   'inactive',           mode: 'insensitive' as const } },
             { reason: { contains: 'coach',              mode: 'insensitive' as const } },
@@ -81,38 +89,112 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
       };
 
-      // Query A: 최근 N일 이내에 "처음" 부상한 선수만 (= 신규 부상자)
-      // HAVING MIN(fixtureDate) >= cutoff 를 사용해 장기 결장자 제외
-      // 45일 윈도우 → 결과 5명 미만이면 90일로 확장 (비시즌 기간 등 대비)
-      const buildInjuryGroupBy = (cutoff: Date) =>
-        prisma.injury.groupBy({
-          by: ['playerId'],
-          where: {
-            season,
-            fixtureDate: { lte: now },
-            league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
-            ...NOT_DISCIPLINARY,
-          },
-          _min: { fixtureDate: true },
-          having: { fixtureDate: { _min: { gte: cutoff } } },
-          orderBy: { _min: { fixtureDate: 'desc' } },
-          take: 20,
-        });
+      // Step 1: Candidate player IDs — any injury record in last 90 days (lightweight, no includes)
+      const candidateGroups = await prisma.injury.groupBy({
+        by: ['playerId'],
+        where: {
+          season,
+          fixtureDate: { lte: now, gte: new Date(Date.now() - 90 * ONE_DAY_MS) },
+          league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+          ...NOT_DISCIPLINARY,
+        },
+      });
+      const candidatePlayerIds = candidateGroups.map((g) => g.playerId);
 
-      const cutoff45 = new Date(Date.now() - 45 * 86_400_000);
-      let injuryStarts = await buildInjuryGroupBy(cutoff45);
-      if (injuryStarts.length < 5) {
-        const cutoff90 = new Date(Date.now() - 90 * 86_400_000);
-        injuryStarts = await buildInjuryGroupBy(cutoff90);
+      if (candidatePlayerIds.length === 0) return { recentInjuries: [], recentSignals: [] };
+
+      // Step 2: All lineup appearances for candidates this season (scalar only, no includes).
+      // Using MAX per player captures full-season history:
+      //   - If player returned after injury their MAX date > new injury date → no "new absence"
+      //   - Long-term absent players have an old MAX date → newAbsenceStart is old → excluded
+      const lineupAppearances = await prisma.fixtureLineupPlayer.findMany({
+        where: {
+          playerId: { in: candidatePlayerIds },
+          lineup: { fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } } },
+        },
+        select: {
+          playerId: true,
+          lineup: { select: { fixture: { select: { date: true } } } },
+        },
+      });
+
+      const lastPlayedMap = new Map<number, Date>();
+      for (const app of lineupAppearances) {
+        const d = app.lineup.fixture.date;
+        const prev = lastPlayedMap.get(app.playerId);
+        if (!prev || d > prev) lastPlayedMap.set(app.playerId, d);
       }
 
-      // Query B: fetch full record for each player (their earliest fixture = start date)
-      const playerIds = injuryStarts.map((s) => s.playerId);
+      // Step 3: Individual injury records for candidates (scalar only, no includes).
+      // Ordered asc so first record per player = earliest injury after last lineup.
+      const candidateInjuries = await prisma.injury.findMany({
+        where: {
+          season,
+          playerId: { in: candidatePlayerIds },
+          fixtureDate: { lte: now, gte: new Date(Date.now() - 90 * ONE_DAY_MS) },
+          league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+          ...NOT_DISCIPLINARY,
+        },
+        orderBy: { fixtureDate: 'asc' },
+        select: { playerId: true, fixtureDate: true },
+      });
+
+      const injuriesByPlayer = new Map<number, Date[]>();
+      for (const inj of candidateInjuries) {
+        const arr = injuriesByPlayer.get(inj.playerId);
+        if (arr) arr.push(inj.fixtureDate);
+        else injuriesByPlayer.set(inj.playerId, [inj.fixtureDate]);
+      }
+
+      // Find players whose "absence transition" falls within the cutoff.
+      // newAbsenceStart = first injury date strictly after last lineup appearance.
+      type AbsenceEntry = { playerId: number; lastPlayed: Date; newAbsenceStart: Date };
+      function buildAbsences(cutoff: Date): AbsenceEntry[] {
+        const results: AbsenceEntry[] = [];
+        for (const [playerId, injuryDates] of injuriesByPlayer) {
+          const lastPlayed = lastPlayedMap.get(playerId);
+          if (!lastPlayed) continue; // no lineup history — cannot confirm transition
+
+          // First injury AFTER last lineup (1-day UTC buffer)
+          const firstPostLineup = injuryDates.find(
+            (d) => d.getTime() > lastPlayed.getTime() - ONE_DAY_MS,
+          );
+          if (!firstPostLineup || firstPostLineup < cutoff) continue;
+
+          results.push({ playerId, lastPlayed, newAbsenceStart: firstPostLineup });
+        }
+        return results;
+      }
+
+      const cutoff45 = new Date(Date.now() - 45 * ONE_DAY_MS);
+      const cutoff90 = new Date(Date.now() - 90 * ONE_DAY_MS);
+      let absences = buildAbsences(cutoff45);
+      if (absences.length < 5) absences = buildAbsences(cutoff90);
+
+      // Step 4: Quality filter — exclude fringe / squad players
+      const firstTeamStats = await prisma.playerSeasonStats.findMany({
+        where: {
+          playerId: { in: absences.map((a) => a.playerId) },
+          season: { year: season },
+          leagueApiId: { in: TOP5_LEAGUE_IDS },
+          OR: [
+            { lineups: { gte: 5 }, rating: { gte: 6.8 } },
+            { lineups: { gte: 8 } },
+          ],
+        },
+        select: { playerId: true },
+      });
+      const firstTeamPlayerIds = new Set(firstTeamStats.map((s) => s.playerId));
+      const qualifiedAbsences = absences.filter((a) => firstTeamPlayerIds.has(a.playerId));
+
+      // Step 5: Fetch full records (with player/team/league) for qualified players only.
+      // Pick the first injury record at or after newAbsenceStart for each player.
+      const qualifiedPlayerIds = qualifiedAbsences.map((a) => a.playerId);
       const fullRecords = await prisma.injury.findMany({
         where: {
           season,
-          playerId: { in: playerIds },
-          fixtureDate: { lte: now },
+          playerId: { in: qualifiedPlayerIds },
+          fixtureDate: { lte: now, gte: new Date(Date.now() - 90 * ONE_DAY_MS) },
           league: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
           ...NOT_DISCIPLINARY,
         },
@@ -124,78 +206,25 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
       });
 
-      // Keep only the first (earliest) record per player
-      const seenInjury = new Set<number>();
-      const dedupedFull = fullRecords.filter((r) => {
-        if (seenInjury.has(r.playerId)) return false;
-        seenInjury.add(r.playerId);
-        return true;
-      });
-
-      // Query C-0: moderate-impact filter — 프린지/2군 선수 제외
-      // player_season_stats.rating >= 6.8 (Moderate 수준 이상) + lineups >= 5
-      // rating은 player-weight 계산의 핵심 인자 → injury-impact 카드의 severity와 상관관계 높음
-      // OR lineups >= 8: 주전급이면 rating 무관하게 포함 (비율: ~1/3 시즌 선발)
-      const firstTeamStats = await prisma.playerSeasonStats.findMany({
-        where: {
-          playerId: { in: playerIds },
-          season: { year: season },
-          leagueApiId: { in: TOP5_LEAGUE_IDS },
-          OR: [
-            { lineups: { gte: 5 }, rating: { gte: 6.8 } },
-            { lineups: { gte: 8 } },
-          ],
-        },
-        select: { playerId: true },
-      });
-      const firstTeamPlayerIds = new Set(firstTeamStats.map((s) => s.playerId));
-      const firstTeamDedupedFull = dedupedFull.filter((r) => firstTeamPlayerIds.has(r.playerId));
-
-      // Query C: lineup cross-check — 부상일 이후 출전한 선수 제외 (복귀 처리)
-      // injury-resolver / entity-matcher 와 동일한 1일 버퍼 적용 (UTC 타임존 보정)
-      const ONE_DAY_MS = 86_400_000;
-      const injuryStartByPlayer = new Map(
-        firstTeamDedupedFull.map((r) => [r.playerId, new Date(r.fixtureDate)]),
-      );
-      const firstTeamPlayerIdList = [...firstTeamPlayerIds];
-      const lineupAppearances = await prisma.fixtureLineupPlayer.findMany({
-        where: {
-          playerId: { in: firstTeamPlayerIdList },
-          lineup: { fixture: { date: { gte: new Date(Date.now() - 90 * ONE_DAY_MS) } } },
-        },
-        select: {
-          playerId: true,
-          isStarting: true,
-          lineup: { select: { fixture: { select: { date: true } } } },
-        },
-      });
-      const returnedIds = new Set<number>();
-      // Last start BEFORE injury date — used as a better proxy for "when injury happened"
-      const lastStartBeforeInjury = new Map<number, Date>();
-      for (const app of lineupAppearances) {
-        const injuryStart = injuryStartByPlayer.get(app.playerId);
-        const appDate = app.lineup.fixture.date;
-        if (injuryStart && appDate.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
-          returnedIds.add(app.playerId);
-        }
-        // Track last appearance (start OR sub) before injury — best injury date proxy
-        if (injuryStart && appDate < injuryStart) {
-          const existing = lastStartBeforeInjury.get(app.playerId);
-          if (!existing || appDate > existing) lastStartBeforeInjury.set(app.playerId, appDate);
+      // Map playerId → first full record that is the "absence start" record
+      const absenceMap = new Map(qualifiedAbsences.map((a) => [a.playerId, a]));
+      const firstRecordByPlayer = new Map<number, typeof fullRecords[0]>();
+      for (const r of fullRecords) {
+        const absence = absenceMap.get(r.playerId);
+        if (!absence) continue;
+        if (r.fixtureDate.getTime() > absence.lastPlayed.getTime() - ONE_DAY_MS
+          && !firstRecordByPlayer.has(r.playerId)) {
+          firstRecordByPlayer.set(r.playerId, r);
         }
       }
 
-      const recentInjuries = firstTeamDedupedFull
-        .filter((r) => !returnedIds.has(r.playerId))
-        .sort((a, b) => {
-          const dateA = lastStartBeforeInjury.get(a.playerId) ?? new Date(a.fixtureDate);
-          const dateB = lastStartBeforeInjury.get(b.playerId) ?? new Date(b.fixtureDate);
-          return dateB.getTime() - dateA.getTime();
-        })
+      const recentInjuries = qualifiedAbsences
+        .filter((a) => firstRecordByPlayer.has(a.playerId))
+        .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime())
         .slice(0, 20)
-        .map((r) => ({
-          ...r,
-          lastStartFixtureDate: lastStartBeforeInjury.get(r.playerId)?.toISOString() ?? null,
+        .map((a) => ({
+          ...firstRecordByPlayer.get(a.playerId)!,
+          lastAppearanceFixtureDate: a.lastPlayed.toISOString(),
         }));
 
       // 2. Recovery signals — from player_availability (deduplicated by player)

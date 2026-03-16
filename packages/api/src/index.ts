@@ -15,7 +15,15 @@ import { standingsRouter } from './routes/standings';
 import { analysisRouter } from './routes/analysis';
 import { adminRouter } from './routes/admin';
 
-const prisma = new PrismaClient();
+// Cap the connection pool to avoid "too many clients" on Railway's shared PostgreSQL.
+// Appended to DATABASE_URL so it works with Railway's internal URL format.
+function buildDbUrl(): string {
+  const url = process.env.DATABASE_URL || '';
+  if (!url || url.includes('connection_limit')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'connection_limit=5';
+}
+
+const prisma = new PrismaClient({ datasources: { db: { url: buildDbUrl() } } });
 const app = express();
 
 const PORT = parseInt(process.env.PORT || '4000');
@@ -78,6 +86,17 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`SquadCheck API running on http://localhost:${PORT}`);
+});
+
+// Graceful shutdown — Railway sends SIGTERM before killing the container.
+// Closing the server + disconnecting Prisma ensures DB connections are released
+// before the process exits, preventing "too many clients" during restart cycles.
+process.on('SIGTERM', async () => {
+  console.log('[API] SIGTERM received, shutting down gracefully');
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
 });

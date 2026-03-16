@@ -155,7 +155,7 @@ export interface RecentInjuryEntry {
   type: string;
   reason: string;
   fixtureDate: string;
-  lastStartFixtureDate: string | null;
+  lastAppearanceFixtureDate: string | null;
   player: { id: number; name: string; photo: string | null; position: string | null };
   team: { id: number; name: string; logo: string | null };
   league: { id: number; name: string; logo: string | null; apiFootballId: number };

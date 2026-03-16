@@ -12,7 +12,13 @@ const CRON_SCHEDULE = process.env.SYNC_CRON_SCHEDULE || '30 * * * *';
 // Signal collection: every odd hour at :00 (30 min apart from sync)
 const SIGNAL_CRON_SCHEDULE = process.env.SIGNAL_CRON_SCHEDULE || '0 1,3,5,7,9,11,13,15,17,19,21,23 * * *';
 
-const prisma = new PrismaClient();
+function buildDbUrl(): string {
+  const url = process.env.DATABASE_URL || '';
+  if (!url || url.includes('connection_limit')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'connection_limit=5';
+}
+
+const prisma = new PrismaClient({ datasources: { db: { url: buildDbUrl() } } });
 const apiKey = process.env.API_FOOTBALL_KEY;
 
 if (!apiKey) {
@@ -81,3 +87,9 @@ if (process.env.SKIP_STARTUP_SYNC !== 'true') {
     runSignalCollection();
   }
 }
+
+process.on('SIGTERM', async () => {
+  console.log('[Scheduler] SIGTERM received, shutting down gracefully');
+  await prisma.$disconnect();
+  process.exit(0);
+});

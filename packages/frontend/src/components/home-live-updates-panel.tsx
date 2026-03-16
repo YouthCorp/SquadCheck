@@ -53,9 +53,9 @@ function availabilityColor(pct: number): string {
 }
 
 function InjuryRow({ entry, locale }: { entry: RecentInjuryEntry; locale: Locale }) {
-  // lastStartFixtureDate = last match player started before injury (better proxy for actual injury date)
-  // Falls back to fixtureDate (the fixture they were listed as absent for) if unavailable
-  const displayDate = entry.lastStartFixtureDate ?? entry.fixtureDate;
+  // lastAppearanceFixtureDate = last match player appeared in (start or sub) before injury
+  // Falls back to fixtureDate (the first missed fixture) if unavailable
+  const displayDate = entry.lastAppearanceFixtureDate ?? entry.fixtureDate;
   const isNewEntry = isNew(displayDate);
   return (
     <Link

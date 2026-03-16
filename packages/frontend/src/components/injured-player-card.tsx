@@ -259,7 +259,7 @@ export function InjuredPlayerCard({
             {suspensionLeague && <span className="ml-1 text-[0.65rem] text-muted-foreground">({suspensionLeague})</span>}
           </div>
           <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
-            {(disciplinary || ip.starterProfile.lastStartFixtureDate)
+            {(disciplinary || ip.starterProfile.lastAppearanceFixtureDate)
               ? fmtDate(triggerDate)
               : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
           </div>
@@ -304,7 +304,7 @@ export function InjuredPlayerCard({
         {tagsRow}
         <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
           {tPos(locale, ip.player.position)} · {tInjury(locale, ip.injury.reason)}{suspensionLeague && ` (${suspensionLeague})`} ·{' '}
-          {(disciplinary || ip.starterProfile.lastStartFixtureDate)
+          {(disciplinary || ip.starterProfile.lastAppearanceFixtureDate)
             ? fmtDate(triggerDate)
             : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
         </div>
