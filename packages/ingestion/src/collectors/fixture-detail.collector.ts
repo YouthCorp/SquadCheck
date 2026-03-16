@@ -118,7 +118,7 @@ export class FixtureDetailCollector {
       const allPlayers = [
         ...(item.startXI ?? []).map((p) => ({ ...p, isStarting: true })),
         ...(item.substitutes ?? []).map((p) => ({ ...p, isStarting: false })),
-      ];
+      ].filter((p) => p.player.id != null);
 
       // Resolve all players in parallel, then batch-insert
       const resolved = await Promise.all(
