@@ -59,3 +59,11 @@ export {
 } from './team-outcome-impact';
 
 export { type MatchAggregates } from './performance-delta';
+
+export {
+  resolveActiveInjuries,
+  resolveAbsenceTransitions,
+  NON_INJURY_EXCLUSION_FILTER,
+  type ActiveInjury,
+  type AbsenceRecord,
+} from './utils/injury-resolver';
