@@ -157,7 +157,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
 
           // First injury AFTER last lineup (1-day UTC buffer)
           const firstPostLineup = injuryDates.find(
-            (d) => d.getTime() > lastPlayed.getTime() - ONE_DAY_MS,
+            (d) => d.getTime() > lastPlayed.getTime(),
           );
           if (!firstPostLineup || firstPostLineup < cutoff) continue;
 
@@ -212,7 +212,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       for (const r of fullRecords) {
         const absence = absenceMap.get(r.playerId);
         if (!absence) continue;
-        if (r.fixtureDate.getTime() > absence.lastPlayed.getTime() - ONE_DAY_MS
+        if (r.fixtureDate.getTime() > absence.lastPlayed.getTime()
           && !firstRecordByPlayer.has(r.playerId)) {
           firstRecordByPlayer.set(r.playerId, r);
         }
