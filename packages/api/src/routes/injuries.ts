@@ -104,9 +104,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       if (candidatePlayerIds.length === 0) return { recentInjuries: [], recentSignals: [] };
 
       // Step 2: All lineup appearances for candidates this season (scalar only, no includes).
-      // Using MAX per player captures full-season history:
-      //   - If player returned after injury their MAX date > new injury date → no "new absence"
-      //   - Long-term absent players have an old MAX date → newAbsenceStart is old → excluded
+      // Track both MAX date (for cutoff/sort) and fixture ID set (for fixtureId-based comparison).
       const lineupAppearances = await prisma.fixtureLineupPlayer.findMany({
         where: {
           playerId: { in: candidatePlayerIds },
@@ -114,19 +112,23 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
         select: {
           playerId: true,
-          lineup: { select: { fixture: { select: { date: true } } } },
+          lineup: { select: { fixture: { select: { id: true, date: true } } } },
         },
       });
 
       const lastPlayedMap = new Map<number, Date>();
+      const appearedFixtureIds = new Map<number, Set<number>>();
       for (const app of lineupAppearances) {
-        const d = app.lineup.fixture.date;
+        const { id: fid, date: d } = app.lineup.fixture;
         const prev = lastPlayedMap.get(app.playerId);
         if (!prev || d > prev) lastPlayedMap.set(app.playerId, d);
+        const set = appearedFixtureIds.get(app.playerId) ?? new Set<number>();
+        set.add(fid);
+        appearedFixtureIds.set(app.playerId, set);
       }
 
       // Step 3: Individual injury records for candidates (scalar only, no includes).
-      // Ordered asc so first record per player = earliest injury after last lineup.
+      // Ordered asc so first record per player = earliest confirmed missed fixture.
       const candidateInjuries = await prisma.injury.findMany({
         where: {
           season,
@@ -136,32 +138,33 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
           ...NOT_DISCIPLINARY,
         },
         orderBy: { fixtureDate: 'asc' },
-        select: { playerId: true, fixtureDate: true },
+        select: { playerId: true, fixtureDate: true, fixtureId: true },
       });
 
-      const injuriesByPlayer = new Map<number, Date[]>();
+      type InjuryEntry = { fixtureDate: Date; fixtureId: number };
+      const injuriesByPlayer = new Map<number, InjuryEntry[]>();
       for (const inj of candidateInjuries) {
         const arr = injuriesByPlayer.get(inj.playerId);
-        if (arr) arr.push(inj.fixtureDate);
-        else injuriesByPlayer.set(inj.playerId, [inj.fixtureDate]);
+        if (arr) arr.push({ fixtureDate: inj.fixtureDate, fixtureId: inj.fixtureId });
+        else injuriesByPlayer.set(inj.playerId, [{ fixtureDate: inj.fixtureDate, fixtureId: inj.fixtureId }]);
       }
 
       // Find players whose "absence transition" falls within the cutoff.
-      // newAbsenceStart = first injury date strictly after last lineup appearance.
+      // newAbsenceStart = fixtureDate of the first injury fixture the player did NOT appear in.
+      // Uses fixtureId comparison instead of timestamps to avoid API Football storing
+      // injury.fixtureDate up to ~23h differently from fixture.date for the same match.
       type AbsenceEntry = { playerId: number; lastPlayed: Date; newAbsenceStart: Date };
       function buildAbsences(cutoff: Date): AbsenceEntry[] {
         const results: AbsenceEntry[] = [];
-        for (const [playerId, injuryDates] of injuriesByPlayer) {
+        for (const [playerId, entries] of injuriesByPlayer) {
           const lastPlayed = lastPlayedMap.get(playerId);
           if (!lastPlayed) continue; // no lineup history — cannot confirm transition
 
-          // First injury AFTER last lineup (1-day UTC buffer)
-          const firstPostLineup = injuryDates.find(
-            (d) => d.getTime() > lastPlayed.getTime(),
-          );
-          if (!firstPostLineup || firstPostLineup < cutoff) continue;
+          const appeared = appearedFixtureIds.get(playerId);
+          const firstMissed = entries.find((e) => !appeared?.has(e.fixtureId));
+          if (!firstMissed || firstMissed.fixtureDate < cutoff) continue;
 
-          results.push({ playerId, lastPlayed, newAbsenceStart: firstPostLineup });
+          results.push({ playerId, lastPlayed, newAbsenceStart: firstMissed.fixtureDate });
         }
         return results;
       }
@@ -206,14 +209,11 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         },
       });
 
-      // Map playerId → first full record that is the "absence start" record
-      const absenceMap = new Map(qualifiedAbsences.map((a) => [a.playerId, a]));
+      // Map playerId → first full record that is the "absence start" record.
+      // Uses fixtureId comparison: pick the first injury fixture the player did NOT appear in.
       const firstRecordByPlayer = new Map<number, typeof fullRecords[0]>();
       for (const r of fullRecords) {
-        const absence = absenceMap.get(r.playerId);
-        if (!absence) continue;
-        if (r.fixtureDate.getTime() > absence.lastPlayed.getTime()
-          && !firstRecordByPlayer.has(r.playerId)) {
+        if (!firstRecordByPlayer.has(r.playerId) && !appearedFixtureIds.get(r.playerId)?.has(r.fixtureId)) {
           firstRecordByPlayer.set(r.playerId, r);
         }
       }
