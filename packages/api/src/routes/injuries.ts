@@ -83,12 +83,33 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       });
       const leagueMap = new Map(leagues.map(l => [l.apiFootballId, l]));
 
+      // Fetch last appearance date per injured player from lineup data —
+      // same source as team page (InjuredPlayerCard.lastAppearanceFixtureDate).
+      // This is the most accurate injury date proxy: the last match they played in.
+      const injuredPlayerIds = rawInjuries.map((inj: { playerId: number }) => inj.playerId);
+      const appearances = await prisma.fixtureLineupPlayer.findMany({
+        where: {
+          playerId: { in: injuredPlayerIds },
+          lineup: { fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } } },
+        },
+        select: {
+          playerId: true,
+          lineup: { select: { fixture: { select: { date: true } } } },
+        },
+      });
+      const lastAppearanceMap = new Map<number, string>();
+      for (const app of appearances) {
+        const d = app.lineup.fixture.date;
+        const prev = lastAppearanceMap.get(app.playerId);
+        if (!prev || d > new Date(prev)) lastAppearanceMap.set(app.playerId, d.toISOString());
+      }
+
       const recentInjuries = rawInjuries.map(inj => ({
         id:          inj.id,
         type:        inj.type ?? '',
         reason:      inj.reason ?? '',
         fixtureDate: inj.injuredSince?.toISOString() ?? new Date(0).toISOString(),
-        lastAppearanceFixtureDate: null,  // not tracked in status table; frontend falls back to fixtureDate
+        lastAppearanceFixtureDate: lastAppearanceMap.get(inj.playerId) ?? null,
         player: inj.player,
         team:   inj.team,
         league: leagueMap.get(inj.leagueApiId) ?? { id: 0, name: '', logo: null, apiFootballId: inj.leagueApiId },
