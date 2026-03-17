@@ -104,10 +104,13 @@ function classifyInjuryContext(
 // ── Severity ────────────────────────────────────────────────
 export type Severity = 'critical' | 'high' | 'moderate' | 'low';
 
-function classifySeverity(score: number): Severity {
+function classifySeverity(score: number, role: StarterRole): Severity {
   if (score >= 0.70) return 'critical';
   if (score >= 0.50) return 'high';
   if (score >= 0.30) return 'moderate';
+  // Regular starters (≥60% start rate) are always at least moderate — losing a player
+  // who starts the majority of fixtures is never a low-impact absence.
+  if (role === 'regular_starter') return 'moderate';
   return 'low';
 }
 
@@ -312,7 +315,7 @@ export async function computeTeamPowerLoss(
       hasSignificantSample: perf?.hasSignificantSample ?? false,
       winRateBoost,
       compositeImpactScore: round(compositeImpactScore),
-      severity: classifySeverity(compositeImpactScore),
+      severity: classifySeverity(compositeImpactScore, starter.role),
     });
   }
 

@@ -43,10 +43,11 @@ export function InjuredPlayerCard({
     ? LEAGUE_SHORT_NAMES[ip.injury.leagueApiId] ?? null
     : null;
   const triggerDays = daysAgo(triggerDate);
-  const isLongTerm =
-    !isHigh &&
-    (ip.injuryContext.type === 'pre_season_absence' ||
-      ip.injuryContext.type === 'extended_absence');
+
+  // Duration-based absence badges (only shown on compact cards, not disciplinary)
+  const isSeasonOut  = !isHigh && !disciplinary && ip.injuryContext.type === 'pre_season_absence';
+  const isLongInjury = !isHigh && !disciplinary && !isSeasonOut && triggerDays >= 90;  // 3+ months
+  const isLongAbsence= !isHigh && !disciplinary && !isSeasonOut && !isLongInjury && triggerDays >= 42; // 6w–3m
 
   const recovers = ip.recoverySignal && ip.recoverySignal.confidenceLevel >= 0.5;
   const recoverHigh = recovers && ip.recoverySignal!.predictedAvailability >= 0.7;
@@ -98,13 +99,17 @@ export function InjuredPlayerCard({
         <Badge variant="high">{locale === 'ko' ? '출전 정지' : 'Suspended'}</Badge>
       )}
 
-      {!isHigh && isLongTerm && !disciplinary && (
-        <Badge variant="low">
-          {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
-        </Badge>
+      {isSeasonOut && (
+        <Badge variant="low">{locale === 'ko' ? '시즌 아웃' : 'Season out'}</Badge>
+      )}
+      {isLongInjury && (
+        <Badge variant="low">{locale === 'ko' ? '장기 부상' : 'Long-term injury'}</Badge>
+      )}
+      {isLongAbsence && (
+        <Badge variant="low">{locale === 'ko' ? '장기 이탈' : 'Extended absence'}</Badge>
       )}
 
-      {!isHigh && triggerDays <= 7 && !disciplinary && !isLongTerm && (
+      {!isHigh && triggerDays <= 7 && !disciplinary && !isSeasonOut && !isLongInjury && !isLongAbsence && (
         <Badge variant="info">{t(locale, 'new_badge')}</Badge>
       )}
 
