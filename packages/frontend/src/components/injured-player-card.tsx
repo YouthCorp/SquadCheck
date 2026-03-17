@@ -53,8 +53,8 @@ export function InjuredPlayerCard({
   const recoverHigh = recovers && ip.recoverySignal!.predictedAvailability >= 0.7;
 
   // ── Start/Sub labels ──────────────────────────────────────────────────────
-  const startLabel = isTeam && !isHigh ? (locale === 'ko' ? '선발' : 'S') : (locale === 'ko' ? '선발 ' : 'Start ');
-  const subLabel   = isTeam && !isHigh ? (locale === 'ko' ? '교체' : 'Sub') : (locale === 'ko' ? '교체 ' : 'Sub ');
+  const startLabel = isTeam && !isHigh ? (locale === 'ko' ? '선발 ' : 'S ') : (locale === 'ko' ? '선발 ' : 'Start ');
+  const subLabel   = isTeam && !isHigh ? (locale === 'ko' ? '교체 ' : 'Sub ') : (locale === 'ko' ? '교체 ' : 'Sub ');
   const showMinutes = isTeam && isHigh;
 
   // ── Avatar sizes ──────────────────────────────────────────────────────────

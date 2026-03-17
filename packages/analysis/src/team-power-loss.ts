@@ -104,13 +104,15 @@ function classifyInjuryContext(
 // ── Severity ────────────────────────────────────────────────
 export type Severity = 'critical' | 'high' | 'moderate' | 'low';
 
-function classifySeverity(score: number, role: StarterRole): Severity {
+function classifySeverity(score: number, role: StarterRole, starterCount: number): Severity {
   if (score >= 0.70) return 'critical';
   if (score >= 0.50) return 'high';
   if (score >= 0.30) return 'moderate';
-  // Regular starters (≥60% start rate) are always at least moderate — losing a player
-  // who starts the majority of fixtures is never a low-impact absence.
+  // Regular starters (≥60% all-comp start rate) are always at least moderate.
   if (role === 'regular_starter') return 'moderate';
+  // Rotation players with 10+ starts are likely league regulars on multi-competition
+  // teams — cup fixtures inflate teamFixtures and suppress the frequency below 0.60.
+  if (role === 'rotation' && starterCount >= 10) return 'moderate';
   return 'low';
 }
 
@@ -265,10 +267,10 @@ export async function computeTeamPowerLoss(
     const starter = starterProfiles.get(pid)!;
     const perf = perfDeltas.get(pid);
 
-    // Current season lineups from PlayerWeight dataSource
-    const currentSeasonLineups = pw.dataSource === 'current' || pw.dataSource === 'blended'
-      ? starter.starterCount + starter.substituteCount
-      : 0;
+    // Use live lineup counts for injury context classification.
+    // playerSeasonStats.lineups can be stale (e.g. on multi-competition teams before
+    // the next sync refreshes stats), so always use the accurate fixture_lineup_players data.
+    const currentSeasonLineups = starter.starterCount + starter.substituteCount;
 
     const injCtx = classifyInjuryContext(starter, currentSeasonLineups, teamFixtures);
 
@@ -315,7 +317,7 @@ export async function computeTeamPowerLoss(
       hasSignificantSample: perf?.hasSignificantSample ?? false,
       winRateBoost,
       compositeImpactScore: round(compositeImpactScore),
-      severity: classifySeverity(compositeImpactScore, starter.role),
+      severity: classifySeverity(compositeImpactScore, starter.role, starter.starterCount),
     });
   }
 

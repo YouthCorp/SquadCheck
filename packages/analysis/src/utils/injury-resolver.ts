@@ -175,12 +175,17 @@ export async function resolveActiveInjuries(
         fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
       },
       orderBy: { fixtureDate: 'desc' },
-      select: { playerId: true, fixtureDate: true },
+      select: { playerId: true, fixtureDate: true, fixture: { select: { date: true } } },
     });
     const latestCompletedAnchor = new Map<number, Date>();
     for (const inj of completedInjuries) {
       if (!latestCompletedAnchor.has(inj.playerId)) {
-        latestCompletedAnchor.set(inj.playerId, inj.fixtureDate);
+        // Use fixture.date (authoritative kickoff time) instead of injury.fixtureDate.
+        // API Football stores fixtureDate with a positive offset vs actual kickoff time,
+        // so using injury.fixtureDate causes false non-recoveries when comparing against
+        // fixture.date-based appearance records for the exact same match (e.g. "Doubtful"
+        // players who ended up starting — anchor > lastPlayed for the same fixture).
+        latestCompletedAnchor.set(inj.playerId, inj.fixture?.date ?? inj.fixtureDate);
       }
     }
 
