@@ -73,7 +73,7 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
           team:   { select: { id: true, name: true, logo: true } },
         },
         orderBy: { injuredSince: 'desc' },
-        take: 20,
+        take: 60,  // fetch more candidates; filtered and re-sorted by lastAppearanceFixtureDate below
       });
 
       // Fetch league info keyed by apiFootballId
@@ -104,16 +104,31 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         if (!prev || d > new Date(prev)) lastAppearanceMap.set(app.playerId, d.toISOString());
       }
 
-      const recentInjuries = rawInjuries.map(inj => ({
-        id:          inj.id,
-        type:        inj.type ?? '',
-        reason:      inj.reason ?? '',
-        fixtureDate: inj.injuredSince?.toISOString() ?? new Date(0).toISOString(),
-        lastAppearanceFixtureDate: lastAppearanceMap.get(inj.playerId) ?? null,
-        player: inj.player,
-        team:   inj.team,
-        league: leagueMap.get(inj.leagueApiId) ?? { id: 0, name: '', logo: null, apiFootballId: inj.leagueApiId },
-      }));
+      // Filter to players with at least 1 appearance this season (excludes fringe/loan/youth players),
+      // then sort by lastAppearanceFixtureDate desc so most recently injured appear first.
+      type RawInj = { id: number; playerId: number; type: string | null; reason: string | null; injuredSince: Date | null; leagueApiId: number; player: { id: number; name: string; photo: string | null; position: string | null }; team: { id: number; name: string; logo: string | null } };
+      type MappedInj = { id: number; type: string; reason: string; fixtureDate: string; lastAppearanceFixtureDate: string | null; player: RawInj['player']; team: RawInj['team']; league: { id: number; name: string; logo: string | null; apiFootballId: number } };
+
+      // Filter to players with at least 1 appearance this season (excludes fringe/loan/youth players),
+      // then sort by lastAppearanceFixtureDate desc so most recently injured appear first.
+      const recentInjuries = (rawInjuries as RawInj[])
+        .filter(inj => lastAppearanceMap.has(inj.playerId))
+        .map((inj): MappedInj => ({
+          id:          inj.id,
+          type:        inj.type ?? '',
+          reason:      inj.reason ?? '',
+          fixtureDate: inj.injuredSince?.toISOString() ?? new Date(0).toISOString(),
+          lastAppearanceFixtureDate: lastAppearanceMap.get(inj.playerId) ?? null,
+          player: inj.player,
+          team:   inj.team,
+          league: leagueMap.get(inj.leagueApiId) ?? { id: 0, name: '', logo: null, apiFootballId: inj.leagueApiId },
+        }))
+        .sort((a: MappedInj, b: MappedInj) => {
+          const da = a.lastAppearanceFixtureDate ?? a.fixtureDate;
+          const db = b.lastAppearanceFixtureDate ?? b.fixtureDate;
+          return new Date(db).getTime() - new Date(da).getTime();
+        })
+        .slice(0, 20);
 
       // 2. Recovery signals — from player_availability (deduplicated by player)
       const allSignals = await prisma.playerAvailability.findMany({
