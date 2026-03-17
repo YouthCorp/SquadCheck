@@ -82,6 +82,7 @@ model Team {
   standingEntries  StandingEntry[]
   teamSeasonStats  TeamSeasonStats[]
   recoverySignals  RecoverySignal[]
+  injuryStatuses   PlayerInjuryStatus[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -110,6 +111,7 @@ model Player {
   eventsAsAssist       FixtureEvent[]        @relation("EventAssist")
   recoverySignals      RecoverySignal[]
   playerAvailabilities PlayerAvailability[]
+  injuryStatuses       PlayerInjuryStatus[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -155,6 +157,7 @@ model Fixture {
   playerStats          FixturePlayerStats[]
   injuries             Injury[]
   playerAvailabilities PlayerAvailability[]
+  injuryStatuses       PlayerInjuryStatus[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -604,4 +607,36 @@ model PlayerAvailability {
   @@index([teamId, expired])
   @@index([fixtureId])
   @@map("player_availability")
+}
+
+// ============================================================
+// COMPUTED / CACHED STATE
+// ============================================================
+
+// Pre-computed injury state per player per team per season.
+// Populated by the ingestion scheduler via resolveActiveInjuries().
+// All display endpoints (home panel, team page, fixtures) read from here —
+// ensuring a single source of truth across the entire app.
+model PlayerInjuryStatus {
+  id          Int       @id @default(autoincrement())
+  playerId    Int       @map("player_id")
+  teamId      Int       @map("team_id")
+  leagueApiId Int       @map("league_api_id") // domestic league apiFootballId — for fast filtering
+  season      Int
+  reason      String?
+  type        String?
+  fixtureId   Int?      @map("fixture_id")    // first missed fixture (DB id)
+  injuredSince DateTime? @map("injured_since") // fixture.date of first missed match (authoritative)
+  isActive    Boolean   @default(true) @map("is_active")
+  resolvedAt  DateTime? @map("resolved_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  player  Player   @relation(fields: [playerId], references: [id])
+  team    Team     @relation(fields: [teamId], references: [id])
+  fixture Fixture? @relation(fields: [fixtureId], references: [id])
+
+  @@unique([playerId, teamId, season])
+  @@index([teamId, season, isActive])
+  @@index([leagueApiId, season, isActive, injuredSince])
+  @@map("player_injury_status")
 }

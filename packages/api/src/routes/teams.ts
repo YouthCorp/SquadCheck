@@ -91,32 +91,24 @@ teamsRouter.get('/:id/fixtures', async (req, res, next) => {
   }
 });
 
-// GET /api/teams/:id/injuries/current
+// GET /api/teams/:id/injuries/current?season=2025
 teamsRouter.get('/:id/injuries/current', async (req, res, next) => {
   try {
     const prisma = getPrisma(req);
     const teamId = parseInt(req.params.id);
+    const season = req.query.season ? parseInt(req.query.season as string) : 2025;
 
-    // Get most recent injuries (latest fixture date per player)
-    const injuries = await prisma.injury.findMany({
-      where: { teamId },
+    // Read from pre-computed player_injury_status table — consistent with home panel
+    const injuries = await prisma.playerInjuryStatus.findMany({
+      where: { teamId, season, isActive: true },
       include: {
         player: { select: { id: true, name: true, photo: true, position: true } },
         fixture: { select: { id: true, date: true, status: true } },
       },
-      orderBy: { fixtureDate: 'desc' },
-      take: 50,
+      orderBy: { injuredSince: 'desc' },
     });
 
-    // Group by player, keep only latest
-    const latestByPlayer = new Map<number, typeof injuries[0]>();
-    for (const inj of injuries) {
-      if (!latestByPlayer.has(inj.playerId)) {
-        latestByPlayer.set(inj.playerId, inj);
-      }
-    }
-
-    res.json(Array.from(latestByPlayer.values()));
+    res.json(injuries);
   } catch (err) {
     next(err);
   }

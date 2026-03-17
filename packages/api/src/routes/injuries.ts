@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { getPrisma, resolveSeason } from '../lib/prisma';
 import { cached } from '../lib/cache';
-import { resolveAbsenceTransitions } from '@squadcheck/analysis';
 
 export const injuriesRouter = Router();
 
@@ -57,8 +56,43 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
     const result = await cached(cacheKey, 60, async () => {
       const TOP5_LEAGUE_IDS = [39, 140, 135, 78, 61];
 
-      // 1. Recent injuries — delegates to shared resolveAbsenceTransitions().
-      const recentInjuries = await resolveAbsenceTransitions(prisma, season, TOP5_LEAGUE_IDS);
+      // 1. Recent injuries — read from pre-computed player_injury_status table.
+      // Populated by the ingestion scheduler (every ~hour). Single source of truth
+      // shared with team pages and all analysis endpoints.
+      const now = new Date();
+      const cutoff = new Date(Date.now() - 45 * 86_400_000);
+      const rawInjuries = await prisma.playerInjuryStatus.findMany({
+        where: {
+          leagueApiId: { in: TOP5_LEAGUE_IDS },
+          season,
+          isActive: true,
+          injuredSince: { gte: cutoff, lte: now },
+        },
+        include: {
+          player: { select: { id: true, name: true, photo: true, position: true } },
+          team:   { select: { id: true, name: true, logo: true } },
+        },
+        orderBy: { injuredSince: 'desc' },
+        take: 20,
+      });
+
+      // Fetch league info keyed by apiFootballId
+      const leagues = await prisma.league.findMany({
+        where: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+        select: { id: true, name: true, logo: true, apiFootballId: true },
+      });
+      const leagueMap = new Map(leagues.map(l => [l.apiFootballId, l]));
+
+      const recentInjuries = rawInjuries.map(inj => ({
+        id:          inj.id,
+        type:        inj.type ?? '',
+        reason:      inj.reason ?? '',
+        fixtureDate: inj.injuredSince?.toISOString() ?? new Date(0).toISOString(),
+        lastAppearanceFixtureDate: null,  // not tracked in status table; frontend falls back to fixtureDate
+        player: inj.player,
+        team:   inj.team,
+        league: leagueMap.get(inj.leagueApiId) ?? { id: 0, name: '', logo: null, apiFootballId: inj.leagueApiId },
+      }));
 
       // 2. Recovery signals — from player_availability (deduplicated by player)
       const allSignals = await prisma.playerAvailability.findMany({

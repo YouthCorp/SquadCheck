@@ -299,6 +299,11 @@ export async function resolveAbsenceTransitions(
       const firstMissed = entries.find((e) => !appeared?.has(e.fixtureId));
       if (!firstMissed || firstMissed.fixtureDate < cutoff) continue;
 
+      // Exclude players who have since recovered — lastPlayed must be before the injury start.
+      // Uses injury.fixtureDate as anchor (safe: API Football drift is always positive,
+      // so lastPlayed from fixture.date will always be < injury.fixtureDate for earlier fixtures).
+      if (lastPlayed.getTime() >= firstMissed.fixtureDate.getTime()) continue;
+
       results.push({ playerId, lastPlayed, newAbsenceStart: firstMissed.fixtureDate });
     }
     return results;
@@ -355,7 +360,7 @@ export async function resolveAbsenceTransitions(
 
   return qualifiedAbsences
     .filter((a) => firstRecordByPlayer.has(a.playerId))
-    .sort((a, b) => b.lastPlayed.getTime() - a.lastPlayed.getTime())
+    .sort((a, b) => b.newAbsenceStart.getTime() - a.newAbsenceStart.getTime())
     .slice(0, limit)
     .map((a) => ({
       ...firstRecordByPlayer.get(a.playerId)!,
