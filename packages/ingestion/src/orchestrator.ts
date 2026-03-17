@@ -294,22 +294,30 @@ export class Orchestrator {
         }
       }
 
-      // Refresh playerSeasonStats for teams that played in newly-synced fixtures.
-      // This keeps lineups/appearances/minutes up-to-date for computePlayerWeights()
-      // without re-seeding all teams on every sync cycle.
-      if (recentFixtures.length > 0) {
-        const teamApiIds = new Set<number>();
-        for (const f of recentFixtures) {
-          teamApiIds.add(f.homeTeam.apiFootballId);
-          teamApiIds.add(f.awayTeam.apiFootballId);
-        }
-        for (const teamApiId of teamApiIds) {
-          console.log(`  [Sync] Refreshing player stats for team ${teamApiId}`);
-          try {
-            await this.playerCollector.collect(teamApiId, year, leagueApiId);
-          } catch (err) {
-            console.warn(`  [Sync] Player stats refresh failed for team ${teamApiId}:`, err);
-          }
+      // Refresh playerSeasonStats for:
+      // 1. Teams that played in newly-synced fixtures (picks up fresh match data)
+      // 2. Teams with active injuries (injury-impact analysis needs current lineups/appearances
+      //    to avoid showing "시즌 전체 결장" for players who have actually played this season)
+      const teamApiIdsToRefresh = new Set<number>();
+      for (const f of recentFixtures) {
+        teamApiIdsToRefresh.add(f.homeTeam.apiFootballId);
+        teamApiIdsToRefresh.add(f.awayTeam.apiFootballId);
+      }
+      const injuredTeams = await this.prisma.playerInjuryStatus.findMany({
+        where: { leagueApiId, season: year, isActive: true },
+        select: { team: { select: { apiFootballId: true } } },
+        distinct: ['teamId'],
+      });
+      for (const { team } of injuredTeams) {
+        teamApiIdsToRefresh.add(team.apiFootballId);
+      }
+
+      for (const teamApiId of teamApiIdsToRefresh) {
+        console.log(`  [Sync] Refreshing player stats for team ${teamApiId}`);
+        try {
+          await this.playerCollector.collect(teamApiId, year, leagueApiId);
+        } catch (err) {
+          console.warn(`  [Sync] Player stats refresh failed for team ${teamApiId}:`, err);
         }
       }
 

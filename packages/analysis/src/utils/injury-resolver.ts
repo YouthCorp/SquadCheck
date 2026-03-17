@@ -155,10 +155,35 @@ export async function resolveActiveInjuries(
 
   // Step 4: Remove recovered players.
   // A player is considered recovered if they appeared in any completed fixture
-  // on or after their injury fixture's actual kickoff date (fixture.date).
-  // Using >= so that "Questionable but played" cases are correctly excluded.
+  // on or after their most recent COMPLETED injury fixture date.
+  //
+  // IMPORTANT: We use the most recent *completed* injury fixture as anchor, NOT the
+  // overall latest injury record. The API pre-populates future scheduled fixtures as
+  // injury records (e.g. "expected to miss April 26"), so using the latest injury
+  // (which may be weeks in the future) would block recovery detection for players
+  // who returned before those predicted dates.
   const candidateIds = [...latestByPlayer.keys()];
   if (candidateIds.length > 0) {
+    // Find the most recent completed injury fixture per candidate — this is the
+    // true "last confirmed absence" anchor, ignoring future API predictions.
+    const completedInjuries = await prisma.injury.findMany({
+      where: {
+        playerId: { in: candidateIds },
+        teamId,
+        season,
+        ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
+        fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
+      },
+      orderBy: { fixtureDate: 'desc' },
+      select: { playerId: true, fixtureDate: true },
+    });
+    const latestCompletedAnchor = new Map<number, Date>();
+    for (const inj of completedInjuries) {
+      if (!latestCompletedAnchor.has(inj.playerId)) {
+        latestCompletedAnchor.set(inj.playerId, inj.fixtureDate);
+      }
+    }
+
     const postInjuryAppearances = await prisma.fixtureLineupPlayer.findMany({
       where: {
         playerId: { in: candidateIds },
@@ -181,8 +206,9 @@ export async function resolveActiveInjuries(
 
     for (const [playerId, inj] of latestByPlayer) {
       const lastPlayed = latestAppearance.get(playerId);
-      // Use fixture.date as anchor — authoritative kickoff time, avoids injury.fixtureDate drift
-      const anchor = injuryFixtureDateMap.get(inj.fixtureId) ?? inj.fixtureDate;
+      // Anchor: most recent completed injury fixture (ignores future API predictions).
+      // Falls back to injuryFixtureDateMap (fixture.date) then inj.fixtureDate.
+      const anchor = latestCompletedAnchor.get(playerId) ?? injuryFixtureDateMap.get(inj.fixtureId) ?? inj.fixtureDate;
       if (lastPlayed && lastPlayed.getTime() >= anchor.getTime()) {
         latestByPlayer.delete(playerId);
       }

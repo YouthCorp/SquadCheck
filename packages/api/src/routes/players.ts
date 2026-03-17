@@ -61,7 +61,7 @@ playersRouter.get('/:id/injuries', async (req, res, next) => {
           league: { select: { id: true, name: true } },
           fixture: {
             select: {
-              id: true, date: true, round: true,
+              id: true, date: true, round: true, status: true,
               homeTeam: { select: { id: true, name: true, logo: true } },
               awayTeam: { select: { id: true, name: true, logo: true } },
               goalsHome: true, goalsAway: true,
@@ -101,7 +101,21 @@ playersRouter.get('/:id/injuries', async (req, res, next) => {
       awayTeam: a.lineup.fixture.awayTeam,
     }));
 
-    res.json({ injuries, appearances: matchLog });
+    // Filter out injury records that would cause false "ongoing" episodes:
+    // 1. Future fixtures (API pre-populates expected absences weeks in advance)
+    // 2. Fixtures where the player actually appeared (API sometimes marks a player as
+    //    "Missing Fixture" even when they end up playing — data quality issue)
+    const COMPLETED = new Set(['FT', 'AET', 'PEN']);
+    const playedFixtureIds = new Set(matchLog.map((a) => a.fixtureId));
+    const filteredInjuries = injuries.filter((inj) => {
+      if (inj.type !== 'Missing Fixture') return true; // non-lineup injuries always kept
+      if (!inj.fixture) return false;
+      if (!COMPLETED.has(inj.fixture.status)) return false; // exclude future/scheduled
+      if (playedFixtureIds.has(inj.fixture.id)) return false; // exclude "played while listed injured"
+      return true;
+    });
+
+    res.json({ injuries: filteredInjuries, appearances: matchLog });
   } catch (err) {
     next(err);
   }
