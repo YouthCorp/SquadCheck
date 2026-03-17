@@ -58,6 +58,24 @@ export const NON_INJURY_EXCLUSION_FILTER: Prisma.InjuryWhereInput = {
   },
 };
 
+// ── Shared utilities ──────────────────────────────────────────────────────────
+
+/**
+ * Builds a map of the most recent appearance date per player from lineup data.
+ * Used by multiple endpoints and analysis functions to determine last played date.
+ */
+export function buildLatestAppearanceMap(
+  appearances: Array<{ playerId: number; lineup: { fixture: { date: Date } } }>,
+): Map<number, Date> {
+  const map = new Map<number, Date>();
+  for (const entry of appearances) {
+    const d = entry.lineup.fixture.date;
+    const prev = map.get(entry.playerId);
+    if (!prev || d > prev) map.set(entry.playerId, d);
+  }
+  return map;
+}
+
 // ── resolveActiveInjuries ─────────────────────────────────────────────────────
 
 /**
@@ -159,12 +177,7 @@ export async function resolveActiveInjuries(
       },
     });
 
-    const latestAppearance = new Map<number, Date>();
-    for (const entry of postInjuryAppearances) {
-      const d = entry.lineup.fixture.date;
-      const prev = latestAppearance.get(entry.playerId);
-      if (!prev || d > prev) latestAppearance.set(entry.playerId, d);
-    }
+    const latestAppearance = buildLatestAppearanceMap(postInjuryAppearances);
 
     for (const [playerId, inj] of latestByPlayer) {
       const lastPlayed = latestAppearance.get(playerId);
@@ -256,12 +269,10 @@ export async function resolveAbsenceTransitions(
     },
   });
 
-  const lastPlayedMap = new Map<number, Date>();
+  const lastPlayedMap = buildLatestAppearanceMap(lineupAppearances);
   const appearedFixtureIds = new Map<number, Set<number>>();
   for (const app of lineupAppearances) {
-    const { id: fid, date: d } = app.lineup.fixture;
-    const prev = lastPlayedMap.get(app.playerId);
-    if (!prev || d > prev) lastPlayedMap.set(app.playerId, d);
+    const fid = app.lineup.fixture.id;
     const set = appearedFixtureIds.get(app.playerId) ?? new Set<number>();
     set.add(fid);
     appearedFixtureIds.set(app.playerId, set);

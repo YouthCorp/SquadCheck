@@ -63,6 +63,7 @@ export { type MatchAggregates } from './performance-delta';
 export {
   resolveActiveInjuries,
   resolveAbsenceTransitions,
+  buildLatestAppearanceMap,
   NON_INJURY_EXCLUSION_FILTER,
   type ActiveInjury,
   type AbsenceRecord,

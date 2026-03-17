@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPrisma, resolveSeason } from '../lib/prisma';
 import { cached } from '../lib/cache';
+import { buildLatestAppearanceMap } from '@squadcheck/analysis';
 
 export const injuriesRouter = Router();
 
@@ -61,27 +62,33 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       // shared with team pages and all analysis endpoints.
       const now = new Date();
       const cutoff = new Date(Date.now() - 45 * 86_400_000);
-      const rawInjuries = await prisma.playerInjuryStatus.findMany({
-        where: {
-          leagueApiId: { in: TOP5_LEAGUE_IDS },
-          season,
-          isActive: true,
-          injuredSince: { gte: cutoff, lte: now },
-        },
-        include: {
-          player: { select: { id: true, name: true, photo: true, position: true } },
-          team:   { select: { id: true, name: true, logo: true } },
-        },
-        orderBy: { injuredSince: 'desc' },
-        take: 60,  // fetch more candidates; filtered and re-sorted by lastAppearanceFixtureDate below
-      });
+      // "Inactive" / "Loan Agreement" = registration status markers, not real absences.
+      // These players are no longer on the squad and shouldn't appear in the injury panel.
+      const SQUAD_STATUS_REASONS = ['inactive', 'loan agreement'];
 
-      // Fetch league info keyed by apiFootballId
-      const leagues = await prisma.league.findMany({
-        where: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
-        select: { id: true, name: true, logo: true, apiFootballId: true },
-      });
-      const leagueMap = new Map(leagues.map(l => [l.apiFootballId, l]));
+      const [rawInjuries, leagues] = await Promise.all([
+        prisma.playerInjuryStatus.findMany({
+          where: {
+            leagueApiId: { in: TOP5_LEAGUE_IDS },
+            season,
+            isActive: true,
+            injuredSince: { gte: cutoff, lte: now },
+            NOT: { reason: { in: SQUAD_STATUS_REASONS, mode: 'insensitive' } },
+          },
+          include: {
+            player: { select: { id: true, name: true, photo: true, position: true } },
+            team:   { select: { id: true, name: true, logo: true } },
+          },
+          orderBy: { injuredSince: 'desc' },
+          take: 60,  // fetch more candidates; filtered and re-sorted by lastAppearanceFixtureDate below
+        }),
+        prisma.league.findMany({
+          where: { apiFootballId: { in: TOP5_LEAGUE_IDS } },
+          select: { id: true, name: true, logo: true, apiFootballId: true },
+        }),
+      ]);
+      type LeagueInfo = { id: number; name: string; logo: string | null; apiFootballId: number };
+      const leagueMap = new Map<number, LeagueInfo>((leagues as LeagueInfo[]).map(l => [l.apiFootballId, l]));
 
       // Fetch last appearance date per injured player from lineup data —
       // same source as team page (InjuredPlayerCard.lastAppearanceFixtureDate).
@@ -97,28 +104,21 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
           lineup: { select: { fixture: { select: { date: true } } } },
         },
       });
-      const lastAppearanceMap = new Map<number, string>();
-      for (const app of appearances) {
-        const d = app.lineup.fixture.date;
-        const prev = lastAppearanceMap.get(app.playerId);
-        if (!prev || d > new Date(prev)) lastAppearanceMap.set(app.playerId, d.toISOString());
-      }
+      const lastAppearanceDateMap = buildLatestAppearanceMap(appearances);
 
-      // Filter to players with at least 1 appearance this season (excludes fringe/loan/youth players),
-      // then sort by lastAppearanceFixtureDate desc so most recently injured appear first.
       type RawInj = { id: number; playerId: number; type: string | null; reason: string | null; injuredSince: Date | null; leagueApiId: number; player: { id: number; name: string; photo: string | null; position: string | null }; team: { id: number; name: string; logo: string | null } };
       type MappedInj = { id: number; type: string; reason: string; fixtureDate: string; lastAppearanceFixtureDate: string | null; player: RawInj['player']; team: RawInj['team']; league: { id: number; name: string; logo: string | null; apiFootballId: number } };
 
-      // Filter to players with at least 1 appearance this season (excludes fringe/loan/youth players),
+      // Filter to players with at least 1 appearance this season (excludes fringe/loan/youth),
       // then sort by lastAppearanceFixtureDate desc so most recently injured appear first.
       const recentInjuries = (rawInjuries as RawInj[])
-        .filter(inj => lastAppearanceMap.has(inj.playerId))
+        .filter(inj => lastAppearanceDateMap.has(inj.playerId))
         .map((inj): MappedInj => ({
           id:          inj.id,
           type:        inj.type ?? '',
           reason:      inj.reason ?? '',
           fixtureDate: inj.injuredSince?.toISOString() ?? new Date(0).toISOString(),
-          lastAppearanceFixtureDate: lastAppearanceMap.get(inj.playerId) ?? null,
+          lastAppearanceFixtureDate: lastAppearanceDateMap.get(inj.playerId)?.toISOString() ?? null,
           player: inj.player,
           team:   inj.team,
           league: leagueMap.get(inj.leagueApiId) ?? { id: 0, name: '', logo: null, apiFootballId: inj.leagueApiId },

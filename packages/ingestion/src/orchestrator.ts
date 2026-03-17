@@ -21,7 +21,7 @@ interface SeedOptions {
   leagues?: number[];
   seasons?: number[];
   skipPhases?: string[];
-  forcePhases?: string[];  // Re-run even if already COMPLETED
+  forcePhases?: string[]; // Re-run even if already COMPLETED
 }
 
 export class Orchestrator {
@@ -51,7 +51,7 @@ export class Orchestrator {
   async fullSeed(options: SeedOptions = {}): Promise<void> {
     const leagues = options.leagues || TARGET_LEAGUES;
     const seasons = options.seasons || TARGET_SEASONS;
-    const skip  = new Set(options.skipPhases || []);
+    const skip = new Set(options.skipPhases || []);
     const force = new Set(options.forcePhases || []);
 
     console.log("═══════════════════════════════════════════");
@@ -62,18 +62,30 @@ export class Orchestrator {
 
     // Phase 1: Leagues & Seasons
     if (!skip.has("leagues")) {
-      await this.runPhase("leagues", null, null, force.has("leagues"), async () => {
-        await this.leagueCollector.collect(leagues);
-      });
+      await this.runPhase(
+        "leagues",
+        null,
+        null,
+        force.has("leagues"),
+        async () => {
+          await this.leagueCollector.collect(leagues);
+        },
+      );
     }
 
     // Phase 2: Teams (per league+season)
     if (!skip.has("teams")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("teams", leagueId, season, force.has("teams"), async () => {
-            await this.teamCollector.collect(leagueId, season);
-          });
+          await this.runPhase(
+            "teams",
+            leagueId,
+            season,
+            force.has("teams"),
+            async () => {
+              await this.teamCollector.collect(leagueId, season);
+            },
+          );
         }
       }
     }
@@ -82,9 +94,15 @@ export class Orchestrator {
     if (!skip.has("standings")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("standings", leagueId, season, force.has("standings"), async () => {
-            await this.collectStandings(leagueId, season);
-          });
+          await this.runPhase(
+            "standings",
+            leagueId,
+            season,
+            force.has("standings"),
+            async () => {
+              await this.collectStandings(leagueId, season);
+            },
+          );
         }
       }
     }
@@ -93,9 +111,15 @@ export class Orchestrator {
     if (!skip.has("fixtures")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("fixtures", leagueId, season, force.has("fixtures"), async () => {
-            await this.fixtureCollector.collect(leagueId, season);
-          });
+          await this.runPhase(
+            "fixtures",
+            leagueId,
+            season,
+            force.has("fixtures"),
+            async () => {
+              await this.fixtureCollector.collect(leagueId, season);
+            },
+          );
         }
       }
     }
@@ -104,9 +128,15 @@ export class Orchestrator {
     if (!skip.has("injuries")) {
       for (const leagueId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("injuries", leagueId, season, force.has("injuries"), async () => {
-            await this.injuryCollector.collect(leagueId, season);
-          });
+          await this.runPhase(
+            "injuries",
+            leagueId,
+            season,
+            force.has("injuries"),
+            async () => {
+              await this.injuryCollector.collect(leagueId, season);
+            },
+          );
         }
       }
     }
@@ -115,49 +145,65 @@ export class Orchestrator {
     if (!skip.has("players")) {
       for (const leagueApiId of leagues) {
         for (const season of seasons) {
-          await this.runPhase("players", leagueApiId, season, force.has("players"), async () => {
-            const league = await this.prisma.league.findUnique({
-              where: { apiFootballId: leagueApiId },
-            });
-            if (!league) return;
+          await this.runPhase(
+            "players",
+            leagueApiId,
+            season,
+            force.has("players"),
+            async () => {
+              const league = await this.prisma.league.findUnique({
+                where: { apiFootballId: leagueApiId },
+              });
+              if (!league) return;
 
-            const seasonRecord = await this.prisma.season.findUnique({
-              where: { leagueId_year: { leagueId: league.id, year: season } },
-            });
-            if (!seasonRecord) return;
+              const seasonRecord = await this.prisma.season.findUnique({
+                where: { leagueId_year: { leagueId: league.id, year: season } },
+              });
+              if (!seasonRecord) return;
 
-            // Get all teams that played in this league+season
-            const teams = await this.prisma.team.findMany({
-              where: {
-                OR: [
-                  { homeFixtures: { some: { leagueId: league.id, season } } },
-                  { awayFixtures: { some: { leagueId: league.id, season } } },
-                ],
-              },
-            });
+              // Get all teams that played in this league+season
+              const teams = await this.prisma.team.findMany({
+                where: {
+                  OR: [
+                    { homeFixtures: { some: { leagueId: league.id, season } } },
+                    { awayFixtures: { some: { leagueId: league.id, season } } },
+                  ],
+                },
+              });
 
-            for (const team of teams) {
-              await this.playerCollector.collect(
-                team.apiFootballId,
-                season,
-                leagueApiId,
-              );
-            }
-          });
+              for (const team of teams) {
+                await this.playerCollector.collect(
+                  team.apiFootballId,
+                  season,
+                  leagueApiId,
+                );
+              }
+            },
+          );
         }
       }
     }
 
     // Phase 7–10: Fixture details (statistics, lineups, events, player_stats)
     if (!skip.has("fixture_details")) {
-      await this.collectAllFixtureDetails(leagues, seasons, force.has("fixture_details"));
+      await this.collectAllFixtureDetails(
+        leagues,
+        seasons,
+        force.has("fixture_details"),
+      );
     }
 
     // Phase 11: Aggregate team season stats
     if (!skip.has("aggregates")) {
-      await this.runPhase("aggregates", null, null, force.has("aggregates"), async () => {
-        await this.computeTeamSeasonStats(leagues, seasons);
-      });
+      await this.runPhase(
+        "aggregates",
+        null,
+        null,
+        force.has("aggregates"),
+        async () => {
+          await this.computeTeamSeasonStats(leagues, seasons);
+        },
+      );
     }
 
     console.log("\n═══════════════════════════════════════════");
@@ -178,7 +224,10 @@ export class Orchestrator {
 
     // Pre-populate injury status from existing DB data so API endpoints are
     // never empty while the full sync is still running (important on first deploy).
-    const preSyncYear = currentSeasons.length > 0 ? Math.max(...currentSeasons.map(s => s.year)) : 2025;
+    const preSyncYear =
+      currentSeasons.length > 0
+        ? Math.max(...currentSeasons.map((s) => s.year))
+        : 2025;
     await collectInjuryStatuses(this.prisma, preSyncYear);
 
     for (const season of currentSeasons) {
@@ -211,7 +260,12 @@ export class Orchestrator {
             { lineups: { some: { players: { none: {} } } } },
           ],
         },
-        select: { id: true, apiFootballId: true },
+        select: {
+          id: true,
+          apiFootballId: true,
+          homeTeam: { select: { apiFootballId: true } },
+          awayTeam: { select: { apiFootballId: true } },
+        },
         orderBy: { date: "desc" },
         take: 8,
       });
@@ -219,12 +273,43 @@ export class Orchestrator {
       for (const f of recentFixtures) {
         console.log(`  [Sync] Fixture details for ${f.apiFootballId}`);
         try {
-          await this.fixtureDetailCollector.collectStatistics(f.apiFootballId, f.id);
-          await this.fixtureDetailCollector.collectLineups(f.apiFootballId, f.id);
-          await this.fixtureDetailCollector.collectEvents(f.apiFootballId, f.id);
-          await this.fixtureDetailCollector.collectPlayerStats(f.apiFootballId, f.id);
+          await this.fixtureDetailCollector.collectStatistics(
+            f.apiFootballId,
+            f.id,
+          );
+          await this.fixtureDetailCollector.collectLineups(
+            f.apiFootballId,
+            f.id,
+          );
+          await this.fixtureDetailCollector.collectEvents(
+            f.apiFootballId,
+            f.id,
+          );
+          await this.fixtureDetailCollector.collectPlayerStats(
+            f.apiFootballId,
+            f.id,
+          );
         } catch (err) {
           console.error(`  [Sync] Error on fixture ${f.apiFootballId}:`, err);
+        }
+      }
+
+      // Refresh playerSeasonStats for teams that played in newly-synced fixtures.
+      // This keeps lineups/appearances/minutes up-to-date for computePlayerWeights()
+      // without re-seeding all teams on every sync cycle.
+      if (recentFixtures.length > 0) {
+        const teamApiIds = new Set<number>();
+        for (const f of recentFixtures) {
+          teamApiIds.add(f.homeTeam.apiFootballId);
+          teamApiIds.add(f.awayTeam.apiFootballId);
+        }
+        for (const teamApiId of teamApiIds) {
+          console.log(`  [Sync] Refreshing player stats for team ${teamApiId}`);
+          try {
+            await this.playerCollector.collect(teamApiId, year, leagueApiId);
+          } catch (err) {
+            console.warn(`  [Sync] Player stats refresh failed for team ${teamApiId}:`, err);
+          }
         }
       }
 
@@ -235,7 +320,9 @@ export class Orchestrator {
     }
 
     // Re-aggregate team season stats to pick up newly completed fixtures
-    const syncLeagueIds = [...new Set(currentSeasons.map((s) => s.league.apiFootballId))];
+    const syncLeagueIds = [
+      ...new Set(currentSeasons.map((s) => s.league.apiFootballId)),
+    ];
     const syncYears = [...new Set(currentSeasons.map((s) => s.year))];
     await this.computeTeamSeasonStats(syncLeagueIds, syncYears);
 
@@ -260,33 +347,113 @@ export class Orchestrator {
   private async ensureRssSources(): Promise<void> {
     const sources = [
       // ── Tier 1: Major national outlets ──
-      { name: 'BBC Sport Football',        url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',         reliability: 0.90, active: true  },
-      { name: 'Guardian Football',         url: 'https://www.theguardian.com/football/rss',                 reliability: 0.85, active: true  },
-      { name: 'Sky Sports Football',       url: 'https://www.skysports.com/rss/12040',                      reliability: 0.82, active: true  },
-      { name: 'ESPN FC Soccer',            url: 'https://www.espn.com/espn/rss/soccer/news',                reliability: 0.80, active: true  },
-      { name: 'The Independent Football',  url: 'https://www.independent.co.uk/sport/football/rss',         reliability: 0.80, active: true  },
-      { name: 'Evening Standard Football', url: 'https://www.standard.co.uk/sport/football/rss',            reliability: 0.78, active: true  },
-      { name: 'Daily Mail Football',       url: 'https://www.dailymail.co.uk/sport/football/index.rss',     reliability: 0.72, active: true  },
-      { name: 'iNews Football',            url: 'https://inews.co.uk/category/sport/football/feed',         reliability: 0.72, active: true  },
+      {
+        name: "BBC Sport Football",
+        url: "https://feeds.bbci.co.uk/sport/football/rss.xml",
+        reliability: 0.9,
+        active: true,
+      },
+      {
+        name: "Guardian Football",
+        url: "https://www.theguardian.com/football/rss",
+        reliability: 0.85,
+        active: true,
+      },
+      {
+        name: "Sky Sports Football",
+        url: "https://www.skysports.com/rss/12040",
+        reliability: 0.82,
+        active: true,
+      },
+      {
+        name: "ESPN FC Soccer",
+        url: "https://www.espn.com/espn/rss/soccer/news",
+        reliability: 0.8,
+        active: true,
+      },
+      {
+        name: "The Independent Football",
+        url: "https://www.independent.co.uk/sport/football/rss",
+        reliability: 0.8,
+        active: true,
+      },
+      {
+        name: "Evening Standard Football",
+        url: "https://www.standard.co.uk/sport/football/rss",
+        reliability: 0.78,
+        active: true,
+      },
+      {
+        name: "Daily Mail Football",
+        url: "https://www.dailymail.co.uk/sport/football/index.rss",
+        reliability: 0.72,
+        active: true,
+      },
+      {
+        name: "iNews Football",
+        url: "https://inews.co.uk/category/sport/football/feed",
+        reliability: 0.72,
+        active: true,
+      },
 
       // ── Tier 2: Football-specialist outlets ──
-      { name: 'FourFourTwo',              url: 'https://www.fourfourtwo.com/rss',                           reliability: 0.78, active: true  },
-      { name: 'Football365',              url: 'https://www.football365.com/rss',                           reliability: 0.74, active: true  },
-      { name: 'Sports Mole Football',     url: 'https://sportsmole.co.uk/football/feed.xml',                reliability: 0.72, active: true  },
-      { name: 'CaughtOffside',            url: 'https://www.caughtoffside.com/feed/',                       reliability: 0.68, active: true  },
-      { name: 'Planet Football',          url: 'https://www.planetfootball.com/rss',                        reliability: 0.65, active: true  },
+      {
+        name: "FourFourTwo",
+        url: "https://www.fourfourtwo.com/rss",
+        reliability: 0.78,
+        active: true,
+      },
+      {
+        name: "Football365",
+        url: "https://www.football365.com/rss",
+        reliability: 0.74,
+        active: true,
+      },
+      {
+        name: "Sports Mole Football",
+        url: "https://sportsmole.co.uk/football/feed.xml",
+        reliability: 0.72,
+        active: true,
+      },
+      {
+        name: "CaughtOffside",
+        url: "https://www.caughtoffside.com/feed/",
+        reliability: 0.68,
+        active: true,
+      },
+      {
+        name: "Planet Football",
+        url: "https://www.planetfootball.com/rss",
+        reliability: 0.65,
+        active: true,
+      },
 
       // ── Tier 3: League-specific outlets ──
-      { name: 'Bundesliga Official',      url: 'https://www.bundesliga.com/en/bundesliga/news.rss',         reliability: 0.80, active: true  },
-      { name: 'Football Italia',          url: 'https://www.football-italia.net/rss.xml',                   reliability: 0.75, active: true  },
+      {
+        name: "Bundesliga Official",
+        url: "https://www.bundesliga.com/en/bundesliga/news.rss",
+        reliability: 0.8,
+        active: true,
+      },
+      {
+        name: "Football Italia",
+        url: "https://www.football-italia.net/rss.xml",
+        reliability: 0.75,
+        active: true,
+      },
 
       // ── Disabled: no public RSS ──
-      { name: 'The Athletic Football',    url: 'https://theathletic.com/rss/feed/?sport=football',          reliability: 0.90, active: false },
+      {
+        name: "The Athletic Football",
+        url: "https://theathletic.com/rss/feed/?sport=football",
+        reliability: 0.9,
+        active: false,
+      },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({
         where: { url: s.url },
-        create: { ...s, language: 'en' },
+        create: { ...s, language: "en" },
         update: { reliability: s.reliability, active: s.active },
       });
     }
@@ -309,11 +476,12 @@ export class Orchestrator {
     });
 
     // Collect signals for the most recent current season year
-    const seasonYear = currentSeasons.length > 0
-      ? Math.max(...currentSeasons.map(s => s.year))
-      : 2025;
+    const seasonYear =
+      currentSeasons.length > 0
+        ? Math.max(...currentSeasons.map((s) => s.year))
+        : 2025;
 
-    const rssInserted   = await this.recoverySignalCollector.collect(seasonYear);
+    const rssInserted = await this.recoverySignalCollector.collect(seasonYear);
     const crawlInserted = await this.webCrawlCollector.collect(seasonYear);
 
     // After inserting new signals, recompute availability for affected players
@@ -328,33 +496,117 @@ export class Orchestrator {
   private async ensureWebCrawlSources(): Promise<void> {
     const sources = [
       // Premier League official
-      { name: 'PL Official News',      url: 'https://www.premierleague.com/latest-news',          reliability: 0.90 },
+      {
+        name: "PL Official News",
+        url: "https://www.premierleague.com/latest-player-injuries",
+        reliability: 0.9,
+      },
       // EPL 2025/26 clubs
-      { name: 'Arsenal News',          url: 'https://www.arsenal.com/news',                        reliability: 0.88 },
-      { name: 'Chelsea News',          url: 'https://www.chelseafc.com/en/news',                   reliability: 0.88 },
-      { name: 'Liverpool News',        url: 'https://www.liverpoolfc.com/news',                    reliability: 0.88 },
-      { name: 'Man City News',         url: 'https://www.mancity.com/news',                        reliability: 0.88 },
-      { name: 'Man United News',       url: 'https://www.manutd.com/en/news',                      reliability: 0.88 },
-      { name: 'Tottenham News',        url: 'https://www.tottenhamhotspur.com/news/',               reliability: 0.88 },
-      { name: 'Aston Villa News',      url: 'https://www.avfc.co.uk/news',                         reliability: 0.85 },
-      { name: 'Brighton News',         url: 'https://www.brightonandhovealbion.com/news',           reliability: 0.85 },
-      { name: 'Newcastle News',        url: 'https://www.nufc.co.uk/news',                         reliability: 0.85 },
-      { name: 'Wolves News',           url: 'https://www.wolves.co.uk/news',                       reliability: 0.85 },
-      { name: 'Brentford News',        url: 'https://www.brentfordfc.com/en/news',                  reliability: 0.83 },
-      { name: 'Crystal Palace News',   url: 'https://www.cpfc.co.uk/news',                         reliability: 0.83 },
-      { name: 'Everton News',          url: 'https://www.evertonfc.com/news',                      reliability: 0.83 },
-      { name: 'Fulham News',           url: 'https://www.fulhamfc.com/news',                       reliability: 0.83 },
-      { name: 'West Ham News',         url: 'https://www.whufc.com/news',                          reliability: 0.83 },
-      { name: 'Bournemouth News',      url: 'https://www.afcb.co.uk/news',                         reliability: 0.83 },
-      { name: 'Nottm Forest News',     url: 'https://www.nottinghamforest.co.uk/news',             reliability: 0.83 },
-      { name: 'Leeds News',            url: 'https://www.leedsunited.com/news',                    reliability: 0.83 },
-      { name: 'Burnley News',          url: 'https://www.burnleyfc.com/news',                      reliability: 0.83 },
-      { name: 'Sunderland News',       url: 'https://www.safc.com/news',                           reliability: 0.83 },
+      {
+        name: "Arsenal News",
+        url: "https://www.arsenal.com/news",
+        reliability: 0.88,
+      },
+      {
+        name: "Chelsea News",
+        url: "https://www.chelseafc.com/en/news",
+        reliability: 0.88,
+      },
+      {
+        name: "Liverpool News",
+        url: "https://www.liverpoolfc.com/news",
+        reliability: 0.88,
+      },
+      {
+        name: "Man City News",
+        url: "https://www.mancity.com/news",
+        reliability: 0.88,
+      },
+      {
+        name: "Man United News",
+        url: "https://www.manutd.com/en/news",
+        reliability: 0.88,
+      },
+      {
+        name: "Tottenham News",
+        url: "https://www.tottenhamhotspur.com/news/",
+        reliability: 0.88,
+      },
+      {
+        name: "Aston Villa News",
+        url: "https://www.avfc.co.uk/news",
+        reliability: 0.85,
+      },
+      {
+        name: "Brighton News",
+        url: "https://www.brightonandhovealbion.com/news",
+        reliability: 0.85,
+      },
+      {
+        name: "Newcastle News",
+        url: "https://www.nufc.co.uk/news",
+        reliability: 0.85,
+      },
+      {
+        name: "Wolves News",
+        url: "https://www.wolves.co.uk/news",
+        reliability: 0.85,
+      },
+      {
+        name: "Brentford News",
+        url: "https://www.brentfordfc.com/en/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Crystal Palace News",
+        url: "https://www.cpfc.co.uk/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Everton News",
+        url: "https://www.evertonfc.com/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Fulham News",
+        url: "https://www.fulhamfc.com/news",
+        reliability: 0.83,
+      },
+      {
+        name: "West Ham News",
+        url: "https://www.whufc.com/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Bournemouth News",
+        url: "https://www.afcb.co.uk/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Nottm Forest News",
+        url: "https://www.nottinghamforest.co.uk/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Leeds News",
+        url: "https://www.leedsunited.com/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Burnley News",
+        url: "https://www.burnleyfc.com/news",
+        reliability: 0.83,
+      },
+      {
+        name: "Sunderland News",
+        url: "https://www.safc.com/news",
+        reliability: 0.83,
+      },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({
-        where:  { url: s.url },
-        create: { ...s, language: 'en', sourceType: 'crawl', active: true },
+        where: { url: s.url },
+        create: { ...s, language: "en", sourceType: "crawl", active: true },
         update: { reliability: s.reliability },
       });
     }
@@ -363,20 +615,25 @@ export class Orchestrator {
   /**
    * Recomputes PlayerAvailability for players who received new signals recently.
    */
-  private async recomputeAvailabilityFromRecentSignals(season: number): Promise<void> {
+  private async recomputeAvailabilityFromRecentSignals(
+    season: number,
+  ): Promise<void> {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
     const recentSignals = await this.prisma.recoverySignal.findMany({
       where: { createdAt: { gte: fiveMinutesAgo } },
       select: { playerId: true, teamId: true },
-      distinct: ['playerId'],
+      distinct: ["playerId"],
     });
 
     for (const { playerId, teamId } of recentSignals) {
       try {
         await computePlayerAvailability(this.prisma, playerId, teamId, season);
       } catch (err) {
-        console.warn(`[Signals] Availability recompute failed for player ${playerId}:`, err);
+        console.warn(
+          `[Signals] Availability recompute failed for player ${playerId}:`,
+          err,
+        );
       }
     }
   }
@@ -389,7 +646,7 @@ export class Orchestrator {
     await this.prisma.playerAvailability.updateMany({
       where: {
         expired: false,
-        fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
+        fixture: { status: { in: ["FT", "AET", "PEN"] } },
       },
       data: { expired: true },
     });
@@ -505,7 +762,9 @@ export class Orchestrator {
           console.log(
             `[Force] fixture_details league=${leagueApiId} season=${season} — re-running`,
           );
-          await this.prisma.ingestionJob.delete({ where: { id: existingJob.id } });
+          await this.prisma.ingestionJob.delete({
+            where: { id: existingJob.id },
+          });
         }
 
         // Find last checkpoint for resume
@@ -558,10 +817,22 @@ export class Orchestrator {
         let processed = 0;
         for (const f of fixtures) {
           try {
-            await this.fixtureDetailCollector.collectStatistics(f.apiFootballId, f.id);
-            await this.fixtureDetailCollector.collectLineups(f.apiFootballId, f.id);
-            await this.fixtureDetailCollector.collectEvents(f.apiFootballId, f.id);
-            await this.fixtureDetailCollector.collectPlayerStats(f.apiFootballId, f.id);
+            await this.fixtureDetailCollector.collectStatistics(
+              f.apiFootballId,
+              f.id,
+            );
+            await this.fixtureDetailCollector.collectLineups(
+              f.apiFootballId,
+              f.id,
+            );
+            await this.fixtureDetailCollector.collectEvents(
+              f.apiFootballId,
+              f.id,
+            );
+            await this.fixtureDetailCollector.collectPlayerStats(
+              f.apiFootballId,
+              f.id,
+            );
             processed++;
 
             // Update checkpoint every 10 fixtures
@@ -777,10 +1048,15 @@ export class Orchestrator {
             where: {
               leagueId: league.id,
               season,
-              status: { in: ['FT', 'AET', 'PEN', 'AWD', 'WO'] },
+              status: { in: ["FT", "AET", "PEN", "AWD", "WO"] },
               OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
             },
-            select: { id: true, homeTeamId: true, goalsHome: true, goalsAway: true },
+            select: {
+              id: true,
+              homeTeamId: true,
+              goalsHome: true,
+              goalsAway: true,
+            },
           });
 
           let totalGoals = 0;
@@ -793,12 +1069,13 @@ export class Orchestrator {
 
           // avgXgAgainst: opponent's expectedGoals in fixtures our team played
           const fixtureIds = fixtures.map((f) => f.id);
-          const opponentStats = fixtureIds.length > 0
-            ? await this.prisma.fixtureStatistics.findMany({
-                where: { fixtureId: { in: fixtureIds }, NOT: { teamId } },
-                select: { expectedGoals: true },
-              })
-            : [];
+          const opponentStats =
+            fixtureIds.length > 0
+              ? await this.prisma.fixtureStatistics.findMany({
+                  where: { fixtureId: { in: fixtureIds }, NOT: { teamId } },
+                  select: { expectedGoals: true },
+                })
+              : [];
 
           const aggData = {
             avgPossession: avg(stats.map((s) => s.possession)),

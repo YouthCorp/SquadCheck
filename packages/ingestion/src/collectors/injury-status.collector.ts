@@ -48,6 +48,16 @@ export async function collectInjuryStatuses(
 
         const activePlayerIds = [...activeInjuries.keys()];
 
+        if (activePlayerIds.length === 0) {
+          // No active injuries — mark any previously active records as resolved
+          const { count } = await prisma.playerInjuryStatus.updateMany({
+            where: { teamId: team.id, season, isActive: true },
+            data: { isActive: false, resolvedAt: new Date() },
+          });
+          totalResolved += count;
+          continue;
+        }
+
         // Find the earliest injury record per active player — this is the start of
         // their current injury streak. Using asc order + first-seen-wins gives us
         // the first fixture they missed, not the most recent one.
