@@ -60,9 +60,23 @@ export async function collectInjuryStatuses(
           for (const f of fixtures) fixtureMap.set(f.id, f.date);
         }
 
+        // Fetch existing records to determine which players are already active.
+        // injuredSince and fixtureId are only updated for new or re-activating injuries —
+        // preserves the original injury start date for ongoing absences.
+        const existingRecords = await prisma.playerInjuryStatus.findMany({
+          where: { teamId: team.id, season },
+          select: { playerId: true, isActive: true },
+        });
+        const alreadyActiveIds = new Set(
+          existingRecords
+            .filter((r: { playerId: number; isActive: boolean }) => r.isActive)
+            .map((r: { playerId: number; isActive: boolean }) => r.playerId),
+        );
+
         // Upsert each active injury
         for (const [playerId, injury] of activeInjuries) {
           const injuredSince = fixtureMap.get(injury.fixtureId) ?? injury.fixtureDate;
+          const alreadyActive = alreadyActiveIds.has(playerId);
 
           await prisma.playerInjuryStatus.upsert({
             where: { playerId_teamId_season: { playerId, teamId: team.id, season } },
@@ -80,8 +94,9 @@ export async function collectInjuryStatuses(
             update: {
               reason: injury.reason,
               type: injury.type,
-              fixtureId: injury.fixtureId,
-              injuredSince,
+              // Preserve original injuredSince/fixtureId for ongoing injuries.
+              // Only update them when re-activating a previously resolved record.
+              ...(!alreadyActive ? { fixtureId: injury.fixtureId, injuredSince } : {}),
               isActive: true,
               resolvedAt: null,
             },
