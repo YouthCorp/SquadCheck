@@ -46,37 +46,46 @@ export async function collectInjuryStatuses(
         // resolveActiveInjuries: no leagueId filter — cup injuries count too
         const activeInjuries = await resolveActiveInjuries(prisma, team.id, season);
 
-        // Batch-fetch fixture.date for all injury fixtureIds (authoritative, no API Football drift)
-        const fixtureIds = [...activeInjuries.values()]
-          .map(i => i.fixtureId)
-          .filter((id): id is number => id != null);
+        const activePlayerIds = [...activeInjuries.keys()];
 
-        const fixtureMap = new Map<number, Date>();
-        if (fixtureIds.length > 0) {
+        // Find the earliest injury record per active player — this is the start of
+        // their current injury streak. Using asc order + first-seen-wins gives us
+        // the first fixture they missed, not the most recent one.
+        const allInjuryRecords = await prisma.injury.findMany({
+          where: { teamId: team.id, season, playerId: { in: activePlayerIds } },
+          orderBy: { fixtureDate: 'asc' },
+          select: { playerId: true, fixtureId: true, fixtureDate: true },
+        });
+
+        // Batch-fetch authoritative fixture.date for all injury fixtureIds (no API Football drift)
+        const allInjuryFixtureIds = [...new Set(allInjuryRecords.map(r => r.fixtureId))];
+        const fixtureDateMap = new Map<number, Date>();
+        if (allInjuryFixtureIds.length > 0) {
           const fixtures = await prisma.fixture.findMany({
-            where: { id: { in: fixtureIds } },
+            where: { id: { in: allInjuryFixtureIds } },
             select: { id: true, date: true },
           });
-          for (const f of fixtures) fixtureMap.set(f.id, f.date);
+          for (const f of fixtures) fixtureDateMap.set(f.id, f.date);
         }
 
-        // Fetch existing records to determine which players are already active.
-        // injuredSince and fixtureId are only updated for new or re-activating injuries —
-        // preserves the original injury start date for ongoing absences.
-        const existingRecords = await prisma.playerInjuryStatus.findMany({
-          where: { teamId: team.id, season },
-          select: { playerId: true, isActive: true },
-        });
-        const alreadyActiveIds = new Set(
-          existingRecords
-            .filter((r: { playerId: number; isActive: boolean }) => r.isActive)
-            .map((r: { playerId: number; isActive: boolean }) => r.playerId),
-        );
+        // First injury record per player (asc order → first-seen = earliest)
+        const earliestByPlayer = new Map<number, { fixtureId: number; injuredSince: Date }>();
+        for (const inj of allInjuryRecords) {
+          if (!earliestByPlayer.has(inj.playerId)) {
+            earliestByPlayer.set(inj.playerId, {
+              fixtureId: inj.fixtureId,
+              injuredSince: fixtureDateMap.get(inj.fixtureId) ?? inj.fixtureDate,
+            });
+          }
+        }
 
         // Upsert each active injury
         for (const [playerId, injury] of activeInjuries) {
-          const injuredSince = fixtureMap.get(injury.fixtureId) ?? injury.fixtureDate;
-          const alreadyActive = alreadyActiveIds.has(playerId);
+          const earliest = earliestByPlayer.get(playerId);
+          const injuredSince = earliest?.injuredSince
+            ?? fixtureDateMap.get(injury.fixtureId)
+            ?? injury.fixtureDate;
+          const injuryFixtureId = earliest?.fixtureId ?? injury.fixtureId;
 
           await prisma.playerInjuryStatus.upsert({
             where: { playerId_teamId_season: { playerId, teamId: team.id, season } },
@@ -87,16 +96,15 @@ export async function collectInjuryStatuses(
               season,
               reason: injury.reason,
               type: injury.type,
-              fixtureId: injury.fixtureId,
+              fixtureId: injuryFixtureId,
               injuredSince,
               isActive: true,
             },
             update: {
               reason: injury.reason,
               type: injury.type,
-              // Preserve original injuredSince/fixtureId for ongoing injuries.
-              // Only update them when re-activating a previously resolved record.
-              ...(!alreadyActive ? { fixtureId: injury.fixtureId, injuredSince } : {}),
+              fixtureId: injuryFixtureId,
+              injuredSince,
               isActive: true,
               resolvedAt: null,
             },
