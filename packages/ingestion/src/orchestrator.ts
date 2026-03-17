@@ -176,6 +176,11 @@ export class Orchestrator {
       include: { league: true },
     });
 
+    // Pre-populate injury status from existing DB data so API endpoints are
+    // never empty while the full sync is still running (important on first deploy).
+    const preSyncYear = currentSeasons.length > 0 ? Math.max(...currentSeasons.map(s => s.year)) : 2025;
+    await collectInjuryStatuses(this.prisma, preSyncYear);
+
     for (const season of currentSeasons) {
       const leagueApiId = season.league.apiFootballId;
       const year = season.year;
