@@ -216,6 +216,84 @@ export function matchEntities(
   };
 }
 
+/**
+ * Like matchEntities(), but returns ALL matched players instead of failing
+ * when multiple players are mentioned in the same article.
+ * Used for team news articles that cover multiple injured players at once.
+ */
+export function matchAllEntities(
+  articleText: string,
+  injuredIndex: Map<string, PlayerRecord[]>,
+): EntityMatchResult[] {
+  const text = normalizeName(articleText);
+  const candidates: Array<PlayerRecord & { tier: 'exact' | 'alias' | 'fuzzy' }> = [];
+
+  // ── Tier 1 & 2: index-based lookup (exact name / last name / nickname) ──
+  for (const [nameKey, players] of injuredIndex) {
+    if (nameKey.length < 4) continue;
+
+    if (!containsToken(text, nameKey)) continue;
+
+    for (const player of players) {
+      // Tier 1: exact team name in article
+      if (matchTeamInText(text, player.teamName, false)) {
+        candidates.push({ ...player, tier: 'exact' });
+        continue;
+      }
+      // Tier 2: team alias match
+      if (matchTeamInText(text, player.teamName, true)) {
+        candidates.push({ ...player, tier: 'alias' });
+      }
+    }
+  }
+
+  // ── Tier 3: Fuzzy (token reorder) — only if no candidates yet ──
+  if (candidates.length === 0) {
+    for (const [, players] of injuredIndex) {
+      for (const player of players) {
+        const fullKey = normalizeName(player.name);
+        if (!fuzzyNameMatch(text, fullKey)) continue;
+
+        // Team must appear (exact or alias)
+        const teamMatch =
+          matchTeamInText(text, player.teamName, false) ||
+          matchTeamInText(text, player.teamName, true);
+        if (!teamMatch) continue;
+
+        candidates.push({ ...player, tier: 'fuzzy' });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return [];
+
+  // Deduplicate by playerId — keep highest tier (exact > alias > fuzzy)
+  const tierRank = { exact: 0, alias: 1, fuzzy: 2 };
+  const uniqueByPlayerId = new Map<number, typeof candidates[0]>();
+  for (const c of candidates) {
+    const existing = uniqueByPlayerId.get(c.id);
+    if (!existing || tierRank[c.tier] < tierRank[existing.tier]) {
+      uniqueByPlayerId.set(c.id, c);
+    }
+  }
+  const unique = [...uniqueByPlayerId.values()];
+
+  return unique.map((player) => {
+    const entityConfidence = player.tier === 'exact' ? 1.0
+      : player.tier === 'alias' ? 0.85
+      : 0.65;
+    return {
+      matched:          true,
+      playerId:         player.id,
+      teamId:           player.teamId,
+      playerName:       player.name,
+      teamName:         player.teamName,
+      entityConfidence,
+      matchTier:        player.tier,
+    };
+  });
+}
+
 // ── Helpers ──
 
 export function normalizeName(s: string): string {

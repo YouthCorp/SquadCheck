@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import RssParser from 'rss-parser';
-import { buildInjuredPlayerIndex, matchEntities, normalizeName } from '../nlp/entity-matcher';
+import { buildInjuredPlayerIndex, matchAllEntities, normalizeName } from '../nlp/entity-matcher';
 import { classifyByKeyword, needsClaudeClassification } from '../nlp/keyword-patterns';
 import { SIGNAL_CONFIG } from '../nlp/signal-config';
 
@@ -190,7 +190,7 @@ export class RecoverySignalCollector {
       3,
     );
 
-    metrics.inc('signalsInserted', results.inserted);
+    // signalsInserted is incremented per-player inside processArticle
     metrics.inc('signalsUpdated', results.updated);
     metrics.inc('signalsRejected', results.rejected);
     metrics.inc('processingErrors', results.errors);
@@ -297,17 +297,17 @@ export class RecoverySignalCollector {
 
       const text = [article.title, article.contentSnippet, article.content].join(' ');
 
-      // Step 1: Entity matching (3-tier)
-      const entity = matchEntities(text, injuredIndex);
-      if (!entity.matched || !entity.playerId || !entity.teamId) {
+      // Step 1: Entity matching (3-tier) — returns ALL players mentioned in the article
+      const entities = matchAllEntities(text, injuredIndex);
+      if (entities.length === 0) {
         metrics.inc('entityFailed');
         // Entity match failure is deterministic — mark as processed to avoid re-running
         await this.markProcessed(rssArticleId);
         return 'skipped';
       }
-      metrics.inc('entityMatched');
+      metrics.inc('entityMatched', entities.length);
 
-      // Step 2: Keyword classification (Pass 1)
+      // Step 2: Keyword classification (Pass 1) — run ONCE for the whole article
       const keywordResult = classifyByKeyword(text);
 
       if (keywordResult?.negationDetected) {
@@ -316,7 +316,7 @@ export class RecoverySignalCollector {
         return 'skipped';
       }
 
-      // Step 3: Claude if needed
+      // Step 3: Claude if needed — article-level, use first entity for context
       const usesClaude = needsClaudeClassification(
         keywordResult,
         this.claudeCallsThisCycle,
@@ -329,6 +329,8 @@ export class RecoverySignalCollector {
       let classifiedBy: string;
       let snippet: string | undefined;
 
+      const firstEntity = entities[0];
+
       if (usesClaude) {
         if (!process.env.ANTHROPIC_API_KEY) {
           metrics.inc('claudeSkipped');
@@ -337,7 +339,7 @@ export class RecoverySignalCollector {
         }
         const { classifyWithClaude } = await import('../nlp/claude-classifier');
         snippet = text.slice(0, 500);
-        const claudeResult = await classifyWithClaude(snippet, entity.playerName!, entity.teamName!);
+        const claudeResult = await classifyWithClaude(snippet, firstEntity.playerName!, firstEntity.teamName!);
         this.claudeCallsThisCycle++;
         metrics.inc('claudeClassified');
 
@@ -362,57 +364,57 @@ export class RecoverySignalCollector {
         metrics.inc('keywordClassified');
       }
 
-      // Step 4: Compute final confidence
+      // Step 4: Loop through each matched entity and upsert a signal per player
       const publishedAt = article.pubDate ? new Date(article.pubDate) : new Date();
-      const finalConfidence = computeFinalConfidence(
-        entity.entityConfidence ?? 1.0,
-        sourceReliability,
-        rawKeywordConfidence,
-        publishedAt,
-      );
+      let anyInserted = false;
 
-      // Discard if below LOW_CUTOFF
-      if (finalConfidence < SIGNAL_CONFIG.confidence.LOW_CUTOFF) {
-        metrics.inc('signalsRejected');
-        await this.markProcessed(rssArticleId);
-        return 'rejected';
+      for (const entity of entities) {
+        const finalConfidence = computeFinalConfidence(
+          entity.entityConfidence ?? 1.0,
+          sourceReliability,
+          rawKeywordConfidence,
+          publishedAt,
+        );
+
+        // Discard if below LOW_CUTOFF
+        if (finalConfidence < SIGNAL_CONFIG.confidence.LOW_CUTOFF) {
+          metrics.inc('signalsRejected');
+          continue;
+        }
+
+        // Step 5: Upsert RecoverySignal (with 1 retry on DB error)
+        await withRetry(() =>
+          this.prisma.recoverySignal.upsert({
+            where: { playerId_articleUrl: { playerId: entity.playerId!, articleUrl } },
+            create: {
+              playerId: entity.playerId!,
+              teamId: entity.teamId!,
+              sourceId,
+              articleUrl,
+              articleTitle: article.title ?? '',
+              publishedAt,
+              signalStage: stage,
+              recoveryScore,
+              confidence: finalConfidence,
+              classifiedBy,
+              extractedSnippet: snippet ?? null,
+            },
+            update: {
+              signalStage: stage,
+              recoveryScore,
+              confidence: finalConfidence,
+              classifiedBy,
+              extractedSnippet: snippet ?? null,
+            },
+          })
+        );
+
+        metrics.inc('signalsInserted');
+        anyInserted = true;
       }
 
-      // Step 5: Upsert RecoverySignal (with 1 retry on DB error)
-      const upsertResult = await withRetry(() =>
-        this.prisma.recoverySignal.upsert({
-          where: { playerId_articleUrl: { playerId: entity.playerId!, articleUrl } },
-          create: {
-            playerId: entity.playerId!,
-            teamId: entity.teamId!,
-            sourceId,
-            articleUrl,
-            articleTitle: article.title ?? '',
-            publishedAt,
-            signalStage: stage,
-            recoveryScore,
-            confidence: finalConfidence,
-            classifiedBy,
-            extractedSnippet: snippet ?? null,
-          },
-          update: {
-            signalStage: stage,
-            recoveryScore,
-            confidence: finalConfidence,
-            classifiedBy,
-            extractedSnippet: snippet ?? null,
-          },
-        })
-      );
-
       await this.markProcessed(rssArticleId);
-
-      // Detect insert vs update: createdAt === updatedAt implies fresh row
-      const wasInserted = !upsertResult.createdAt || upsertResult.createdAt === upsertResult.createdAt;
-      // Prisma upsert doesn't directly tell us insert vs update, so we check via a heuristic:
-      // use the fact that on create, the signal won't have been previously committed
-      // Simple approach: always treat as inserted (metrics updated in drain)
-      return 'inserted';
+      return anyInserted ? 'inserted' : 'skipped';
     } catch (err) {
       metrics.inc('processingErrors');
       console.warn(

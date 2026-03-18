@@ -21,7 +21,7 @@ import { PrismaClient } from '@prisma/client';
 import { fetchPageHtml } from '../crawlers/lightpanda.client';
 import { extractArticleLinks, extractArticleContent } from '../crawlers/epl-club.parser';
 import { discoverArticleUrls } from '../crawlers/sitemap-parser';
-import { buildInjuredPlayerIndex, matchEntities } from '../nlp/entity-matcher';
+import { buildInjuredPlayerIndex, matchAllEntities } from '../nlp/entity-matcher';
 import { classifyByKeyword, needsClaudeClassification } from '../nlp/keyword-patterns';
 import { SIGNAL_CONFIG } from '../nlp/signal-config';
 
@@ -177,12 +177,10 @@ export class WebCrawlCollector {
 
       // Step 5: Run NLP pipeline
       const articleText = `${title} ${text}`;
-      const signalInserted = await this.processArticle(
+      inserted += await this.processArticle(
         { rssArticleId, articleUrl, title, text: articleText, publishedAt, sourceId: source.id, sourceReliability: source.reliability },
         injuredIndex,
       );
-
-      if (signalInserted) inserted++;
 
       // Rate-limit between article fetches
       await new Promise(r => setTimeout(r, INTER_ARTICLE_DELAY_MS));
@@ -205,22 +203,22 @@ export class WebCrawlCollector {
     publishedAt:  Date;
     sourceId:     number;
     sourceReliability: number;
-  }, injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>): Promise<boolean> {
+  }, injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>): Promise<number> {
     const { rssArticleId, articleUrl, text, publishedAt, sourceId, sourceReliability } = item;
 
     try {
-      // Entity match
-      const entity = matchEntities(text, injuredIndex);
-      if (!entity.matched || !entity.playerId || !entity.teamId) {
+      // Entity match — returns all matched players in the article
+      const entities = matchAllEntities(text, injuredIndex);
+      if (entities.length === 0) {
         await this.markProcessed(rssArticleId);
-        return false;
+        return 0;
       }
 
-      // Keyword classification (Pass 1)
+      // Keyword classification (Pass 1) — run ONCE for the whole article
       const keywordResult = classifyByKeyword(text);
       if (keywordResult?.negationDetected) {
         await this.markProcessed(rssArticleId);
-        return false;
+        return 0;
       }
 
       const usesClaude = needsClaudeClassification(
@@ -234,76 +232,81 @@ export class WebCrawlCollector {
       let rawKeywordConfidence: number;
       let snippet: string | undefined;
 
+      // Use the first entity for Claude context (article-level classification)
+      const firstEntity = entities[0];
+
       if (usesClaude) {
         if (!process.env.ANTHROPIC_API_KEY) {
           await this.markProcessed(rssArticleId);
-          return false;
+          return 0;
         }
         const { classifyWithClaude } = await import('../nlp/claude-classifier');
         snippet = text.slice(0, 500);
-        const claudeResult = await classifyWithClaude(snippet, entity.playerName!, entity.teamName!);
+        const claudeResult = await classifyWithClaude(snippet, firstEntity.playerName!, firstEntity.teamName!);
         this.claudeCallsThisCycle++;
 
         if (!claudeResult) {
           await this.markProcessed(rssArticleId);
-          return false;
+          return 0;
         }
 
-        stage              = claudeResult.stage;
-        recoveryScore      = claudeResult.recoveryScore;
+        stage                = claudeResult.stage;
+        recoveryScore        = claudeResult.recoveryScore;
         rawKeywordConfidence = claudeResult.confidence;
       } else {
         if (!keywordResult || keywordResult.confidence < SIGNAL_CONFIG.keyword.AMBIGUOUS_LOWER) {
           await this.markProcessed(rssArticleId);
-          return false;
+          return 0;
         }
-        stage              = keywordResult.stage;
-        recoveryScore      = keywordResult.score;
+        stage                = keywordResult.stage;
+        recoveryScore        = keywordResult.score;
         rawKeywordConfidence = keywordResult.confidence;
       }
 
-      const finalConfidence = computeFinalConfidence(
-        entity.entityConfidence ?? 1.0,
-        sourceReliability,
-        rawKeywordConfidence,
-        publishedAt,
-      );
+      // Loop through each matched entity and upsert a signal per player
+      let insertCount = 0;
+      for (const entity of entities) {
+        const finalConfidence = computeFinalConfidence(
+          entity.entityConfidence ?? 1.0,
+          sourceReliability,
+          rawKeywordConfidence,
+          publishedAt,
+        );
 
-      if (finalConfidence < SIGNAL_CONFIG.confidence.LOW_CUTOFF) {
-        await this.markProcessed(rssArticleId);
-        return false;
+        if (finalConfidence < SIGNAL_CONFIG.confidence.LOW_CUTOFF) continue;
+
+        await this.prisma.recoverySignal.upsert({
+          where: { playerId_articleUrl: { playerId: entity.playerId!, articleUrl } },
+          create: {
+            playerId:         entity.playerId!,
+            teamId:           entity.teamId!,
+            sourceId,
+            articleUrl,
+            articleTitle:     item.title || '',
+            publishedAt,
+            signalStage:      stage,
+            recoveryScore,
+            confidence:       finalConfidence,
+            classifiedBy:     'web_crawl',
+            extractedSnippet: snippet ?? null,
+          },
+          update: {
+            signalStage:      stage,
+            recoveryScore,
+            confidence:       finalConfidence,
+            classifiedBy:     'web_crawl',
+            extractedSnippet: snippet ?? null,
+          },
+        });
+
+        insertCount++;
       }
 
-      // Upsert recovery signal
-      await this.prisma.recoverySignal.upsert({
-        where: { playerId_articleUrl: { playerId: entity.playerId!, articleUrl } },
-        create: {
-          playerId:        entity.playerId!,
-          teamId:          entity.teamId!,
-          sourceId,
-          articleUrl,
-          articleTitle:    item.title || '',
-          publishedAt,
-          signalStage:     stage,
-          recoveryScore,
-          confidence:      finalConfidence,
-          classifiedBy:    'web_crawl',
-          extractedSnippet: snippet ?? null,
-        },
-        update: {
-          signalStage:     stage,
-          recoveryScore,
-          confidence:      finalConfidence,
-          classifiedBy:    'web_crawl',
-          extractedSnippet: snippet ?? null,
-        },
-      });
-
       await this.markProcessed(rssArticleId);
-      return true;
+      return insertCount;
     } catch (err) {
       console.warn(`[WebCrawl] Article error (${articleUrl}):`, (err as Error).message);
-      return false;
+      return 0;
     }
   }
 
