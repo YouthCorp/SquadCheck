@@ -99,11 +99,13 @@ export async function resolveActiveInjuries(
   season: number,
   injuryLeagueId?: number | null,
 ): Promise<Map<number, ActiveInjury>> {
+  // Fetch ALL injuries regardless of league — physical injuries apply across all competitions.
+  // injuryLeagueId is used only in Step 3 to clear served disciplinary absences,
+  // since suspensions are competition-specific (EPL red card ≠ UCL suspension).
   const injuries = await prisma.injury.findMany({
     where: {
       teamId,
       season,
-      ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
     },
     orderBy: { fixtureDate: 'desc' },
     select: {
@@ -147,7 +149,11 @@ export async function resolveActiveInjuries(
     if (
       isDisciplinary(inj.reason) &&
       inj.fixtureDate < latestTeamInjuryDate &&
-      completedFixtureIds.has(inj.fixtureId)
+      completedFixtureIds.has(inj.fixtureId) &&
+      // Disciplinary absences are competition-specific: only clear served bans that
+      // were issued in the same league as the current fixture view.
+      // If no leagueId is specified (e.g. team page), clear regardless of competition.
+      (!injuryLeagueId || inj.leagueId === injuryLeagueId)
     ) {
       latestByPlayer.delete(playerId);
     }
@@ -166,12 +172,14 @@ export async function resolveActiveInjuries(
   if (candidateIds.length > 0) {
     // Find the most recent completed injury fixture per candidate — this is the
     // true "last confirmed absence" anchor, ignoring future API predictions.
+    // No league filter: the completed-absence anchor should be the most recent confirmed
+    // absence in ANY competition. A player injured in UCL and missing EPL games is still
+    // considered absent regardless of which league filter the caller requested.
     const completedInjuries = await prisma.injury.findMany({
       where: {
         playerId: { in: candidateIds },
         teamId,
         season,
-        ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}),
         fixture: { status: { in: ['FT', 'AET', 'PEN'] } },
       },
       orderBy: { fixtureDate: 'desc' },
