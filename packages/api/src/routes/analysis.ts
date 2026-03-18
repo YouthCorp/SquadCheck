@@ -129,7 +129,7 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       // Short TTL when outcomeImpact is missing despite having injured players
       // so the result is retried quickly once DB stats are populated
       if (r && (r as any).outcomeImpact === null && (r as any).injuredPlayers?.length > 0) return 30;
-      return 300;
+      return 120; // aligned with live-updates (60s) and recovery-signals (120s) to reduce cross-panel stale window
     }, async () => {
       const team = await prisma.team.findUnique({ where: { id: teamId } });
       if (!team) return null;

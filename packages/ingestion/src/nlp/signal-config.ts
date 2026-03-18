@@ -71,7 +71,6 @@ export const SIGNAL_STAGES = Object.keys(SIGNAL_CONFIG.stageScores) as SignalSta
 /**
  * Injury reasons that indicate a disciplinary absence (red card / suspension / yellow cards).
  * These players are NOT real injury cases — they serve fixed match bans and return automatically.
- * Used in buildInjuredPlayerIndex() to exclude them from the recovery signal pipeline.
  */
 export const DISCIPLINARY_REASONS = [
   'red card',
@@ -79,6 +78,27 @@ export const DISCIPLINARY_REASONS = [
   'suspension',
   'yellow card',
   'yellow cards',
+] as const;
+
+/**
+ * All non-physical absence reasons to exclude from the recovery signal pipeline.
+ * Superset of DISCIPLINARY_REASONS — also excludes international duty, inactive,
+ * coach absences, loan agreements, rest, and doping (matches NON_INJURY_EXCLUSION_FILTER
+ * in @squadcheck/analysis so both layers filter identically).
+ * Used in buildInjuredPlayerIndex() so signal collection targets only real injuries.
+ */
+export const NON_SIGNAL_EXCLUSION_REASONS = [
+  'red card',
+  'suspended',
+  'suspension',
+  'yellow card',
+  'yellow cards',
+  'international duty',
+  'inactive',
+  'coach',
+  'loan agreement',
+  'rest',
+  'doping',
 ] as const;
 
 // ── Team aliases dictionary ──

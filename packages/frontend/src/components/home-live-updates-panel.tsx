@@ -117,7 +117,9 @@ function InjuryRow({ entry, locale }: { entry: RecentInjuryEntry; locale: Locale
 function SignalRow({ entry, locale }: { entry: RecentSignalEntry; locale: Locale }) {
   const pct = Math.round(entry.predictedAvailability * 100);
   const isNewEntry = isNew(entry.lastSignalAt);
-  const href = entry.team ? `/team/${entry.team.id}` : "#";
+  const href = entry.team
+    ? `/team/${entry.team.id}${entry.leagueApiFootballId ? `?league=${entry.leagueApiFootballId}` : ''}`
+    : "#";
   return (
     <Link
       href={href}

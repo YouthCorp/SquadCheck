@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { TEAM_ALIASES, PLAYER_NICKNAMES, DISCIPLINARY_REASONS } from './signal-config';
+import { TEAM_ALIASES, PLAYER_NICKNAMES, NON_SIGNAL_EXCLUSION_REASONS } from './signal-config';
 
 export interface PlayerRecord {
   id: number;
@@ -27,15 +27,15 @@ export async function buildInjuredPlayerIndex(
   prisma: PrismaClient,
   season: number,
 ): Promise<Map<string, PlayerRecord[]>> {
-  // Exclude disciplinary absences (red card, suspension, yellow card bans).
-  // These are fixed-match bans, not injuries — they don't need recovery signals.
-  // A player with both a real injury AND a suspension in the same season is still
-  // included because the NOT filter removes only disciplinary rows; the injury row remains.
+  // Exclude all non-physical absences: disciplinary bans, international duty, inactive,
+  // loan agreements, rest, doping. Mirrors NON_INJURY_EXCLUSION_FILTER in @squadcheck/analysis
+  // so both layers filter identically — prevents signals being collected for players that the
+  // analysis layer will never treat as injured.
   const injuries = await prisma.injury.findMany({
     where: {
       season,
       NOT: {
-        OR: DISCIPLINARY_REASONS.map((r) => ({
+        OR: NON_SIGNAL_EXCLUSION_REASONS.map((r) => ({
           reason: { contains: r, mode: 'insensitive' as const },
         })),
       },
@@ -44,6 +44,7 @@ export async function buildInjuredPlayerIndex(
       playerId: true,
       teamId: true,
       fixtureDate: true,
+      fixture: { select: { date: true } },
       player: { select: { name: true } },
       team:   { select: { name: true } },
     },
@@ -52,10 +53,13 @@ export async function buildInjuredPlayerIndex(
   });
 
   // Filter out players who have since returned to play.
-  // A player is considered "recovered" if they appeared in any fixture lineup
-  // after the date of their most recent injury.
+  // Uses fixture.date (actual kickoff UTC) as anchor — mirrors resolveActiveInjuries() Step 4.
+  // injury.fixtureDate can differ from fixture.date by up to ~23h (API Football positive offset),
+  // which caused false "still injured" detections when both sides used different references.
   const playerIds = injuries.map((i) => i.playerId);
-  const injuryStartByPlayer = new Map(injuries.map((i) => [i.playerId, i.fixtureDate]));
+  const injuryStartByPlayer = new Map(
+    injuries.map((i) => [i.playerId, i.fixture?.date ?? i.fixtureDate]),
+  );
 
   const lineupAppearances = playerIds.length > 0
     ? await prisma.fixtureLineupPlayer.findMany({
@@ -75,13 +79,11 @@ export async function buildInjuredPlayerIndex(
       })
     : [];
 
-  // 1일 버퍼: 경기 킥오프 시각(UTC)과 부상 기록 날짜(UTC 자정) 사이의 타임존 불일치 보정
-  // 예) 경기 2026-03-14T20:45Z → DB 2026-03-14, 부상 API 업데이트 → DB 2026-03-15T00:00Z
-  const ONE_DAY_MS = 86_400_000;
+  // Both sides now use fixture.date (authoritative UTC kickoff), so no buffer needed.
   const returnedIds = new Set<number>();
   for (const app of lineupAppearances) {
     const injuryStart = injuryStartByPlayer.get(app.playerId);
-    if (injuryStart && app.lineup.fixture.date.getTime() >= injuryStart.getTime() - ONE_DAY_MS) {
+    if (injuryStart && app.lineup.fixture.date.getTime() >= injuryStart.getTime()) {
       returnedIds.add(app.playerId);
     }
   }

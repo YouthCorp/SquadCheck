@@ -62,7 +62,7 @@ export default async function TeamPage({
   let players: PlayerEntry[] = [];
   try {
     [impact, players] = await Promise.all([
-      fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${teamId}`),
+      fetchApi<InjuryImpact>(`/api/analysis/injury-impact/${teamId}${backLeagueId ? `?league=${backLeagueId}` : ''}`),
       fetchApi<PlayerEntry[]>(`/api/teams/${teamId}/players`),
     ]);
   } catch {}

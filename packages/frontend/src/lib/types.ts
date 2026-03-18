@@ -165,6 +165,7 @@ export interface RecentSignalEntry {
   playerId: number;
   player: { id: number; name: string; photo: string | null; position: string | null };
   team: { id: number; name: string; logo: string | null } | null;
+  leagueApiFootballId: number | null;
   predictedAvailability: number;
   confidenceLevel: number;
   latestSignalStage: string | null;
