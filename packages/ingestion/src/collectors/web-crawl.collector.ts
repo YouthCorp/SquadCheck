@@ -20,6 +20,7 @@ import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { fetchPageHtml } from '../crawlers/lightpanda.client';
 import { extractArticleLinks, extractArticleContent } from '../crawlers/epl-club.parser';
+import { discoverArticleUrls } from '../crawlers/sitemap-parser';
 import { buildInjuredPlayerIndex, matchEntities } from '../nlp/entity-matcher';
 import { classifyByKeyword, needsClaudeClassification } from '../nlp/keyword-patterns';
 import { SIGNAL_CONFIG } from '../nlp/signal-config';
@@ -97,7 +98,7 @@ export class WebCrawlCollector {
       }
     }
 
-    console.log(`[WebCrawl] Cycle complete. ${totalInserted} signals inserted`);
+    console.log(`[WebCrawl] ══ Cycle Complete ══ ${sources.length} sources processed, ${totalInserted} signals inserted`);
     return totalInserted;
   }
 
@@ -105,18 +106,33 @@ export class WebCrawlCollector {
     source: { id: number; url: string; name: string; reliability: number; lastFetched: Date | null },
     injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>,
   ): Promise<number> {
-    // Step 1: Fetch the news listing page
-    const { html: listingHtml } = await fetchPageHtml(source.url);
-    const articleUrls = extractArticleLinks(listingHtml, source.url);
+    // Step 1: Discover articles via sitemap (primary) or HTML parsing (fallback)
+    const origin = new URL(source.url).origin;
+    let articleUrls = await discoverArticleUrls(origin, { maxAgeDays: 7 });
+    let discoveryMethod = 'sitemap';
 
     if (articleUrls.length === 0) {
-      console.log(`[WebCrawl] ${source.name}: no article links found`);
+      // Sitemap failed — try old HTML parsing as fallback
+      discoveryMethod = 'html-fallback';
+      console.log(`[WebCrawl] ${source.name}: sitemap empty, trying HTML fallback`);
+      try {
+        const { html: listingHtml } = await fetchPageHtml(source.url);
+        articleUrls = extractArticleLinks(listingHtml, source.url);
+      } catch (err) {
+        console.warn(`[WebCrawl] ${source.name}: HTML fallback failed:`, (err as Error).message);
+      }
+    }
+
+    if (articleUrls.length === 0) {
+      console.log(`[WebCrawl] ${source.name}: no articles found (tried ${discoveryMethod})`);
       await this.prisma.rssFeedSource.update({
         where: { id: source.id },
         data: { lastFetched: new Date() },
       });
       return 0;
     }
+
+    console.log(`[WebCrawl] ${source.name}: ${articleUrls.length} articles via ${discoveryMethod}`);
 
     const since = source.lastFetched ?? new Date(0);
     let inserted = 0;

@@ -13,7 +13,7 @@
 import * as cheerio from 'cheerio';
 
 /** Path segments that indicate a link is to a news article */
-const ARTICLE_PATH_SEGMENTS = [
+export const ARTICLE_PATH_SEGMENTS = [
   '/news/', '/article/', '/articles/', '/story/', '/stories/',
   '/press-release/', '/media/', '/match-report/', '/match_report/',
   '/match-preview/', '/team-news/', '/injury-update/',
