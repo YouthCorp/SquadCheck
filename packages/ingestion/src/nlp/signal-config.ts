@@ -83,8 +83,12 @@ export const DISCIPLINARY_REASONS = [
 /**
  * All non-physical absence reasons to exclude from the recovery signal pipeline.
  * Superset of DISCIPLINARY_REASONS — also excludes international duty, inactive,
- * coach absences, loan agreements, rest, and doping (matches NON_INJURY_EXCLUSION_FILTER
- * in @squadcheck/analysis so both layers filter identically).
+ * coach absences, loan agreements, rest, and doping.
+ *
+ * NOTE: Intentionally mirrors NON_INJURY_EXCLUSION_FILTER in @squadcheck/analysis.
+ * The ingestion package cannot import from @squadcheck/analysis (circular dep risk),
+ * so the reason set must be duplicated here. If reasons change in injury-resolver.ts,
+ * update this list in sync.
  * Used in buildInjuredPlayerIndex() so signal collection targets only real injuries.
  */
 export const NON_SIGNAL_EXCLUSION_REASONS = [

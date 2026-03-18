@@ -165,16 +165,10 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
       });
       const teamMap = new Map(teams.map((t) => [t.id, t]));
 
-      // Fetch league info for signal players from their injury records
-      const signalPlayerIds = dedupedSignals.map((s) => s.playerId);
-      const signalInjuries = await prisma.injury.findMany({
-        where: { playerId: { in: signalPlayerIds }, season },
-        select: { playerId: true, league: { select: { apiFootballId: true } } },
-        orderBy: { fixtureDate: 'desc' },
-        distinct: ['playerId'],
-      });
-      const signalLeagueApiIdMap = new Map(
-        signalInjuries.map((i) => [i.playerId, i.league?.apiFootballId ?? null]),
+      // Derive league info from rawInjuries (already fetched, leagueApiId = apiFootballId directly).
+      // Signal players not in rawInjuries (outside 45-day/top-5 window) get null — acceptable.
+      const signalLeagueApiIdMap = new Map<number, number>(
+        (rawInjuries as RawInj[]).map((inj) => [inj.playerId, inj.leagueApiId]),
       );
 
       const recentSignals = dedupedSignals.map((pa) => ({
