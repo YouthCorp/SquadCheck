@@ -7,7 +7,7 @@ import { fetchApiAuth } from '@/lib/api';
 import type { WatchlistAlertEntry, WatchlistAlertsResponse } from '@/lib/types';
 import { ALERT_ICONS } from '@/lib/types';
 
-export function NotificationBell({ align = 'right' }: { align?: 'left' | 'right' }) {
+export function NotificationBell({ align = 'right', direction = 'down' }: { align?: 'left' | 'right'; direction?: 'up' | 'down' }) {
   const { data: session } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
   const [alerts, setAlerts] = useState<WatchlistAlertEntry[]>([]);
@@ -75,7 +75,7 @@ export function NotificationBell({ align = 'right' }: { align?: 'left' | 'right'
       </button>
 
       {open && (
-        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} top-9 w-72 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[200]`}>
+        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} ${direction === 'up' ? 'bottom-9' : 'top-9'} w-72 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[200]`}>
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold text-foreground">Notifications</span>
             <Link
