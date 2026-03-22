@@ -14,6 +14,8 @@ import { injuriesRouter } from './routes/injuries';
 import { standingsRouter } from './routes/standings';
 import { analysisRouter } from './routes/analysis';
 import { adminRouter } from './routes/admin';
+import { watchlistRouter } from './routes/watchlist';
+import { requireAuth } from './middleware/auth';
 
 // Cap the connection pool to avoid "too many clients" on Railway's shared PostgreSQL.
 // Appended to DATABASE_URL so it works with Railway's internal URL format.
@@ -64,6 +66,7 @@ app.use('/api/injuries', injuriesRouter);
 app.use('/api/standings', standingsRouter);
 app.use('/api/analysis', analysisRouter);
 app.use('/api/admin', adminAuth, adminRouter);
+app.use('/api/watchlist', requireAuth, watchlistRouter);
 
 // Admin dashboard — serves the standalone HTML page
 app.get('/admin', adminAuth, (_req, res) => {

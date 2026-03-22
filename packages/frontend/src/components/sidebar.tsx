@@ -216,6 +216,12 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
         <div className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground px-4 pt-4 pb-1">
           {t(locale, 'nav_tools')}
         </div>
+        <Link href="/watchlist" className="no-underline block">
+          <div className={navItemCls(!!pathname?.startsWith('/watchlist'))}>
+            <span>⭐</span>
+            <span>{t(locale, 'nav_watchlist')}</span>
+          </div>
+        </Link>
         <Link href="/leaderboard" className="no-underline block">
           <div className={navItemCls(!!pathname?.startsWith('/leaderboard'))}>
             <span>🏆</span>

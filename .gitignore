@@ -1,3 +1,4 @@
+CLAUDE.md
 node_modules/
 dist/
 .env
@@ -12,3 +13,5 @@ coverage/
 
 .vercel
 docs/
+
+prompt-to-roadmap

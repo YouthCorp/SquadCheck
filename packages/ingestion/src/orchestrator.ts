@@ -10,6 +10,7 @@ import { RecoverySignalCollector } from "./collectors/recovery-signal.collector"
 import { WebCrawlCollector } from "./collectors/web-crawl.collector";
 import { computePlayerAvailability } from "./aggregators/availability-aggregator";
 import { collectInjuryStatuses } from "./collectors/injury-status.collector";
+import { notifyWatchlistChanges } from "./watchers/watchlist-notifier";
 
 const LEAGUE_LEAGUES = [39, 140, 135, 78, 61]; // EPL, La Liga, Serie A, Bundesliga, Ligue 1
 // prettier-ignore
@@ -341,6 +342,9 @@ export class Orchestrator {
     const syncSeason = syncYears.length > 0 ? Math.max(...syncYears) : 2025;
     await collectInjuryStatuses(this.prisma, syncSeason);
 
+    // Notify watchlist users of any changes detected during this sync cycle
+    await notifyWatchlistChanges(this.prisma, syncSeason);
+
     console.log("\n[Sync] Incremental sync complete");
   }
 
@@ -496,6 +500,9 @@ export class Orchestrator {
     if (rssInserted + crawlInserted > 0) {
       await this.recomputeAvailabilityFromRecentSignals(seasonYear);
     }
+
+    // Notify watchlist users of signal changes
+    await notifyWatchlistChanges(this.prisma, seasonYear);
 
     console.log("[Signals] Recovery signal collection complete");
   }

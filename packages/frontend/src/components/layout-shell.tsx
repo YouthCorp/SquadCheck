@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Sidebar } from './sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { UserAvatar } from './user-avatar';
+import { NotificationBell } from './notification-bell';
 import type { Locale } from '@/lib/i18n';
 
 export function LayoutShell({
@@ -62,7 +64,10 @@ export function LayoutShell({
             />
           </a>
 
-          <div className="w-10 shrink-0" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <NotificationBell />
+            <UserAvatar />
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto bg-background p-6 lg:p-8 min-w-0">

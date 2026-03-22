@@ -3,6 +3,7 @@ import { DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { LayoutShell } from "@/components/layout-shell";
 import { GoogleAnalytics } from "@/components/google-analytics";
+import { AuthProvider } from "@/lib/auth-context";
 import { getLocale } from "@/lib/locale";
 import { cn } from "@/lib/utils";
 
@@ -97,7 +98,9 @@ export default function RootLayout({
     >
       <body>
         <GoogleAnalytics />
-        <LayoutShell locale={locale}>{children}</LayoutShell>
+        <AuthProvider>
+          <LayoutShell locale={locale}>{children}</LayoutShell>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -276,3 +276,57 @@ export interface PredictedLineup {
   starters: PredictedPlayer[];
   unavailable: UnavailablePlayer[];
 }
+
+// ─── Watchlist ────────────────────────────────────────────────────────────────
+
+export interface WatchlistPlayerEntry {
+  id: string;
+  addedAt: string;
+  player: { id: number; name: string; photo: string | null; position: string | null };
+  team: { id: number; name: string; logo: string | null } | null;
+  injuryStatus: {
+    isActive: boolean;
+    reason: string | null;
+    type: string | null;
+    injuredSince: string | null;
+    leagueApiId: number;
+  } | null;
+  latestSignal: {
+    predictedAvailability: number;
+    signalStage: string | null;
+    lastSignalAt: string | null;
+  } | null;
+}
+
+export type WatchlistAlertType =
+  | 'signal_upgrade'
+  | 'signal_downgrade'
+  | 'new_injury'
+  | 'lineup_return';
+
+export const ALERT_ICONS: Record<WatchlistAlertType, string> = {
+  signal_upgrade: '📈',
+  signal_downgrade: '📉',
+  new_injury: '🚨',
+  lineup_return: '✅',
+};
+
+export interface WatchlistAlertEntry {
+  id: string;
+  alertType: WatchlistAlertType;
+  previousStage: string | null;
+  newStage: string | null;
+  confidence: number | null;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+  player: { id: number; name: string; photo: string | null; position: string | null };
+}
+
+export interface WatchlistAlertsResponse {
+  alerts: WatchlistAlertEntry[];
+  unreadCount: number;
+  total: number;
+  page: number;
+  limit: number;
+}

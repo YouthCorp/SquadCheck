@@ -6,6 +6,7 @@ import type { InjuredPlayer, PlayerOutcomeRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { WatchButton } from '@/components/watch-button';
 import { cn } from '@/lib/utils';
 
 interface InjuredPlayerCardProps {
@@ -227,16 +228,19 @@ export function InjuredPlayerCard({
             {outcomeRow}
           </div>
         </div>
-        <div className="shrink-0 sm:ml-4 sm:text-right">
-          <div className="text-xs text-muted-foreground">
-            {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
-          </div>
-          {ip.winRateBoost > 0 && (
-            <div className="inline-flex items-center gap-1 text-[0.6875rem] text-[var(--sc-red)] mt-0.5">
-              {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
-              <InfoTooltip content={t(locale, 'tooltip_win_rate')} />
+        <div className="shrink-0 sm:ml-4 sm:text-right flex items-start gap-2">
+          <div>
+            <div className="text-xs text-muted-foreground">
+              {t(locale, CTX_KEY[ip.injuryContext.type] ?? 'ctx_mid_season_loss')}
             </div>
-          )}
+            {ip.winRateBoost > 0 && (
+              <div className="inline-flex items-center gap-1 text-[0.6875rem] text-[var(--sc-red)] mt-0.5">
+                {t(locale, 'win_rate_positive', { n: ip.winRateBoost })}
+                <InfoTooltip content={t(locale, 'tooltip_win_rate')} />
+              </div>
+            )}
+          </div>
+          <WatchButton playerId={ip.player.id} />
         </div>
       </div>
     );
@@ -258,16 +262,19 @@ export function InjuredPlayerCard({
             {statsRow}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="text-xs text-foreground/80">
-            {tInjury(locale, ip.injury.reason)}
-            {suspensionLeague && <span className="ml-1 text-[0.65rem] text-muted-foreground">({suspensionLeague})</span>}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <div className="text-xs text-foreground/80">
+              {tInjury(locale, ip.injury.reason)}
+              {suspensionLeague && <span className="ml-1 text-[0.65rem] text-muted-foreground">({suspensionLeague})</span>}
+            </div>
+            <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
+              {(disciplinary || ip.starterProfile.lastAppearanceFixtureDate)
+                ? fmtDate(triggerDate)
+                : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
+            </div>
           </div>
-          <div className="text-[0.6875rem] text-muted-foreground mt-0.5">
-            {(disciplinary || ip.starterProfile.lastAppearanceFixtureDate)
-              ? fmtDate(triggerDate)
-              : locale === 'ko' ? '시즌 내내 결장' : 'Out all season'}
-          </div>
+          <WatchButton playerId={ip.player.id} />
         </div>
       </div>
     );
@@ -279,9 +286,10 @@ export function InjuredPlayerCard({
   if (!isTeam && isHigh) {
     return (
       <div className={cardCls}>
-        <div className="flex items-center gap-2.5 mb-1">
+        <div className="flex items-start gap-2.5 mb-1">
           {photo}
-          <div className="min-w-0">{tagsRow}</div>
+          <div className="min-w-0 flex-1">{tagsRow}</div>
+          <WatchButton playerId={ip.player.id} />
         </div>
         {infoLine(true)}
         {statsRow}
@@ -315,6 +323,7 @@ export function InjuredPlayerCard({
         </div>
         {statsRow}
       </div>
+      <WatchButton playerId={ip.player.id} />
     </div>
   );
 }
