@@ -8,7 +8,7 @@
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { ARTICLE_PATH_SEGMENTS } from './epl-club.parser';
+import { ARTICLE_PATH_SEGMENTS } from './club-news.parser';
 
 const HTTP_HEADERS = {
   'User-Agent': 'SquadCheck/1.0 (injury tracking bot)',

@@ -507,121 +507,120 @@ export class Orchestrator {
     console.log("[Signals] Recovery signal collection complete");
   }
 
-  /** Upserts EPL club official news pages as crawl sources (idempotent). */
+  /** Upserts all 5-league club official news pages as crawl sources (idempotent). */
   private async ensureWebCrawlSources(): Promise<void> {
-    const sources = [
-      // Premier League official
-      {
-        name: "PL Official News",
-        url: "https://www.premierleague.com/latest-player-injuries",
-        reliability: 0.9,
-      },
-      // EPL 2025/26 clubs
-      {
-        name: "Arsenal News",
-        url: "https://www.arsenal.com/news",
-        reliability: 0.88,
-      },
-      {
-        name: "Chelsea News",
-        url: "https://www.chelseafc.com/en/news",
-        reliability: 0.88,
-      },
-      {
-        name: "Liverpool News",
-        url: "https://www.liverpoolfc.com/news",
-        reliability: 0.88,
-      },
-      {
-        name: "Man City News",
-        url: "https://www.mancity.com/news",
-        reliability: 0.88,
-      },
-      {
-        name: "Man United News",
-        url: "https://www.manutd.com/en/news",
-        reliability: 0.88,
-      },
-      {
-        name: "Tottenham News",
-        url: "https://www.tottenhamhotspur.com/news/",
-        reliability: 0.88,
-      },
-      {
-        name: "Aston Villa News",
-        url: "https://www.avfc.co.uk/news",
-        reliability: 0.85,
-      },
-      {
-        name: "Brighton News",
-        url: "https://www.brightonandhovealbion.com/news",
-        reliability: 0.85,
-      },
-      {
-        name: "Newcastle News",
-        url: "https://www.nufc.co.uk/news",
-        reliability: 0.85,
-      },
-      {
-        name: "Wolves News",
-        url: "https://www.wolves.co.uk/news",
-        reliability: 0.85,
-      },
-      {
-        name: "Brentford News",
-        url: "https://www.brentfordfc.com/en/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Crystal Palace News",
-        url: "https://www.cpfc.co.uk/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Everton News",
-        url: "https://www.evertonfc.com/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Fulham News",
-        url: "https://www.fulhamfc.com/news",
-        reliability: 0.83,
-      },
-      {
-        name: "West Ham News",
-        url: "https://www.whufc.com/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Bournemouth News",
-        url: "https://www.afcb.co.uk/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Nottm Forest News",
-        url: "https://www.nottinghamforest.co.uk/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Leeds News",
-        url: "https://www.leedsunited.com/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Burnley News",
-        url: "https://www.burnleyfc.com/news",
-        reliability: 0.83,
-      },
-      {
-        name: "Sunderland News",
-        url: "https://www.safc.com/news",
-        reliability: 0.83,
-      },
+    const sources: { name: string; url: string; reliability: number; language: string }[] = [
+      // ── Premier League (English) ──────────────────────────────────
+      { name: "PL Official News",     url: "https://www.premierleague.com/latest-player-injuries", reliability: 0.9,  language: "en" },
+      { name: "Arsenal News",         url: "https://www.arsenal.com/news",                          reliability: 0.88, language: "en" },
+      { name: "Chelsea News",         url: "https://www.chelseafc.com/en/news",                     reliability: 0.88, language: "en" },
+      { name: "Liverpool News",       url: "https://www.liverpoolfc.com/news",                      reliability: 0.88, language: "en" },
+      { name: "Man City News",        url: "https://www.mancity.com/news",                          reliability: 0.88, language: "en" },
+      { name: "Man United News",      url: "https://www.manutd.com/en/news",                        reliability: 0.88, language: "en" },
+      { name: "Tottenham News",       url: "https://www.tottenhamhotspur.com/news/",                reliability: 0.88, language: "en" },
+      { name: "Aston Villa News",     url: "https://www.avfc.co.uk/news",                           reliability: 0.85, language: "en" },
+      { name: "Brighton News",        url: "https://www.brightonandhovealbion.com/news",            reliability: 0.85, language: "en" },
+      { name: "Newcastle News",       url: "https://www.nufc.co.uk/news",                           reliability: 0.85, language: "en" },
+      { name: "Wolves News",          url: "https://www.wolves.co.uk/news",                         reliability: 0.85, language: "en" },
+      { name: "Brentford News",       url: "https://www.brentfordfc.com/en/news",                   reliability: 0.83, language: "en" },
+      { name: "Crystal Palace News",  url: "https://www.cpfc.co.uk/news",                           reliability: 0.83, language: "en" },
+      { name: "Everton News",         url: "https://www.evertonfc.com/news",                        reliability: 0.83, language: "en" },
+      { name: "Fulham News",          url: "https://www.fulhamfc.com/news",                         reliability: 0.83, language: "en" },
+      { name: "West Ham News",        url: "https://www.whufc.com/news",                            reliability: 0.83, language: "en" },
+      { name: "Bournemouth News",     url: "https://www.afcb.co.uk/news",                           reliability: 0.83, language: "en" },
+      { name: "Nottm Forest News",    url: "https://www.nottinghamforest.co.uk/news",               reliability: 0.83, language: "en" },
+      { name: "Leeds News",           url: "https://www.leedsunited.com/news",                      reliability: 0.83, language: "en" },
+      { name: "Burnley News",         url: "https://www.burnleyfc.com/news",                        reliability: 0.83, language: "en" },
+      { name: "Sunderland News",      url: "https://www.safc.com/news",                             reliability: 0.83, language: "en" },
+
+      // ── La Liga (Spanish) ─────────────────────────────────────────
+      { name: "Real Madrid News",     url: "https://www.realmadrid.com/noticias",                   reliability: 0.88, language: "es" },
+      { name: "Barcelona News",       url: "https://www.fcbarcelona.es/es/noticias",                reliability: 0.88, language: "es" },
+      { name: "Atletico Madrid News", url: "https://www.atleticodemadrid.com/noticias",             reliability: 0.88, language: "es" },
+      { name: "Sevilla News",         url: "https://www.sevillafc.es/noticias",                     reliability: 0.85, language: "es" },
+      { name: "Real Betis News",      url: "https://www.realbetisbalompie.es/noticias",             reliability: 0.85, language: "es" },
+      { name: "Valencia News",        url: "https://www.valenciacf.com/es/noticias",                reliability: 0.85, language: "es" },
+      { name: "Athletic Bilbao News", url: "https://www.athletic-club.eus/noticias",                reliability: 0.85, language: "es" },
+      { name: "Real Sociedad News",   url: "https://www.realsociedad.eus/noticias",                 reliability: 0.85, language: "es" },
+      { name: "Villarreal News",      url: "https://www.villarrealcf.es/noticias",                  reliability: 0.83, language: "es" },
+      { name: "Osasuna News",         url: "https://www.osasuna.es/noticias",                       reliability: 0.83, language: "es" },
+      { name: "Celta Vigo News",      url: "https://www.celtavigo.net/noticias",                    reliability: 0.83, language: "es" },
+      { name: "Getafe News",          url: "https://www.getafecf.com/noticias",                     reliability: 0.82, language: "es" },
+      { name: "Rayo Vallecano News",  url: "https://www.rayovallecano.es/noticias",                 reliability: 0.82, language: "es" },
+      { name: "Espanyol News",        url: "https://www.rcdespanyol.com/noticias",                  reliability: 0.82, language: "es" },
+      { name: "Mallorca News",        url: "https://www.rcdmallorca.es/noticias",                   reliability: 0.82, language: "es" },
+      { name: "Alaves News",          url: "https://www.deportivoalaves.com/noticias",              reliability: 0.82, language: "es" },
+      { name: "Valladolid News",      url: "https://www.realvalladolid.es/noticias",                reliability: 0.82, language: "es" },
+      { name: "Las Palmas News",      url: "https://www.udlaspalmas.es/noticias",                   reliability: 0.82, language: "es" },
+      { name: "Leganes News",         url: "https://www.cdleganes.com/noticias",                    reliability: 0.82, language: "es" },
+      { name: "Girona News",          url: "https://www.gironafc.cat/noticias",                     reliability: 0.82, language: "es" },
+
+      // ── Serie A (Italian) ─────────────────────────────────────────
+      { name: "Juventus News",        url: "https://www.juventus.com/it/news",                      reliability: 0.88, language: "it" },
+      { name: "Inter Milan News",     url: "https://www.inter.it/it/news",                          reliability: 0.88, language: "it" },
+      { name: "AC Milan News",        url: "https://www.acmilan.com/it/news",                       reliability: 0.88, language: "it" },
+      { name: "Napoli News",          url: "https://www.sscnapoli.it/news",                         reliability: 0.88, language: "it" },
+      { name: "Roma News",            url: "https://www.asroma.com/it/news",                        reliability: 0.85, language: "it" },
+      { name: "Lazio News",           url: "https://www.sslazio.it/news",                           reliability: 0.85, language: "it" },
+      { name: "Atalanta News",        url: "https://www.atalanta.it/news",                          reliability: 0.85, language: "it" },
+      { name: "Fiorentina News",      url: "https://www.acffiorentina.com/it/news",                 reliability: 0.85, language: "it" },
+      { name: "Bologna News",         url: "https://www.bolognacalcio.it/news",                     reliability: 0.83, language: "it" },
+      { name: "Torino News",          url: "https://www.torinofc.it/news",                          reliability: 0.83, language: "it" },
+      { name: "Udinese News",         url: "https://www.udinese.it/news",                           reliability: 0.83, language: "it" },
+      { name: "Sampdoria News",       url: "https://www.sampdoria.it/news",                         reliability: 0.82, language: "it" },
+      { name: "Sassuolo News",        url: "https://www.sassuolocalcio.it/news",                    reliability: 0.82, language: "it" },
+      { name: "Empoli News",          url: "https://www.empolifc.com/news",                         reliability: 0.82, language: "it" },
+      { name: "Cagliari News",        url: "https://www.cagliaricalcio.com/news",                   reliability: 0.82, language: "it" },
+      { name: "Hellas Verona News",   url: "https://www.hellasverona.it/news",                      reliability: 0.82, language: "it" },
+      { name: "Lecce News",           url: "https://www.uslecce.it/news",                           reliability: 0.82, language: "it" },
+      { name: "Parma News",           url: "https://www.fcparma.com/news",                          reliability: 0.82, language: "it" },
+      { name: "Como News",            url: "https://www.comocalcio.it/news",                        reliability: 0.82, language: "it" },
+      { name: "Venezia News",         url: "https://www.veneziafc.it/news",                         reliability: 0.82, language: "it" },
+
+      // ── Bundesliga (German) ───────────────────────────────────────
+      { name: "Bayern Munich News",   url: "https://fcbayern.com/de/news",                          reliability: 0.88, language: "de" },
+      { name: "Dortmund News",        url: "https://www.bvb.de/news",                               reliability: 0.88, language: "de" },
+      { name: "RB Leipzig News",      url: "https://www.rbleipzig.com/de/news",                     reliability: 0.88, language: "de" },
+      { name: "Leverkusen News",      url: "https://www.bayer04.de/de-de/news",                     reliability: 0.88, language: "de" },
+      { name: "Eintracht Frankfurt",  url: "https://www.eintracht.de/news",                         reliability: 0.85, language: "de" },
+      { name: "Wolfsburg News",       url: "https://www.vfl-wolfsburg.de/news",                     reliability: 0.85, language: "de" },
+      { name: "Gladbach News",        url: "https://www.borussia.de/de/news",                       reliability: 0.85, language: "de" },
+      { name: "Stuttgart News",       url: "https://www.vfb.de/news",                               reliability: 0.85, language: "de" },
+      { name: "Freiburg News",        url: "https://www.scfreiburg.com/news",                       reliability: 0.83, language: "de" },
+      { name: "Union Berlin News",    url: "https://www.fc-union-berlin.de/news",                   reliability: 0.83, language: "de" },
+      { name: "Werder Bremen News",   url: "https://www.werder.de/news",                            reliability: 0.83, language: "de" },
+      { name: "Mainz News",           url: "https://www.mainz05.de/news",                           reliability: 0.83, language: "de" },
+      { name: "Hoffenheim News",      url: "https://www.achtzehn99.de/news",                        reliability: 0.82, language: "de" },
+      { name: "Augsburg News",        url: "https://www.fcaugsburg.de/news",                        reliability: 0.82, language: "de" },
+      { name: "Heidenheim News",      url: "https://www.fc-heidenheim.de/news",                     reliability: 0.82, language: "de" },
+      { name: "St. Pauli News",       url: "https://www.fcstpauli.com/news",                        reliability: 0.82, language: "de" },
+      { name: "Holstein Kiel News",   url: "https://www.holstein-kiel.de/news",                     reliability: 0.82, language: "de" },
+      { name: "Bochum News",          url: "https://www.vfl-bochum.de/news",                        reliability: 0.82, language: "de" },
+
+      // ── Ligue 1 (French) ─────────────────────────────────────────
+      { name: "PSG News",             url: "https://www.psg.fr/fr/actualites",                      reliability: 0.88, language: "fr" },
+      { name: "Marseille News",       url: "https://www.om.fr/actualites",                          reliability: 0.88, language: "fr" },
+      { name: "Lyon News",            url: "https://www.ol.fr/fr/actualites",                       reliability: 0.88, language: "fr" },
+      { name: "Monaco News",          url: "https://www.asmonaco.com/actualites",                   reliability: 0.88, language: "fr" },
+      { name: "Lens News",            url: "https://www.rclens.fr/actualites",                      reliability: 0.85, language: "fr" },
+      { name: "Nice News",            url: "https://www.ogcnice.com/fr/actualites",                 reliability: 0.85, language: "fr" },
+      { name: "Lille News",           url: "https://www.losc.fr/actualites",                        reliability: 0.85, language: "fr" },
+      { name: "Rennes News",          url: "https://www.staderennais.com/actualites",               reliability: 0.85, language: "fr" },
+      { name: "Montpellier News",     url: "https://www.mhscfoot.com/actualites",                   reliability: 0.83, language: "fr" },
+      { name: "Reims News",           url: "https://www.stade-de-reims.com/actualites",             reliability: 0.83, language: "fr" },
+      { name: "Nantes News",          url: "https://www.fcnantes.com/actualites",                   reliability: 0.83, language: "fr" },
+      { name: "Brest News",           url: "https://www.stade-brestois.com/actualites",             reliability: 0.83, language: "fr" },
+      { name: "Toulouse News",        url: "https://www.tfc.info/actualites",                       reliability: 0.82, language: "fr" },
+      { name: "Strasbourg News",      url: "https://www.rcstrasbourg.eu/actualites",                reliability: 0.82, language: "fr" },
+      { name: "Le Havre News",        url: "https://www.havre-ac.fr/actualites",                    reliability: 0.82, language: "fr" },
+      { name: "Lorient News",         url: "https://www.fclorientsudbreatgne.fr/actualites",        reliability: 0.82, language: "fr" },
+      { name: "Metz News",            url: "https://www.fcmetz.com/actualites",                     reliability: 0.82, language: "fr" },
+      { name: "Clermont News",        url: "https://www.clermontfoot.co.fr/actualites",             reliability: 0.82, language: "fr" },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({
         where: { url: s.url },
-        create: { ...s, language: "en", sourceType: "crawl", active: true },
+        create: { name: s.name, url: s.url, reliability: s.reliability, language: s.language, sourceType: "crawl", active: true },
         update: { reliability: s.reliability },
       });
     }

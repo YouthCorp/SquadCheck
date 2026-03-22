@@ -1,5 +1,5 @@
 /**
- * EPL club news page parser.
+ * Club news page parser (generic — all leagues).
  *
  * Extracts article links and content from club official news pages using cheerio.
  * Uses a generic heuristic approach since each club's site has a different HTML structure:

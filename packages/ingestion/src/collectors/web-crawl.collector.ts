@@ -19,7 +19,7 @@
 import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { fetchPageHtml } from '../crawlers/lightpanda.client';
-import { extractArticleLinks, extractArticleContent } from '../crawlers/epl-club.parser';
+import { extractArticleLinks, extractArticleContent } from '../crawlers/club-news.parser';
 import { discoverArticleUrls } from '../crawlers/sitemap-parser';
 import { buildInjuredPlayerIndex, matchAllEntities } from '../nlp/entity-matcher';
 import { classifyByKeyword, needsClaudeClassification } from '../nlp/keyword-patterns';

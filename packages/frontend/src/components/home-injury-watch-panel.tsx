@@ -54,11 +54,22 @@ export function HomeInjuryWatchPanel({ injuryMap, locale }: HomeInjuryWatchPanel
           {t(locale, 'no_injuries')}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {impacts.slice(0, 4).map((impact) => (
-            <HomeInjuryCard key={impact.team.id} impact={impact} locale={locale} leagueId={activeLeague} />
-          ))}
-        </div>
+        <>
+          {/* Mobile: horizontal snap scroll carousel */}
+          <div className="flex sm:hidden gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {impacts.slice(0, 4).map((impact) => (
+              <div key={impact.team.id} className="snap-start shrink-0 w-[80vw] max-w-xs">
+                <HomeInjuryCard impact={impact} locale={locale} leagueId={activeLeague} />
+              </div>
+            ))}
+          </div>
+          {/* sm+: grid layout */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {impacts.slice(0, 4).map((impact) => (
+              <HomeInjuryCard key={impact.team.id} impact={impact} locale={locale} leagueId={activeLeague} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
