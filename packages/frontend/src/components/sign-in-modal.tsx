@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { signIn } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +15,7 @@ export function SignInModal({ open, onClose }: SignInModalProps) {
   const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState<'google' | 'email' | null>(null);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   async function handleGoogle() {
     setLoading('google');
@@ -30,7 +31,7 @@ export function SignInModal({ open, onClose }: SignInModalProps) {
     setLoading(null);
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -122,6 +123,7 @@ export function SignInModal({ open, onClose }: SignInModalProps) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
