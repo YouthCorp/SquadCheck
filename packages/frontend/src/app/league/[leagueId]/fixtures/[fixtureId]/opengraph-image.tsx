@@ -13,8 +13,8 @@ interface FixtureDetail {
   date: string;
   status: string;
   round: string | null;
-  homeTeam: { id: number; name: string };
-  awayTeam: { id: number; name: string };
+  homeTeam: { id: number; name: string; logo: string | null };
+  awayTeam: { id: number; name: string; logo: string | null };
 }
 
 interface InjuryImpact {
@@ -142,6 +142,14 @@ export default async function Image({
             alignItems: "flex-start",
           }}
         >
+          {fixture?.homeTeam.logo && (
+            <img
+              src={fixture.homeTeam.logo}
+              width={64}
+              height={64}
+              style={{ objectFit: "contain", marginBottom: 16 }}
+            />
+          )}
           <div
             style={{
               fontSize: 52,
@@ -221,6 +229,14 @@ export default async function Image({
             alignItems: "flex-end",
           }}
         >
+          {fixture?.awayTeam.logo && (
+            <img
+              src={fixture.awayTeam.logo}
+              width={64}
+              height={64}
+              style={{ objectFit: "contain", marginBottom: 16 }}
+            />
+          )}
           <div
             style={{
               fontSize: 52,

@@ -95,15 +95,31 @@ export default async function Image({ params }: { params: { teamId: string } }) 
           {/* Team name */}
           <div
             style={{
-              fontSize: 60,
-              fontWeight: 300,
-              color: '#f4f4f4',
-              marginBottom: 32,
-              letterSpacing: '-0.02em',
               display: 'flex',
+              alignItems: 'center',
+              gap: 24,
+              marginBottom: 32,
             }}
           >
-            {teamName}
+            {impact?.team.logo && (
+              <img
+                src={impact.team.logo}
+                width={72}
+                height={72}
+                style={{ objectFit: 'contain' }}
+              />
+            )}
+            <div
+              style={{
+                fontSize: 60,
+                fontWeight: 300,
+                color: '#f4f4f4',
+                letterSpacing: '-0.02em',
+                display: 'flex',
+              }}
+            >
+              {teamName}
+            </div>
           </div>
 
           {/* Stats row */}
