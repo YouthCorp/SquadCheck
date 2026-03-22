@@ -6,6 +6,7 @@ import { GoogleAnalytics } from "@/components/google-analytics";
 import { AuthProvider } from "@/lib/auth-context";
 import { getLocale } from "@/lib/locale";
 import { cn } from "@/lib/utils";
+import { Toaster } from "sonner";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -101,6 +102,17 @@ export default function RootLayout({
         <AuthProvider>
           <LayoutShell locale={locale}>{children}</LayoutShell>
         </AuthProvider>
+        <Toaster
+          position="bottom-center"
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: "#262626",
+              border: "1px solid #393939",
+              color: "#f4f4f4",
+            },
+          }}
+        />
       </body>
     </html>
   );

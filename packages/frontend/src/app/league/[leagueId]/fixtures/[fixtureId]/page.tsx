@@ -45,11 +45,11 @@ import { formatRoundLabel, parseRoundNumber } from "@/lib/format";
 import { ClientMatchDateTime } from "@/components/client-date";
 import { InjuredPlayerCard } from "@/components/injured-player-card";
 import { OutcomeImpactCard } from "@/components/outcome-impact-card";
-import { PitchLineup } from "@/components/pitch-lineup";
 import { SectionHeader } from "@/components/section-header";
 import { PowerLossGauge } from "@/components/power-loss-gauge";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/team-logo";
+import { PredictedLineupColumn } from "@/components/predicted-lineup-column";
 
 const COMPLETED_STATUSES = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
 
@@ -168,53 +168,6 @@ function InjuryColumn({
 }
 
 // ── UPCOMING: Predicted lineup column ────────────────────────────────────────
-
-function PredictedLineupColumn({
-  lineup,
-  locale,
-}: {
-  lineup: PredictedLineup | null;
-  locale: Locale;
-}) {
-  if (!lineup) {
-    return (
-      <div className="bg-card border border-border rounded-lg px-4 py-8 text-center text-sm text-muted-foreground">
-        {t(locale, "lineup_no_data")}
-      </div>
-    );
-  }
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
-        {lineup.teamLogo && (
-          <img
-            src={lineup.teamLogo}
-            alt=""
-            className="w-7 h-7 object-contain shrink-0"
-          />
-        )}
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-foreground">
-            {lineup.teamName}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[0.6875rem] text-muted-foreground">
-              {t(locale, "lineup_formation")}: {lineup.formation}
-            </span>
-            {lineup.formationSource === "default" && (
-              <span className="text-[0.625rem] text-muted-foreground/60">
-                ({t(locale, "lineup_default_formation")})
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="p-2">
-        <PitchLineup lineup={lineup} />
-      </div>
-    </div>
-  );
-}
 
 // ── RESULT: Match events ──────────────────────────────────────────────────────
 
@@ -981,11 +934,19 @@ export default async function FixtureDetailPage({
       {/* ── UPCOMING: Injury + Predicted lineup view ───────────────────────── */}
       {!isCompleted && (
         <>
-          <div className="mb-6">
+          <div className="mb-4">
             <SectionHeader label={t(locale, "injury_comparison")} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InjuryColumn impact={homeImpact} locale={locale} />
               <InjuryColumn impact={awayImpact} locale={locale} />
+            </div>
+            <div className="flex justify-center mt-4">
+              <Link
+                href={`/matchup?home=${fixture.homeTeam.id}&away=${fixture.awayTeam.id}&season=${CURRENT_SEASON}`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-accent/50 transition-colors"
+              >
+                View Full Matchup Analysis →
+              </Link>
             </div>
           </div>
 
