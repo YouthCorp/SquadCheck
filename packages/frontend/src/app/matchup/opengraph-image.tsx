@@ -35,7 +35,7 @@ export default function Image() {
           padding: "48px 44px",
         }}
       >
-        <img src={BRAND_LOGO} width={200} style={{ objectFit: "contain" }} />
+        <img src={BRAND_LOGO} width={280} style={{ objectFit: "contain" }} />
         <div style={{ height: 32, display: "flex" }} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <div style={{ fontSize: 16, fontWeight: 500, color: "#8d96b5", display: "flex" }}>
