@@ -101,40 +101,26 @@ export default async function Image({
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          background: "#060810",
+          alignItems: "center",
           padding: "48px 44px",
-          boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
         }}
       >
-        <img src={BRAND_LOGO} width={160} style={{ objectFit: "contain" }} />
-        <div style={{ height: 28, display: "flex" }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <div style={{ fontSize: 15, color: "#353a55", display: "flex" }}>
+        <img src={BRAND_LOGO} width={200} style={{ objectFit: "contain" }} />
+        <div style={{ height: 32, display: "flex" }} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 16, fontWeight: 500, color: "#8d96b5", display: "flex" }}>
             {leagueName}
           </div>
           {matchDate && (
-            <div style={{ fontSize: 14, color: "#22263a", display: "flex" }}>
+            <div style={{ fontSize: 14, color: "#5a6380", display: "flex" }}>
               {matchDate}
             </div>
           )}
-          <div style={{ fontSize: 13, color: "#22263a", display: "flex" }}>
+          <div style={{ fontSize: 14, color: "#5a6380", display: "flex" }}>
             squadcheck.xyz
           </div>
         </div>
       </div>
-
-      {/* Gradient separator */}
-      <div
-        style={{
-          position: "absolute",
-          left: 380,
-          top: 0,
-          width: 52,
-          height: 630,
-          background:
-            "linear-gradient(90deg, rgba(6,8,16,0.95) 0%, transparent 100%)",
-        }}
-      />
 
       {/* Right content — vertical split home/away */}
       <div

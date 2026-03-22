@@ -110,33 +110,32 @@ export default async function Image({
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
+          alignItems: "center",
           padding: "28px 20px 32px",
-          background: "#060810",
-          boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
         }}
       >
         {/* Brand logo — small, top */}
-        <img src={BRAND_LOGO} width={88} style={{ objectFit: "contain" }} />
+        <img src={BRAND_LOGO} width={100} style={{ objectFit: "contain" }} />
 
         {/* Team info — center */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <div
             style={{
               fontSize: 15,
-              fontWeight: 300,
-              color: "#d0d0e0",
+              fontWeight: 500,
+              color: "#e0e4f0",
               display: "flex",
             }}
           >
             {shortName}
           </div>
-          <div style={{ fontSize: 13, color: "#4a5570", display: "flex" }}>
+          <div style={{ fontSize: 13, color: "#7a8aaa", display: "flex" }}>
             {formation}
           </div>
           <div style={{ height: 12, display: "flex" }} />
           <div
             style={{
-              fontSize: 26,
+              fontSize: 28,
               fontWeight: 300,
               color: powerColor(powerLoss),
               lineHeight: 1,
@@ -145,7 +144,7 @@ export default async function Image({
           >
             {powerLoss.toFixed(1)}%
           </div>
-          <div style={{ fontSize: 11, color: "#252a40", display: "flex" }}>
+          <div style={{ fontSize: 12, color: "#5a6380", display: "flex" }}>
             power loss
           </div>
         </div>
@@ -162,19 +161,6 @@ export default async function Image({
           <div style={{ width: 110, height: 110, display: "flex" }} />
         )}
       </div>
-
-      {/* ── Gradient separator after left strip ── */}
-      <div
-        style={{
-          position: "absolute",
-          left: 200,
-          top: 0,
-          width: 48,
-          height: 630,
-          background:
-            "linear-gradient(90deg, rgba(6,8,16,0.95) 0%, transparent 100%)",
-        }}
-      />
 
       {/* ── Portrait pitch card (floating) ── */}
       <div
