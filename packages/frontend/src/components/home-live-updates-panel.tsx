@@ -5,6 +5,7 @@ import type { LiveUpdatesData, RecentInjuryEntry, RecentSignalEntry } from "@/li
 import { TeamLogo } from "@/components/team-logo";
 import { Badge } from "@/components/ui/badge";
 import { ScrollHint } from "@/components/ui/scroll-hint";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Props {
   data: LiveUpdatesData;
@@ -196,8 +197,8 @@ function SignalRow({ entry, locale }: { entry: RecentSignalEntry; locale: Locale
 }
 
 export function HomeLiveUpdatesPanel({ data, locale }: Props) {
-  const recentInjuries = data.recentInjuries.slice(0, 10);
-  const recentSignals = data.recentSignals.slice(0, 10);
+  const recentInjuries = data.recentInjuries.slice(0, 20);
+  const recentSignals = data.recentSignals.slice(0, 20);
 
   return (
     <div className="mt-8">
@@ -239,6 +240,7 @@ export function HomeLiveUpdatesPanel({ data, locale }: Props) {
             <span className="text-sm font-semibold text-foreground">
               {t(locale, "recovery_signals")}
             </span>
+            <InfoTooltip content={t(locale, "tooltip_recovery_signal")} />
           </div>
           <ScrollHint maxHeight="480px" className="divide-y divide-border/50">
             {recentSignals.length === 0 ? (

@@ -229,6 +229,13 @@ const translations = {
       "Conference League: 6th place qualifies for UEFA's third-tier European competition.",
     tooltip_relegation_zone:
       "Relegation: Bottom 3 teams are relegated to the division below.",
+    tooltip_cl_qual_zone:
+      "Champions League Qualifying: This place earns a path into the Champions League qualifying rounds.",
+    zone_label_cl: "Champions League",
+    zone_label_cl_qual: "CL Qualifying",
+    zone_label_uel: "Europa League",
+    zone_label_uecl: "Conference League",
+    zone_label_relegation: "Relegation",
   },
   ko: {
     // nav
@@ -453,6 +460,13 @@ const translations = {
     tooltip_uecl_zone:
       "컨퍼런스리그: 6위 팀이 UEFA 3부 유럽 대회에 출전합니다.",
     tooltip_relegation_zone: "강등: 하위 3팀이 하부 리그로 강등됩니다.",
+    tooltip_cl_qual_zone:
+      "챔피언스리그 예선: 이 순위는 챔피언스리그 예선 진출권을 획득합니다.",
+    zone_label_cl: "챔피언스리그",
+    zone_label_cl_qual: "챔피언스리그 예선",
+    zone_label_uel: "유로파리그",
+    zone_label_uecl: "컨퍼런스리그",
+    zone_label_relegation: "강등",
   },
 } as const;
 

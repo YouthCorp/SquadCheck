@@ -38,14 +38,57 @@ interface StandingEntry {
 }
 interface Standing { id: number; entries: StandingEntry[]; }
 
-/** EPL zone rows: top 4 = CL, 5 = UEL, 6 = UECL, bottom 3 = relegation */
-function getZone(rank: number, total: number): 'cl' | 'uel' | 'uecl' | 'relegation' | null {
-  if (rank <= 4) return 'cl';
-  if (rank === 5) return 'uel';
-  if (rank === 6) return 'uecl';
-  if (rank > total - 3) return 'relegation';
-  return null;
+type ZoneType = 'cl' | 'cl_qual' | 'uel' | 'uecl' | 'relegation';
+
+function getZone(rank: number, total: number, leagueId: number): ZoneType | null {
+  switch (leagueId) {
+    case 39: // EPL (20 teams): 1-4 CL, 5 UEL, 18-20 relegated
+      if (rank <= 4) return 'cl';
+      if (rank === 5) return 'uel';
+      if (rank > total - 3) return 'relegation';
+      return null;
+    case 140: // La Liga (20 teams): 1-4 CL, 5 UEL, 6 UECL, 18-20 relegated
+    case 135: // Serie A (20 teams): same
+      if (rank <= 4) return 'cl';
+      if (rank === 5) return 'uel';
+      if (rank === 6) return 'uecl';
+      if (rank > total - 3) return 'relegation';
+      return null;
+    case 78: // Bundesliga (18 teams): 1-4 CL, 5 UEL, 6 UECL, 17-18 relegated
+      if (rank <= 4) return 'cl';
+      if (rank === 5) return 'uel';
+      if (rank === 6) return 'uecl';
+      if (rank > total - 2) return 'relegation';
+      return null;
+    case 61: // Ligue 1 (18 teams): 1-3 CL, 4 CL qual, 5 UEL, 6 UECL, 17-18 relegated
+      if (rank <= 3) return 'cl';
+      if (rank === 4) return 'cl_qual';
+      if (rank === 5) return 'uel';
+      if (rank === 6) return 'uecl';
+      if (rank > total - 2) return 'relegation';
+      return null;
+    default:
+      if (rank <= 4) return 'cl';
+      if (rank === 5) return 'uel';
+      if (rank > total - 3) return 'relegation';
+      return null;
+  }
 }
+
+const ZONE_BAR_COLOR: Record<ZoneType, string> = {
+  cl:         'bg-[var(--sc-blue)]',
+  cl_qual:    'bg-[var(--sc-blue)]',
+  uel:        'bg-[var(--sc-orange)]',
+  uecl:       'bg-[var(--sc-green)]',
+  relegation: 'bg-[var(--sc-red)]',
+};
+const ZONE_TEXT_COLOR: Record<ZoneType, string> = {
+  cl:         'text-[var(--sc-blue)]',
+  cl_qual:    'text-[var(--sc-blue)]',
+  uel:        'text-[var(--sc-orange)]',
+  uecl:       'text-[var(--sc-green)]',
+  relegation: 'text-[var(--sc-red)]',
+};
 
 export default async function LeaguePage({ params }: { params: { leagueId: string } }) {
   const leagueId = parseInt(params.leagueId);
@@ -118,7 +161,7 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
             </TableHeader>
             <TableBody>
               {standing.entries.map((entry, idx) => {
-                const zone = getZone(entry.rank, total);
+                const zone = getZone(entry.rank, total, leagueId);
                 return (
                   <TableRow
                     key={entry.team.id}
@@ -129,30 +172,17 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
                   >
                     <TableCell className={cn(
                       'px-3 py-2.5 text-center font-mono font-semibold text-[0.8125rem] relative',
-                      zone === 'cl' ? 'text-[var(--sc-blue)]' :
-                      zone === 'uel' ? 'text-[var(--sc-orange)]' :
-                      zone === 'uecl' ? 'text-[var(--sc-green)]' :
-                      zone === 'relegation' ? 'text-[var(--sc-red)]' :
-                      'text-muted-foreground'
+                      zone ? ZONE_TEXT_COLOR[zone] : 'text-muted-foreground'
                     )}>
                       {zone && (
                         <span
                           className={cn(
                             'absolute left-0 top-0 bottom-0 w-0.5',
-                            zone === 'cl' ? 'bg-[var(--sc-blue)]' :
-                            zone === 'uel' ? 'bg-[var(--sc-orange)]' :
-                            zone === 'uecl' ? 'bg-[var(--sc-green)]' :
-                            'bg-[var(--sc-red)]'
+                            ZONE_BAR_COLOR[zone]
                           )}
                         />
                       )}
                       {entry.rank}
-                      {zone && (
-                        <InfoTooltip
-                          content={t(locale, zone === 'cl' ? 'tooltip_cl_zone' : zone === 'uel' ? 'tooltip_uel_zone' : zone === 'uecl' ? 'tooltip_uecl_zone' : 'tooltip_relegation_zone')}
-                          side="right"
-                        />
-                      )}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <Link
@@ -201,6 +231,64 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
               })}
             </TableBody>
           </Table>
+          {/* Zone legend */}
+          {(() => {
+            type LegendItem = { zone: ZoneType; label: string; range: string };
+            const items: LegendItem[] = [];
+            if (leagueId === 39) {
+              items.push(
+                { zone: 'cl',         label: t(locale, 'zone_label_cl'),         range: '1–4' },
+                { zone: 'uel',        label: t(locale, 'zone_label_uel'),        range: '5' },
+                { zone: 'relegation', label: t(locale, 'zone_label_relegation'), range: `${total - 2}–${total}` },
+              );
+            } else if (leagueId === 140 || leagueId === 135) {
+              items.push(
+                { zone: 'cl',         label: t(locale, 'zone_label_cl'),         range: '1–4' },
+                { zone: 'uel',        label: t(locale, 'zone_label_uel'),        range: '5' },
+                { zone: 'uecl',       label: t(locale, 'zone_label_uecl'),       range: '6' },
+                { zone: 'relegation', label: t(locale, 'zone_label_relegation'), range: `${total - 2}–${total}` },
+              );
+            } else if (leagueId === 78) {
+              items.push(
+                { zone: 'cl',         label: t(locale, 'zone_label_cl'),         range: '1–4' },
+                { zone: 'uel',        label: t(locale, 'zone_label_uel'),        range: '5' },
+                { zone: 'uecl',       label: t(locale, 'zone_label_uecl'),       range: '6' },
+                { zone: 'relegation', label: t(locale, 'zone_label_relegation'), range: `${total - 1}–${total}` },
+              );
+            } else if (leagueId === 61) {
+              items.push(
+                { zone: 'cl',         label: t(locale, 'zone_label_cl'),         range: '1–3' },
+                { zone: 'cl_qual',    label: t(locale, 'zone_label_cl_qual'),    range: '4' },
+                { zone: 'uel',        label: t(locale, 'zone_label_uel'),        range: '5' },
+                { zone: 'uecl',       label: t(locale, 'zone_label_uecl'),       range: '6' },
+                { zone: 'relegation', label: t(locale, 'zone_label_relegation'), range: `${total - 1}–${total}` },
+              );
+            } else if (total > 0) {
+              items.push(
+                { zone: 'cl',         label: t(locale, 'zone_label_cl'),         range: '1–4' },
+                { zone: 'relegation', label: t(locale, 'zone_label_relegation'), range: `${total - 2}–${total}` },
+              );
+            }
+            if (items.length === 0) return null;
+            const BAR_COLOR: Record<ZoneType, string> = {
+              cl:         'bg-[var(--sc-blue)]',
+              cl_qual:    'bg-[var(--sc-blue)]',
+              uel:        'bg-[var(--sc-orange)]',
+              uecl:       'bg-[var(--sc-green)]',
+              relegation: 'bg-[var(--sc-red)]',
+            };
+            return (
+              <div className="flex flex-wrap gap-x-5 gap-y-1.5 px-4 py-3 border-t border-border">
+                {items.map((item) => (
+                  <div key={item.zone} className="flex items-center gap-1.5">
+                    <span className={cn('inline-block w-1 h-3.5 rounded-[2px] flex-shrink-0', BAR_COLOR[item.zone])} />
+                    <span className="text-[0.6875rem] text-muted-foreground tabular-nums">{item.range}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </Card>
       ) : (
         <Card className="p-8 text-center text-sm text-muted-foreground items-center justify-center">
