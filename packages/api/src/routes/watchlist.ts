@@ -216,6 +216,23 @@ router.patch('/alerts/:id/read', async (req: Request, res: Response, next: NextF
   }
 });
 
+// ─── PATCH /api/watchlist/alerts/read-all ────────────────────────────────────
+// Mark all unread alerts as read
+router.patch('/alerts/read-all', async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.userId!;
+  const prisma = getPrisma(req);
+
+  try {
+    const { count } = await prisma.watchlistAlert.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    res.json({ count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── POST /api/watchlist/push-subscription ───────────────────────────────────
 // Save VAPID push subscription
 router.post('/push-subscription', async (req: Request, res: Response, next: NextFunction) => {

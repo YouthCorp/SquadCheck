@@ -46,6 +46,16 @@ export function NotificationBell({ align = 'right', direction = 'down' }: { alig
 
   if (!session) return null;
 
+  async function markAllRead() {
+    try {
+      await fetchApiAuth('/api/watchlist/alerts/read-all', { method: 'PATCH' });
+      setAlerts((prev) => prev.map((a) => ({ ...a, readAt: a.readAt ?? new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch {
+      // silent
+    }
+  }
+
   async function markRead(id: string) {
     try {
       await fetchApiAuth(`/api/watchlist/alerts/${id}/read`, { method: 'PATCH' });
@@ -78,13 +88,23 @@ export function NotificationBell({ align = 'right', direction = 'down' }: { alig
         <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} ${direction === 'up' ? 'bottom-9' : 'top-9'} w-72 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[200]`}>
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold text-foreground">Notifications</span>
-            <Link
-              href="/watchlist"
-              onClick={() => setOpen(false)}
-              className="text-[0.6875rem] text-primary hover:text-primary/70 no-underline"
-            >
-              See all
-            </Link>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="text-[0.6875rem] text-muted-foreground hover:text-foreground transition-colors bg-transparent border-0 cursor-pointer p-0"
+                >
+                  Mark all read
+                </button>
+              )}
+              <Link
+                href="/watchlist"
+                onClick={() => setOpen(false)}
+                className="text-[0.6875rem] text-primary hover:text-primary/70 no-underline"
+              >
+                See all
+              </Link>
+            </div>
           </div>
 
           {alerts.length === 0 ? (
