@@ -9,12 +9,28 @@ export const contentType = "image/png";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const BRAND_LOGO = `${SITE_URL}/logo_with_text.png`;
 
-// Full-bleed landscape pitch: 1200×630
-// Coordinate mapping (portrait→landscape, 90° clockwise):
-//   landscape_x = pitchY (GK at left, FWD at right)
-//   landscape_y = pitchX (left touchline at top, right at bottom)
-const PW = 1200;
-const PH = 630;
+// Portrait pitch card dimensions & position on canvas
+const PW = 380; // pitch card width
+const PH = 560; // pitch card height
+const PLX = 510; // pitch card left  = 200(strip) + (1000-380)/2
+const PLY = 35; // pitch card top   = (630-560)/2
+
+// Field insets inside the pitch card
+const PFX = 16;
+const PFY = 20;
+const FW = PW - 2 * PFX; // 348
+const FH = PH - 2 * PFY; // 520
+
+// Canvas-relative center of pitch
+const CMX = PLX + PW / 2; // 700
+const CMY = PLY + PH / 2; // 315
+
+const CIRCLE_D = 80;
+
+// Penalty box (portrait)
+const PEN_W = Math.round(FW * 0.56); // ~195
+const PEN_H = Math.round(FH * 0.14); // ~73
+const PEN_LX = PLX + PFX + Math.round((FW - PEN_W) / 2); // canvas x of pen box left
 
 interface PredictedLineup {
   teamId: number;
@@ -70,20 +86,9 @@ export default async function Image({
 
   const teamName =
     lineup?.teamName ?? impact?.team.name ?? `Team ${params.teamId}`;
+  const shortName = teamName.length > 13 ? teamName.slice(0, 12) + "…" : teamName;
   const formation = lineup?.formation ?? "—";
   const powerLoss = impact?.powerLossPct ?? 0;
-
-  // Landscape field marking constants (px)
-  const INSET_X = 24;
-  const INSET_Y = 13;
-  const FIELD_W = PW - INSET_X * 2; // 1152
-  const FIELD_H = PH - INSET_Y * 2; // 604
-  const MID_X = PW / 2; // 600
-  const MID_Y = PH / 2; // 315
-  const CIRCLE_D = 140;
-  const PEN_DEPTH = Math.round(FIELD_W * 0.14); // ~161
-  const PEN_HEIGHT = Math.round(FIELD_H * 0.56); // ~338
-  const PEN_TOP = Math.round((PH - PEN_HEIGHT) / 2); // ~146
 
   return new ImageResponse(
     <div
@@ -93,33 +98,123 @@ export default async function Image({
         display: "flex",
         position: "relative",
         background:
-          "linear-gradient(90deg, #1e5a22 0%, #2d6b30 25%, #1e5a22 50%, #2d6b30 75%, #1e5a22 100%)",
+          "linear-gradient(135deg, #090c13 0%, #0e1325 50%, #0b0e1b 100%)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* === Field markings === */}
+      {/* ── Left info strip (200px) ── */}
+      <div
+        style={{
+          width: 200,
+          height: 630,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "28px 20px 32px",
+          background: "#060810",
+          boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
+        }}
+      >
+        {/* Brand logo — small, top */}
+        <img src={BRAND_LOGO} width={88} style={{ objectFit: "contain" }} />
+
+        {/* Team info — center */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 300,
+              color: "#d0d0e0",
+              display: "flex",
+            }}
+          >
+            {shortName}
+          </div>
+          <div style={{ fontSize: 13, color: "#4a5570", display: "flex" }}>
+            {formation}
+          </div>
+          <div style={{ height: 12, display: "flex" }} />
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 300,
+              color: powerColor(powerLoss),
+              lineHeight: 1,
+              display: "flex",
+            }}
+          >
+            {powerLoss.toFixed(1)}%
+          </div>
+          <div style={{ fontSize: 11, color: "#252a40", display: "flex" }}>
+            power loss
+          </div>
+        </div>
+
+        {/* Team logo — large, bottom */}
+        {lineup?.teamLogo ? (
+          <img
+            src={lineup.teamLogo}
+            width={110}
+            height={110}
+            style={{ objectFit: "contain" }}
+          />
+        ) : (
+          <div style={{ width: 110, height: 110, display: "flex" }} />
+        )}
+      </div>
+
+      {/* ── Gradient separator after left strip ── */}
+      <div
+        style={{
+          position: "absolute",
+          left: 200,
+          top: 0,
+          width: 48,
+          height: 630,
+          background:
+            "linear-gradient(90deg, rgba(6,8,16,0.95) 0%, transparent 100%)",
+        }}
+      />
+
+      {/* ── Portrait pitch card (floating) ── */}
+      <div
+        style={{
+          position: "absolute",
+          left: PLX,
+          top: PLY,
+          width: PW,
+          height: PH,
+          background:
+            "linear-gradient(180deg, #1a5c1e 0%, #236626 40%, #1a5c1e 60%, #1e6322 100%)",
+          borderRadius: 10,
+          boxShadow:
+            "0 12px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
+        }}
+      />
+
+      {/* ── Field markings (absolute, canvas-relative) ── */}
 
       {/* Pitch outline */}
       <div
         style={{
           position: "absolute",
-          left: INSET_X,
-          top: INSET_Y,
-          width: FIELD_W,
-          height: FIELD_H,
-          border: "1px solid rgba(255,255,255,0.2)",
+          left: PLX + PFX,
+          top: PLY + PFY,
+          width: FW,
+          height: FH,
+          border: "1px solid rgba(255,255,255,0.18)",
         }}
       />
 
-      {/* Halfway line (vertical) */}
+      {/* Halfway line (horizontal) */}
       <div
         style={{
           position: "absolute",
-          left: MID_X,
-          top: INSET_Y,
-          width: 1,
-          height: FIELD_H,
-          background: "rgba(255,255,255,0.2)",
+          left: PLX + PFX,
+          top: CMY,
+          width: FW,
+          height: 1,
+          background: "rgba(255,255,255,0.18)",
         }}
       />
 
@@ -127,12 +222,12 @@ export default async function Image({
       <div
         style={{
           position: "absolute",
-          left: MID_X - CIRCLE_D / 2,
-          top: MID_Y - CIRCLE_D / 2,
+          left: CMX - CIRCLE_D / 2,
+          top: CMY - CIRCLE_D / 2,
           width: CIRCLE_D,
           height: CIRCLE_D,
           borderRadius: "50%",
-          border: "1px solid rgba(255,255,255,0.2)",
+          border: "1px solid rgba(255,255,255,0.18)",
         }}
       />
 
@@ -140,74 +235,77 @@ export default async function Image({
       <div
         style={{
           position: "absolute",
-          left: MID_X - 4,
-          top: MID_Y - 4,
-          width: 8,
-          height: 8,
+          left: CMX - 3,
+          top: CMY - 3,
+          width: 6,
+          height: 6,
           borderRadius: "50%",
           background: "rgba(255,255,255,0.3)",
         }}
       />
 
-      {/* Left penalty box (GK side) */}
+      {/* Top penalty box (attacking side — FWD at top when GK at bottom) */}
       <div
         style={{
           position: "absolute",
-          left: INSET_X,
-          top: PEN_TOP,
-          width: PEN_DEPTH,
-          height: PEN_HEIGHT,
-          borderTop: "1px solid rgba(255,255,255,0.2)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          borderRight: "1px solid rgba(255,255,255,0.2)",
+          left: PEN_LX,
+          top: PLY + PFY,
+          width: PEN_W,
+          height: PEN_H,
+          borderLeft: "1px solid rgba(255,255,255,0.18)",
+          borderRight: "1px solid rgba(255,255,255,0.18)",
+          borderBottom: "1px solid rgba(255,255,255,0.18)",
         }}
       />
 
-      {/* Right penalty box */}
+      {/* Bottom penalty box (GK side) */}
       <div
         style={{
           position: "absolute",
-          left: PW - INSET_X - PEN_DEPTH,
-          top: PEN_TOP,
-          width: PEN_DEPTH,
-          height: PEN_HEIGHT,
-          borderTop: "1px solid rgba(255,255,255,0.2)",
-          borderBottom: "1px solid rgba(255,255,255,0.2)",
-          borderLeft: "1px solid rgba(255,255,255,0.2)",
+          left: PEN_LX,
+          top: PLY + PFY + FH - PEN_H,
+          width: PEN_W,
+          height: PEN_H,
+          borderLeft: "1px solid rgba(255,255,255,0.18)",
+          borderRight: "1px solid rgba(255,255,255,0.18)",
+          borderTop: "1px solid rgba(255,255,255,0.18)",
         }}
       />
 
-      {/* === Player dots === */}
+      {/* ── Player dots ── */}
       {lineup?.starters.map((p, i) => {
         const col = POS_COLORS[p.positionGroup] ?? "#8d8d8d";
         const lastName = p.playerName.split(" ").pop() ?? p.playerName;
         const label =
-          lastName.length > 10 ? lastName.slice(0, 9) + "…" : lastName;
+          lastName.length > 9 ? lastName.slice(0, 8) + "…" : lastName;
 
-        // Landscape mapping: x=pitchY, y=pitchX
-        const px = Math.round((p.pitchY / 100) * PW);
-        const py = Math.round((p.pitchX / 100) * PH);
+        // pitchX: 0=left touchline → 100=right (horizontal)
+        // pitchY: 0=GK goal → 100=attacking (invert: GK at bottom)
+        const cx =
+          PLX + PFX + Math.round((p.pitchX / 100) * FW);
+        const cy =
+          PLY + PFY + Math.round(((100 - p.pitchY) / 100) * FH);
 
         return (
           <div
             key={i}
             style={{
               position: "absolute",
-              left: px - 18,
-              top: py - 18,
+              left: cx - 16,
+              top: cy - 16,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              width: 36,
+              width: 32,
             }}
           >
             <div
               style={{
-                width: 34,
-                height: 34,
+                width: 30,
+                height: 30,
                 borderRadius: "50%",
                 background: col,
-                border: "2px solid rgba(255,255,255,0.9)",
+                border: "2px solid rgba(255,255,255,0.85)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -215,7 +313,7 @@ export default async function Image({
             >
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 700,
                   color: "#0a0a0a",
                   display: "flex",
@@ -227,13 +325,14 @@ export default async function Image({
             <div
               style={{
                 marginTop: 2,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: 600,
                 color: "#ffffff",
-                background: "rgba(0,0,0,0.6)",
-                padding: "1px 4px",
+                background: "rgba(0,0,0,0.65)",
+                padding: "1px 3px",
                 borderRadius: 2,
                 display: "flex",
+                whiteSpace: "nowrap",
               }}
             >
               {label}
@@ -241,78 +340,6 @@ export default async function Image({
           </div>
         );
       })}
-
-      {/* === Top overlay bar === */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: 1200,
-          height: 56,
-          background: "rgba(0,0,0,0.7)",
-          display: "flex",
-          alignItems: "center",
-          padding: "0 28px",
-          gap: 20,
-        }}
-      >
-        <img
-          src={BRAND_LOGO}
-          height={28}
-          style={{ objectFit: "contain" }}
-        />
-
-        <div
-          style={{
-            width: 1,
-            height: 24,
-            background: "rgba(255,255,255,0.15)",
-            display: "flex",
-          }}
-        />
-
-        {lineup?.teamLogo && (
-          <img
-            src={lineup.teamLogo}
-            width={28}
-            height={28}
-            style={{ objectFit: "contain" }}
-          />
-        )}
-
-        <div style={{ fontSize: 16, color: "#e0e0e0", display: "flex" }}>
-          {teamName}
-        </div>
-
-        <div style={{ fontSize: 14, color: "#8d8d8d", display: "flex" }}>
-          {formation}
-        </div>
-
-        <div style={{ flex: 1, display: "flex" }} />
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 300,
-              color: powerColor(powerLoss),
-              display: "flex",
-            }}
-          >
-            {powerLoss.toFixed(1)}%
-          </div>
-          <div style={{ fontSize: 12, color: "#8d8d8d", display: "flex" }}>
-            power loss
-          </div>
-        </div>
-      </div>
     </div>,
     { ...size },
   );

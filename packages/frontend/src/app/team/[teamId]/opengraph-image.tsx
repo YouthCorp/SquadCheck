@@ -50,7 +50,9 @@ export default async function Image({
         width: 1200,
         height: 630,
         display: "flex",
-        background: "#161616",
+        position: "relative",
+        background:
+          "linear-gradient(135deg, #090c13 0%, #0d1120 50%, #0b0e1b 100%)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
@@ -61,26 +63,36 @@ export default async function Image({
           height: 630,
           display: "flex",
           flexDirection: "column",
-          background: "#0d0d0d",
-          padding: "48px 40px",
-          borderRight: "3px solid #0f62fe",
+          justifyContent: "center",
+          background: "#060810",
+          padding: "48px 44px",
+          boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
         }}
       >
-        <img
-          src={BRAND_LOGO}
-          width={180}
-          style={{ objectFit: "contain" }}
-        />
-        <div style={{ flex: 1, display: "flex" }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 16, color: "#525252", display: "flex" }}>
+        <img src={BRAND_LOGO} width={160} style={{ objectFit: "contain" }} />
+        <div style={{ height: 28, display: "flex" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ fontSize: 15, color: "#353a55", display: "flex" }}>
             Injury Intelligence
           </div>
-          <div style={{ fontSize: 14, color: "#393939", display: "flex" }}>
+          <div style={{ fontSize: 13, color: "#22263a", display: "flex" }}>
             squadcheck.xyz
           </div>
         </div>
       </div>
+
+      {/* Gradient separator */}
+      <div
+        style={{
+          position: "absolute",
+          left: 380,
+          top: 0,
+          width: 52,
+          height: 630,
+          background:
+            "linear-gradient(90deg, rgba(6,8,16,0.95) 0%, transparent 100%)",
+        }}
+      />
 
       {/* Right content */}
       <div
@@ -94,7 +106,6 @@ export default async function Image({
           gap: 20,
         }}
       >
-        {/* Team logo */}
         {impact?.team.logo && (
           <img
             src={impact.team.logo}
@@ -104,7 +115,6 @@ export default async function Image({
           />
         )}
 
-        {/* Team name */}
         <div
           style={{
             fontSize: 40,
@@ -117,7 +127,6 @@ export default async function Image({
           {teamName}
         </div>
 
-        {/* Season record */}
         {se && (
           <div style={{ display: "flex", gap: 16, fontSize: 16 }}>
             <div style={{ color: "#8d8d8d", display: "flex" }}>
@@ -135,17 +144,15 @@ export default async function Image({
           </div>
         )}
 
-        {/* Divider */}
         <div
           style={{
             width: 200,
             height: 1,
-            background: "#262626",
+            background: "#1a1e2e",
             display: "flex",
           }}
         />
 
-        {/* Power loss */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
@@ -163,7 +170,6 @@ export default async function Image({
           </div>
         </div>
 
-        {/* Injury count */}
         <div
           style={{
             fontSize: 18,

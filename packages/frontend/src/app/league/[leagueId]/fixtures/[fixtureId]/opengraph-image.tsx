@@ -87,7 +87,9 @@ export default async function Image({
         width: 1200,
         height: 630,
         display: "flex",
-        background: "#161616",
+        position: "relative",
+        background:
+          "linear-gradient(135deg, #090c13 0%, #0d1120 50%, #0b0e1b 100%)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
@@ -98,31 +100,41 @@ export default async function Image({
           height: 630,
           display: "flex",
           flexDirection: "column",
-          background: "#0d0d0d",
-          padding: "48px 40px",
-          borderRight: "3px solid #0f62fe",
+          justifyContent: "center",
+          background: "#060810",
+          padding: "48px 44px",
+          boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
         }}
       >
-        <img
-          src={BRAND_LOGO}
-          width={180}
-          style={{ objectFit: "contain" }}
-        />
-        <div style={{ flex: 1, display: "flex" }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 15, color: "#525252", display: "flex" }}>
+        <img src={BRAND_LOGO} width={160} style={{ objectFit: "contain" }} />
+        <div style={{ height: 28, display: "flex" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ fontSize: 15, color: "#353a55", display: "flex" }}>
             {leagueName}
           </div>
           {matchDate && (
-            <div style={{ fontSize: 14, color: "#393939", display: "flex" }}>
+            <div style={{ fontSize: 14, color: "#22263a", display: "flex" }}>
               {matchDate}
             </div>
           )}
-          <div style={{ fontSize: 14, color: "#393939", display: "flex" }}>
+          <div style={{ fontSize: 13, color: "#22263a", display: "flex" }}>
             squadcheck.xyz
           </div>
         </div>
       </div>
+
+      {/* Gradient separator */}
+      <div
+        style={{
+          position: "absolute",
+          left: 380,
+          top: 0,
+          width: 52,
+          height: 630,
+          background:
+            "linear-gradient(90deg, rgba(6,8,16,0.95) 0%, transparent 100%)",
+        }}
+      />
 
       {/* Right content — vertical split home/away */}
       <div
@@ -140,7 +152,7 @@ export default async function Image({
             alignItems: "center",
             padding: "0 56px",
             gap: 28,
-            borderBottom: "1px solid #262626",
+            borderBottom: "1px solid #1a1e2e",
           }}
         >
           {homeLogo && (
@@ -200,19 +212,19 @@ export default async function Image({
         <div
           style={{
             position: "absolute",
-            left: 380 + (820 / 2) - 24,
+            left: 380 + 820 / 2 - 24,
             top: 315 - 18,
             width: 48,
             height: 36,
-            background: "#262626",
-            border: "1px solid #393939",
+            background: "#0d1120",
+            border: "1px solid #1a1e2e",
             borderRadius: 4,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 14,
             fontWeight: 600,
-            color: "#8d8d8d",
+            color: "#4a5570",
             letterSpacing: "0.08em",
           }}
         >

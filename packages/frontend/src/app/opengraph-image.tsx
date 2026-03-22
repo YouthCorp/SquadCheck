@@ -18,23 +18,17 @@ export default function Image() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "#0d0d0d",
+        background:
+          "linear-gradient(135deg, #090c13 0%, #0d1120 50%, #0b0e1b 100%)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Brand logo */}
-      <img
-        src={BRAND_LOGO}
-        height={80}
-        style={{ objectFit: "contain" }}
-      />
-
-      {/* Tagline */}
+      <img src={BRAND_LOGO} height={80} style={{ objectFit: "contain" }} />
       <div
         style={{
           fontSize: 28,
           fontWeight: 300,
-          color: "#8d8d8d",
+          color: "#4a5570",
           display: "flex",
           marginTop: 28,
           letterSpacing: "0.02em",
