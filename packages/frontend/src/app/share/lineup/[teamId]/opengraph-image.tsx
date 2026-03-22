@@ -36,19 +36,15 @@ function powerColor(pct: number): string {
 
 export default async function Image({
   params,
-  searchParams,
 }: {
   params: { teamId: string };
-  searchParams: { season?: string };
 }) {
-  const season = searchParams.season ? parseInt(searchParams.season) : CURRENT_SEASON;
-
   const [lineup, impact] = await Promise.all([
     safeJson<PredictedLineup>(
-      `${API_BASE}/api/analysis/predicted-lineup/${params.teamId}?season=${season}`,
+      `${API_BASE}/api/analysis/predicted-lineup/${params.teamId}?season=${CURRENT_SEASON}`,
     ),
     safeJson<InjuryImpact>(
-      `${API_BASE}/api/analysis/injury-impact/${params.teamId}?season=${season}`,
+      `${API_BASE}/api/analysis/injury-impact/${params.teamId}?season=${CURRENT_SEASON}`,
     ),
   ]);
 
@@ -57,7 +53,7 @@ export default async function Image({
   const powerLoss = impact?.powerLossPct ?? 0;
   const injuredPlayers = impact?.injuredPlayers ?? [];
 
-  // Group starters by position
+  // Group starters by position — filter nulls explicitly
   const groups: Record<string, string[]> = { GK: [], DEF: [], MID: [], FWD: [] };
   if (lineup?.starters) {
     for (const p of lineup.starters) {
@@ -65,6 +61,9 @@ export default async function Image({
       if (groups[g]) groups[g].push(p.playerName);
     }
   }
+  const posRows = (["GK", "DEF", "MID", "FWD"] as const).filter(
+    (g) => groups[g].length > 0,
+  );
 
   return new ImageResponse(
     <div
@@ -101,10 +100,12 @@ export default async function Image({
         >
           SQUADCHECK
         </div>
-        <div style={{ color: "#8d8d8d", fontSize: 16, display: "flex" }}>Predicted XI</div>
+        <div style={{ color: "#8d8d8d", fontSize: 16, display: "flex" }}>
+          Predicted XI
+        </div>
       </div>
 
-      {/* Main content */}
+      {/* Main content — side by side */}
       <div
         style={{
           flex: 1,
@@ -113,13 +114,14 @@ export default async function Image({
           gap: 48,
         }}
       >
-        {/* Left: team name + formation + player list */}
+        {/* Left: team + formation + players */}
         <div
           style={{
-            flex: "1 1 60%",
             display: "flex",
             flexDirection: "column",
-            gap: 0,
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: "60%",
           }}
         >
           <div
@@ -145,48 +147,44 @@ export default async function Image({
             Formation: {formation}
           </div>
 
-          {/* Position rows */}
-          {(["GK", "DEF", "MID", "FWD"] as const).map((grp) => {
-            const names = groups[grp];
-            if (!names || names.length === 0) return null;
-            return (
+          {/* Position rows — pre-filtered, no null returns */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {posRows.map((grp) => (
               <div
                 key={grp}
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: 10,
-                  marginBottom: 10,
-                }}
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
               >
-                <span
+                <div
                   style={{
                     fontSize: 11,
                     fontWeight: 600,
                     color: "#525252",
                     letterSpacing: "0.08em",
-                    minWidth: 32,
+                    width: 32,
                     display: "flex",
                   }}
                 >
                   {grp}
-                </span>
-                <span style={{ fontSize: 16, color: "#c6c6c6", display: "flex" }}>
-                  {names.join(" · ")}
-                </span>
+                </div>
+                <div
+                  style={{ fontSize: 16, color: "#c6c6c6", display: "flex" }}
+                >
+                  {groups[grp].join(" · ")}
+                </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
         {/* Right: power loss + injuries */}
         <div
           style={{
-            flex: "0 0 280px",
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-end",
-            gap: 0,
+            flexGrow: 0,
+            flexShrink: 0,
+            flexBasis: 280,
           }}
         >
           {/* Power loss */}
@@ -209,7 +207,14 @@ export default async function Image({
             >
               {powerLoss.toFixed(1)}%
             </div>
-            <div style={{ fontSize: 14, color: "#8d8d8d", marginTop: 4, display: "flex" }}>
+            <div
+              style={{
+                fontSize: 14,
+                color: "#8d8d8d",
+                marginTop: 4,
+                display: "flex",
+              }}
+            >
               power loss
             </div>
           </div>
@@ -224,17 +229,16 @@ export default async function Image({
                 alignItems: "flex-end",
               }}
             >
-              <div style={{ fontSize: 13, color: "#525252", display: "flex" }}>
-                {injuredPlayers.length} player{injuredPlayers.length !== 1 ? "s" : ""} out
+              <div
+                style={{ fontSize: 13, color: "#525252", display: "flex" }}
+              >
+                {injuredPlayers.length} player
+                {injuredPlayers.length !== 1 ? "s" : ""} out
               </div>
               {injuredPlayers.slice(0, 4).map((p, i) => (
                 <div
                   key={i}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
                 >
                   <div
                     style={{
@@ -248,9 +252,15 @@ export default async function Image({
                       display: "flex",
                     }}
                   />
-                  <span style={{ fontSize: 15, color: "#c6c6c6", display: "flex" }}>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      color: "#c6c6c6",
+                      display: "flex",
+                    }}
+                  >
                     {p.player.name}
-                  </span>
+                  </div>
                 </div>
               ))}
             </div>

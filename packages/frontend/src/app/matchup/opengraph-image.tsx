@@ -16,7 +16,13 @@ interface InjuryImpact {
 
 async function safeJson<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: 300 } });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      next: { revalidate: 300 },
+    });
+    clearTimeout(timer);
     return res.ok ? (res.json() as Promise<T>) : null;
   } catch {
     return null;
@@ -27,30 +33,11 @@ function powerColor(pct: number): string {
   return pct >= 20 ? "#fa4d56" : pct >= 10 ? "#f1c21b" : "#42be65";
 }
 
-export default async function Image({
-  searchParams,
-}: {
-  searchParams: { home?: string; away?: string; season?: string };
-}) {
-  const { home, away, season: seasonStr } = searchParams;
-  const season = seasonStr ? parseInt(seasonStr) : CURRENT_SEASON;
-
-  const [homeImpact, awayImpact] = await Promise.all([
-    home
-      ? safeJson<InjuryImpact>(`${API_BASE}/api/analysis/injury-impact/${home}?season=${season}`)
-      : null,
-    away
-      ? safeJson<InjuryImpact>(`${API_BASE}/api/analysis/injury-impact/${away}?season=${season}`)
-      : null,
-  ]);
-
-  const homeName = homeImpact?.team.name ?? (home ? `Team ${home}` : "Home");
-  const awayName = awayImpact?.team.name ?? (away ? `Team ${away}` : "Away");
-  const homePL = homeImpact?.powerLossPct ?? 0;
-  const awayPL = awayImpact?.powerLossPct ?? 0;
-  const homeOut = homeImpact?.injuredPlayers.length ?? null;
-  const awayOut = awayImpact?.injuredPlayers.length ?? null;
-
+// opengraph-image.tsx does not receive searchParams in Next.js.
+// This image renders a generic Matchup Analysis brand card that works
+// regardless of which teams are being compared. Team-specific data would
+// require a dynamic route like /matchup/[home]/[away]/opengraph-image.tsx.
+export default async function Image() {
   return new ImageResponse(
     <div
       style={{
@@ -91,186 +78,43 @@ export default async function Image({
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main */}
       <div
         style={{
           flex: 1,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
           padding: "0 72px",
         }}
       >
-        {/* Home team */}
         <div
           style={{
-            flex: 1,
+            fontSize: 56,
+            fontWeight: 300,
+            color: "#f4f4f4",
+            letterSpacing: "-0.02em",
             display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 0,
           }}
         >
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 300,
-              color: "#f4f4f4",
-              lineHeight: 1.1,
-              marginBottom: 20,
-              display: "flex",
-            }}
-          >
-            {homeName}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 40,
-                fontWeight: 300,
-                color: powerColor(homePL),
-                display: "flex",
-              }}
-            >
-              {homePL.toFixed(1)}%
-            </span>
-            <span style={{ color: "#8d8d8d", fontSize: 15, display: "flex" }}>
-              power loss
-            </span>
-          </div>
-          {homeOut !== null && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#fa4d56",
-                  display: "flex",
-                }}
-              />
-              <span style={{ color: "#c6c6c6", fontSize: 18, display: "flex" }}>
-                {homeOut} out
-              </span>
-            </div>
-          )}
-          {homeImpact?.injuredPlayers.slice(0, 2).map((p, i) => (
-            <div
-              key={i}
-              style={{
-                fontSize: 14,
-                color: "#8d8d8d",
-                marginTop: 6,
-                display: "flex",
-              }}
-            >
-              {p.player.name}
-            </div>
-          ))}
+          Side-by-Side Injury Intelligence
         </div>
-
-        {/* VS */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            padding: "0 40px",
+            gap: 32,
+            color: "#8d8d8d",
+            fontSize: 20,
           }}
         >
-          <div
-            style={{
-              fontSize: 28,
-              color: "#393939",
-              fontWeight: 300,
-              letterSpacing: "0.1em",
-              display: "flex",
-            }}
-          >
-            VS
-          </div>
-        </div>
-
-        {/* Away team */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 0,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 300,
-              color: "#f4f4f4",
-              lineHeight: 1.1,
-              marginBottom: 20,
-              textAlign: "right",
-              display: "flex",
-            }}
-          >
-            {awayName}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 40,
-                fontWeight: 300,
-                color: powerColor(awayPL),
-                display: "flex",
-              }}
-            >
-              {awayPL.toFixed(1)}%
-            </span>
-            <span style={{ color: "#8d8d8d", fontSize: 15, display: "flex" }}>
-              power loss
-            </span>
-          </div>
-          {awayOut !== null && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#fa4d56",
-                  display: "flex",
-                }}
-              />
-              <span style={{ color: "#c6c6c6", fontSize: 18, display: "flex" }}>
-                {awayOut} out
-              </span>
-            </div>
-          )}
-          {awayImpact?.injuredPlayers.slice(0, 2).map((p, i) => (
-            <div
-              key={i}
-              style={{
-                fontSize: 14,
-                color: "#8d8d8d",
-                marginTop: 6,
-                display: "flex",
-              }}
-            >
-              {p.player.name}
-            </div>
-          ))}
+          <span style={{ display: "flex" }}>Power Loss %</span>
+          <span style={{ color: "#393939", display: "flex" }}>·</span>
+          <span style={{ display: "flex" }}>Predicted Lineups</span>
+          <span style={{ color: "#393939", display: "flex" }}>·</span>
+          <span style={{ display: "flex" }}>Key Absences</span>
         </div>
       </div>
 
