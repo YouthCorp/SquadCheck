@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { SignInModal } from './sign-in-modal';
 
-export function UserAvatar() {
+export function UserAvatar({ align = 'right' }: { align?: 'left' | 'right' }) {
   const { data: session, status } = useSession();
   const [showModal, setShowModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -62,7 +62,7 @@ export function UserAvatar() {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 top-9 w-44 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 py-1">
+        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} top-9 w-44 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[200] py-1`}>
           <div className="px-3 py-2 border-b border-border">
             <p className="text-xs font-medium text-foreground truncate">{user?.name ?? 'User'}</p>
             <p className="text-[0.6875rem] text-muted-foreground truncate">{user?.email}</p>
