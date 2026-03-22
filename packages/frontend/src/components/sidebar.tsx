@@ -7,6 +7,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { LangSelector } from './lang-selector';
 import { ThemeToggle } from './theme-toggle';
+import { UserAvatar } from './user-avatar';
+import { NotificationBell } from './notification-bell';
 import { t, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -238,6 +240,10 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
 
       {/* Footer */}
       <div className="border-t border-sidebar-border py-3 space-y-2.5">
+        <div className="flex items-center gap-1.5 px-4">
+          <NotificationBell />
+          <UserAvatar />
+        </div>
         <ThemeToggle />
         <LangSelector />
         <p className="text-[0.6875rem] text-muted-foreground px-4 tracking-wide">
