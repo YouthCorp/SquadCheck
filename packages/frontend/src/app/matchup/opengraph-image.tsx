@@ -1,84 +1,55 @@
 import { ImageResponse } from "next/og";
+import { SITE_URL } from "@/lib/constants";
 
 export const runtime = "edge";
 export const alt = "Matchup Analysis";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const CURRENT_SEASON = 2025;
-
-interface InjuryImpact {
-  team: { name: string };
-  powerLossPct: number;
-  injuredPlayers: { player: { name: string }; severity: string }[];
-}
-
-async function safeJson<T>(url: string): Promise<T | null> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, {
-      signal: controller.signal,
-      next: { revalidate: 300 },
-    });
-    clearTimeout(timer);
-    return res.ok ? (res.json() as Promise<T>) : null;
-  } catch {
-    return null;
-  }
-}
-
-function powerColor(pct: number): string {
-  return pct >= 20 ? "#fa4d56" : pct >= 10 ? "#f1c21b" : "#42be65";
-}
+const BRAND_LOGO = `${SITE_URL}/logo_with_text.png`;
 
 // opengraph-image.tsx does not receive searchParams in Next.js.
-// This image renders a generic Matchup Analysis brand card that works
-// regardless of which teams are being compared. Team-specific data would
-// require a dynamic route like /matchup/[home]/[away]/opengraph-image.tsx.
-export default async function Image() {
+// This renders a static branded card for the matchup page.
+export default function Image() {
   return new ImageResponse(
     <div
       style={{
         width: 1200,
         height: 630,
         display: "flex",
-        flexDirection: "column",
         background: "#161616",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Top bar */}
+      {/* Left brand panel */}
       <div
         style={{
+          width: 380,
+          height: 630,
           display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "24px 72px",
-          borderBottom: "1px solid #393939",
+          flexDirection: "column",
+          background: "#0d0d0d",
+          padding: "48px 40px",
+          borderRight: "3px solid #0f62fe",
         }}
       >
-        <div
-          style={{
-            background: "#0f62fe",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            padding: "5px 14px",
-            borderRadius: 2,
-            display: "flex",
-          }}
-        >
-          SQUADCHECK
-        </div>
-        <div style={{ color: "#8d8d8d", fontSize: 16, display: "flex" }}>
-          Matchup Analysis
+        <img
+          src={BRAND_LOGO}
+          width={180}
+          style={{ objectFit: "contain" }}
+        />
+        <div style={{ flex: 1, display: "flex" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 16, color: "#525252", display: "flex" }}>
+            Injury Intelligence
+          </div>
+          <div style={{ fontSize: 14, color: "#393939", display: "flex" }}>
+            squadcheck.xyz
+          </div>
         </div>
       </div>
 
-      {/* Main */}
+      {/* Right content */}
       <div
         style={{
           flex: 1,
@@ -86,52 +57,45 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          padding: "40px 60px",
           gap: 24,
-          padding: "0 72px",
         }}
       >
         <div
           style={{
-            fontSize: 56,
+            fontSize: 42,
             fontWeight: 300,
             color: "#f4f4f4",
-            letterSpacing: "-0.02em",
             display: "flex",
+            letterSpacing: "-0.01em",
           }}
         >
-          Side-by-Side Injury Intelligence
+          Matchup Analysis
         </div>
+
+        <div
+          style={{
+            width: 200,
+            height: 1,
+            background: "#262626",
+            display: "flex",
+          }}
+        />
+
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 32,
+            gap: 24,
+            fontSize: 16,
             color: "#8d8d8d",
-            fontSize: 20,
           }}
         >
-          <span style={{ display: "flex" }}>Power Loss %</span>
-          <span style={{ color: "#393939", display: "flex" }}>·</span>
-          <span style={{ display: "flex" }}>Predicted Lineups</span>
-          <span style={{ color: "#393939", display: "flex" }}>·</span>
-          <span style={{ display: "flex" }}>Key Absences</span>
+          <div style={{ display: "flex" }}>Power Loss %</div>
+          <div style={{ color: "#393939", display: "flex" }}>·</div>
+          <div style={{ display: "flex" }}>Predicted XI</div>
+          <div style={{ color: "#393939", display: "flex" }}>·</div>
+          <div style={{ display: "flex" }}>Key Absences</div>
         </div>
-      </div>
-
-      {/* Bottom bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "18px 72px",
-          borderTop: "1px solid #262626",
-          color: "#525252",
-          fontSize: 14,
-          letterSpacing: "0.04em",
-        }}
-      >
-        Matchup Analysis · squadcheck.xyz
       </div>
     </div>,
     { ...size },

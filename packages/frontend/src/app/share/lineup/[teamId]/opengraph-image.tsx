@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { CURRENT_SEASON } from "@/lib/constants";
+import { CURRENT_SEASON, SITE_URL } from "@/lib/constants";
 
 export const runtime = "edge";
 export const alt = "Predicted XI";
@@ -7,10 +7,14 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BRAND_LOGO = `${SITE_URL}/logo_with_text.png`;
 
-// Pitch panel dimensions (right side: 1200-320=880 wide, 630-64-50=516 tall)
-const PW = 880;
-const PH = 516;
+// Full-bleed landscape pitch: 1200×630
+// Coordinate mapping (portrait→landscape, 90° clockwise):
+//   landscape_x = pitchY (GK at left, FWD at right)
+//   landscape_y = pitchX (left touchline at top, right at bottom)
+const PW = 1200;
+const PH = 630;
 
 interface PredictedLineup {
   teamId: number;
@@ -28,7 +32,6 @@ interface PredictedLineup {
 interface InjuryImpact {
   team: { name: string };
   powerLossPct: number;
-  injuredPlayers: { player: { name: string }; severity: string }[];
 }
 
 async function safeJson<T>(url: string): Promise<T | null> {
@@ -65,10 +68,22 @@ export default async function Image({
     ),
   ]);
 
-  const teamName = lineup?.teamName ?? impact?.team.name ?? `Team ${params.teamId}`;
+  const teamName =
+    lineup?.teamName ?? impact?.team.name ?? `Team ${params.teamId}`;
   const formation = lineup?.formation ?? "—";
   const powerLoss = impact?.powerLossPct ?? 0;
-  const injuredPlayers = impact?.injuredPlayers ?? [];
+
+  // Landscape field marking constants (px)
+  const INSET_X = 24;
+  const INSET_Y = 13;
+  const FIELD_W = PW - INSET_X * 2; // 1152
+  const FIELD_H = PH - INSET_Y * 2; // 604
+  const MID_X = PW / 2; // 600
+  const MID_Y = PH / 2; // 315
+  const CIRCLE_D = 140;
+  const PEN_DEPTH = Math.round(FIELD_W * 0.14); // ~161
+  const PEN_HEIGHT = Math.round(FIELD_H * 0.56); // ~338
+  const PEN_TOP = Math.round((PH - PEN_HEIGHT) / 2); // ~146
 
   return new ImageResponse(
     <div
@@ -76,358 +91,227 @@ export default async function Image({
         width: 1200,
         height: 630,
         display: "flex",
-        flexDirection: "column",
-        background: "#161616",
+        position: "relative",
+        background:
+          "linear-gradient(90deg, #1e5a22 0%, #2d6b30 25%, #1e5a22 50%, #2d6b30 75%, #1e5a22 100%)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Top bar — 64px */}
+      {/* === Field markings === */}
+
+      {/* Pitch outline */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "0 56px",
-          height: 64,
-          borderBottom: "1px solid #393939",
-          flexShrink: 0,
+          position: "absolute",
+          left: INSET_X,
+          top: INSET_Y,
+          width: FIELD_W,
+          height: FIELD_H,
+          border: "1px solid rgba(255,255,255,0.2)",
         }}
-      >
-        <div
-          style={{
-            background: "#0f62fe",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            padding: "5px 14px",
-            borderRadius: 2,
-            display: "flex",
-          }}
-        >
-          SQUADCHECK
-        </div>
-        <div style={{ color: "#8d8d8d", fontSize: 16, display: "flex" }}>
-          Predicted XI
-        </div>
-      </div>
+      />
 
-      {/* Content row */}
-      <div style={{ flex: 1, display: "flex" }}>
-        {/* Left info panel — 320px */}
-        <div
-          style={{
-            width: 320,
-            display: "flex",
-            flexDirection: "column",
-            padding: "28px 32px",
-            borderRight: "1px solid #262626",
-            flexShrink: 0,
-          }}
-        >
-          {/* Team logo + name */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              marginBottom: 6,
-            }}
-          >
-            {lineup?.teamLogo && (
-              <img
-                src={lineup.teamLogo}
-                width={44}
-                height={44}
-                style={{ objectFit: "contain" }}
-              />
-            )}
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 300,
-                color: "#f4f4f4",
-                lineHeight: 1.2,
-                display: "flex",
-              }}
-            >
-              {teamName}
-            </div>
-          </div>
+      {/* Halfway line (vertical) */}
+      <div
+        style={{
+          position: "absolute",
+          left: MID_X,
+          top: INSET_Y,
+          width: 1,
+          height: FIELD_H,
+          background: "rgba(255,255,255,0.2)",
+        }}
+      />
 
-          {/* Formation */}
-          <div
-            style={{
-              fontSize: 13,
-              color: "#8d8d8d",
-              display: "flex",
-              marginBottom: 28,
-            }}
-          >
-            Formation: {formation}
-          </div>
+      {/* Center circle */}
+      <div
+        style={{
+          position: "absolute",
+          left: MID_X - CIRCLE_D / 2,
+          top: MID_Y - CIRCLE_D / 2,
+          width: CIRCLE_D,
+          height: CIRCLE_D,
+          borderRadius: "50%",
+          border: "1px solid rgba(255,255,255,0.2)",
+        }}
+      />
 
-          {/* Power loss */}
+      {/* Center spot */}
+      <div
+        style={{
+          position: "absolute",
+          left: MID_X - 4,
+          top: MID_Y - 4,
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.3)",
+        }}
+      />
+
+      {/* Left penalty box (GK side) */}
+      <div
+        style={{
+          position: "absolute",
+          left: INSET_X,
+          top: PEN_TOP,
+          width: PEN_DEPTH,
+          height: PEN_HEIGHT,
+          borderTop: "1px solid rgba(255,255,255,0.2)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
+          borderRight: "1px solid rgba(255,255,255,0.2)",
+        }}
+      />
+
+      {/* Right penalty box */}
+      <div
+        style={{
+          position: "absolute",
+          left: PW - INSET_X - PEN_DEPTH,
+          top: PEN_TOP,
+          width: PEN_DEPTH,
+          height: PEN_HEIGHT,
+          borderTop: "1px solid rgba(255,255,255,0.2)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
+          borderLeft: "1px solid rgba(255,255,255,0.2)",
+        }}
+      />
+
+      {/* === Player dots === */}
+      {lineup?.starters.map((p, i) => {
+        const col = POS_COLORS[p.positionGroup] ?? "#8d8d8d";
+        const lastName = p.playerName.split(" ").pop() ?? p.playerName;
+        const label =
+          lastName.length > 10 ? lastName.slice(0, 9) + "…" : lastName;
+
+        // Landscape mapping: x=pitchY, y=pitchX
+        const px = Math.round((p.pitchY / 100) * PW);
+        const py = Math.round((p.pitchX / 100) * PH);
+
+        return (
           <div
+            key={i}
             style={{
+              position: "absolute",
+              left: px - 18,
+              top: py - 18,
               display: "flex",
               flexDirection: "column",
-              marginBottom: 24,
+              alignItems: "center",
+              width: 36,
             }}
           >
             <div
               style={{
-                fontSize: 52,
-                fontWeight: 300,
-                color: powerColor(powerLoss),
-                lineHeight: 1,
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                background: col,
+                border: "2px solid rgba(255,255,255,0.9)",
                 display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {powerLoss.toFixed(1)}%
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#0a0a0a",
+                  display: "flex",
+                }}
+              >
+                {p.playerName[0] ?? "?"}
+              </div>
             </div>
             <div
               style={{
-                fontSize: 13,
-                color: "#8d8d8d",
-                marginTop: 4,
+                marginTop: 2,
+                fontSize: 10,
+                fontWeight: 600,
+                color: "#ffffff",
+                background: "rgba(0,0,0,0.6)",
+                padding: "1px 4px",
+                borderRadius: 2,
                 display: "flex",
               }}
             >
-              power loss
+              {label}
             </div>
           </div>
+        );
+      })}
 
-          {/* Injuries */}
-          {injuredPlayers.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              <div
-                style={{ fontSize: 11, color: "#525252", display: "flex", marginBottom: 2 }}
-              >
-                {injuredPlayers.length} player
-                {injuredPlayers.length !== 1 ? "s" : ""} out
-              </div>
-              {injuredPlayers.slice(0, 5).map((p, i) => (
-                <div
-                  key={i}
-                  style={{ display: "flex", alignItems: "center", gap: 8 }}
-                >
-                  <div
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background:
-                        p.severity === "critical" || p.severity === "high"
-                          ? "#fa4d56"
-                          : "#f1c21b",
-                      display: "flex",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div
-                    style={{ fontSize: 13, color: "#c6c6c6", display: "flex" }}
-                  >
-                    {p.player.name}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {injuredPlayers.length === 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: "#42be65",
-                  display: "flex",
-                }}
-              />
-              <div style={{ fontSize: 13, color: "#42be65", display: "flex" }}>
-                Full squad available
-              </div>
-            </div>
-          )}
-        </div>
+      {/* === Top overlay bar === */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: 1200,
+          height: 56,
+          background: "rgba(0,0,0,0.7)",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 28px",
+          gap: 20,
+        }}
+      >
+        <img
+          src={BRAND_LOGO}
+          height={28}
+          style={{ objectFit: "contain" }}
+        />
 
-        {/* Pitch visualization — 880×516 */}
         <div
           style={{
-            flex: 1,
-            position: "relative",
-            overflow: "hidden",
-            background:
-              "linear-gradient(180deg, #2d6b30 0%, #1e5a22 50%, #2d6b30 100%)",
+            width: 1,
+            height: 24,
+            background: "rgba(255,255,255,0.15)",
+            display: "flex",
+          }}
+        />
+
+        {lineup?.teamLogo && (
+          <img
+            src={lineup.teamLogo}
+            width={28}
+            height={28}
+            style={{ objectFit: "contain" }}
+          />
+        )}
+
+        <div style={{ fontSize: 16, color: "#e0e0e0", display: "flex" }}>
+          {teamName}
+        </div>
+
+        <div style={{ fontSize: 14, color: "#8d8d8d", display: "flex" }}>
+          {formation}
+        </div>
+
+        <div style={{ flex: 1, display: "flex" }} />
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {/* Pitch outline */}
           <div
             style={{
-              position: "absolute",
-              left: 18,
-              top: 10,
-              width: 844,
-              height: 496,
-              border: "1px solid rgba(255,255,255,0.18)",
-            }}
-          />
-          {/* Halfway line */}
-          <div
-            style={{
-              position: "absolute",
-              left: 35,
-              top: 258,
-              width: 810,
-              height: 1,
-              background: "rgba(255,255,255,0.18)",
-            }}
-          />
-          {/* Center spot */}
-          <div
-            style={{
-              position: "absolute",
-              left: 436,
-              top: 254,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.3)",
-            }}
-          />
-          {/* Center circle — diam 158px, center (440, 258) */}
-          <div
-            style={{
-              position: "absolute",
-              left: 361,
-              top: 179,
-              width: 158,
-              height: 158,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.18)",
-            }}
-          />
-          {/* Bottom penalty box */}
-          <div
-            style={{
-              position: "absolute",
-              left: 194,
-              top: 434,
-              width: 492,
-              height: 72,
-              border: "1px solid rgba(255,255,255,0.18)",
-              borderBottom: "none" as const,
-            }}
-          />
-          {/* Top penalty box */}
-          <div
-            style={{
-              position: "absolute",
-              left: 194,
-              top: 10,
-              width: 492,
-              height: 72,
-              border: "1px solid rgba(255,255,255,0.18)",
-              borderTop: "none" as const,
-            }}
-          />
-
-          {/* Formation label */}
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 20,
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.1em",
-              color: "rgba(255,255,255,0.35)",
+              fontSize: 18,
+              fontWeight: 300,
+              color: powerColor(powerLoss),
               display: "flex",
             }}
           >
-            {formation}
+            {powerLoss.toFixed(1)}%
           </div>
-
-          {/* Player dots */}
-          {lineup?.starters.map((p, i) => {
-            const col = POS_COLORS[p.positionGroup] ?? "#8d8d8d";
-            const lastName = p.playerName.split(" ").pop() ?? p.playerName;
-            const label = lastName.length > 10 ? lastName.slice(0, 9) + "…" : lastName;
-            // pitchX: 0-100 (left→right), pitchY: 0-100 (bottom GK → top FWD)
-            const px = Math.round((p.pitchX / 100) * PW);
-            const py = Math.round(((100 - p.pitchY) / 100) * PH);
-            return (
-              <div
-                key={i}
-                style={{
-                  position: "absolute",
-                  left: px - 15,
-                  top: py - 15,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  width: 30,
-                }}
-              >
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: col,
-                    border: "2px solid rgba(255,255,255,0.85)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#0a0a0a",
-                      display: "flex",
-                    }}
-                  >
-                    {p.playerName[0] ?? "?"}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    marginTop: 2,
-                    fontSize: 9,
-                    fontWeight: 600,
-                    color: "#ffffff",
-                    background: "rgba(0,0,0,0.55)",
-                    padding: "1px 3px",
-                    borderRadius: 2,
-                    display: "flex",
-                  }}
-                >
-                  {label}
-                </div>
-              </div>
-            );
-          })}
+          <div style={{ fontSize: 12, color: "#8d8d8d", display: "flex" }}>
+            power loss
+          </div>
         </div>
-      </div>
-
-      {/* Bottom bar — 50px */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: 50,
-          borderTop: "1px solid #262626",
-          color: "#525252",
-          fontSize: 13,
-          letterSpacing: "0.04em",
-          flexShrink: 0,
-        }}
-      >
-        Predicted lineups · Recovery signals · squadcheck.xyz
       </div>
     </div>,
     { ...size },

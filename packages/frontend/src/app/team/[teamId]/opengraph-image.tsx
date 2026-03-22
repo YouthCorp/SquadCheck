@@ -1,256 +1,182 @@
-import { ImageResponse } from 'next/og';
+import { ImageResponse } from "next/og";
+import { CURRENT_SEASON, SITE_URL } from "@/lib/constants";
 
-export const runtime = 'edge';
-export const alt = 'Team Injury Report';
+export const runtime = "edge";
+export const alt = "Team Injury Report";
 export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+export const contentType = "image/png";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BRAND_LOGO = `${SITE_URL}/logo_with_text.png`;
 
 interface InjuryImpact {
   team: { name: string; logo: string | null };
-  season: number;
-  injuredPlayers: { player: { name: string }; severity: string }[];
   powerLossPct: number;
-  severitySummary?: { critical: number; high: number; moderate: number; low: number };
+  injuredPlayers: { player: { name: string }; severity: string }[];
+  standingEntry?: {
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+  } | null;
 }
 
-export default async function Image({ params }: { params: { teamId: string } }) {
+function powerColor(pct: number): string {
+  return pct >= 20 ? "#fa4d56" : pct >= 10 ? "#f1c21b" : "#42be65";
+}
+
+export default async function Image({
+  params,
+}: {
+  params: { teamId: string };
+}) {
   let impact: InjuryImpact | null = null;
   try {
-    const res = await fetch(`${API_BASE}/api/analysis/injury-impact/${params.teamId}`, {
-      next: { revalidate: 300 },
-    });
+    const res = await fetch(
+      `${API_BASE}/api/analysis/injury-impact/${params.teamId}?season=${CURRENT_SEASON}`,
+      { next: { revalidate: 300 } },
+    );
     if (res.ok) impact = await res.json();
   } catch {}
 
-  const teamName = impact?.team.name ?? 'Team';
+  const teamName = impact?.team.name ?? "Team";
   const injuredCount = impact?.injuredPlayers.length ?? 0;
-  const powerLoss = impact?.powerLossPct.toFixed(1) ?? '0.0';
-  const ss = impact?.severitySummary;
-  const critical = ss?.critical ?? 0;
-  const high = ss?.high ?? 0;
-
-  const topInjured = impact?.injuredPlayers
-    .slice()
-    .sort((a, b) => {
-      const order: Record<string, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
-      return (order[a.severity] ?? 9) - (order[b.severity] ?? 9);
-    })
-    .slice(0, 3) ?? [];
-
-  const powerLossNum = parseFloat(powerLoss);
-  const powerColor = powerLossNum >= 20 ? '#fa4d56' : powerLossNum >= 10 ? '#f1c21b' : '#42be65';
+  const powerLoss = impact?.powerLossPct ?? 0;
+  const se = impact?.standingEntry;
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: 1200,
+        height: 630,
+        display: "flex",
+        background: "#161616",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      {/* Left brand panel */}
       <div
         style={{
-          width: 1200,
+          width: 380,
           height: 630,
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#161616',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          display: "flex",
+          flexDirection: "column",
+          background: "#0d0d0d",
+          padding: "48px 40px",
+          borderRight: "3px solid #0f62fe",
         }}
       >
-        {/* Top bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            padding: '28px 80px',
-            borderBottom: '1px solid #393939',
-          }}
-        >
-          <div
-            style={{
-              background: '#0f62fe',
-              color: '#ffffff',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              padding: '5px 14px',
-              borderRadius: 2,
-              display: 'flex',
-            }}
-          >
-            SQUADCHECK
+        <img
+          src={BRAND_LOGO}
+          width={180}
+          style={{ objectFit: "contain" }}
+        />
+        <div style={{ flex: 1, display: "flex" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 16, color: "#525252", display: "flex" }}>
+            Injury Intelligence
           </div>
-          <div style={{ color: '#8d8d8d', fontSize: 16, display: 'flex' }}>
-            Injury Report · {impact?.season ?? 2025}/{(impact?.season ?? 2025) + 1}
+          <div style={{ fontSize: 14, color: "#393939", display: "flex" }}>
+            squadcheck.xyz
           </div>
-        </div>
-
-        {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '40px 80px',
-          }}
-        >
-          {/* Team name */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 24,
-              marginBottom: 32,
-            }}
-          >
-            {impact?.team.logo && (
-              <img
-                src={impact.team.logo}
-                width={72}
-                height={72}
-                style={{ objectFit: 'contain' }}
-              />
-            )}
-            <div
-              style={{
-                fontSize: 60,
-                fontWeight: 300,
-                color: '#f4f4f4',
-                letterSpacing: '-0.02em',
-                display: 'flex',
-              }}
-            >
-              {teamName}
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 48, marginBottom: 36 }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 48, fontWeight: 300, color: '#f4f4f4', display: 'flex' }}>
-                {injuredCount}
-              </div>
-              <div style={{ fontSize: 15, color: '#8d8d8d', marginTop: 6, display: 'flex' }}>
-                Players Out
-              </div>
-            </div>
-
-            <div style={{ width: 1, background: '#393939', display: 'flex' }} />
-
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 48, fontWeight: 300, color: powerColor, display: 'flex' }}>
-                {powerLoss}%
-              </div>
-              <div style={{ fontSize: 15, color: '#8d8d8d', marginTop: 6, display: 'flex' }}>
-                Power Loss
-              </div>
-            </div>
-
-            {critical + high > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 48 }}>
-                <div style={{ width: 1, background: '#393939', display: 'flex' }} />
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 48, fontWeight: 300, color: '#fa4d56', display: 'flex' }}>
-                    {critical + high}
-                  </div>
-                  <div style={{ fontSize: 15, color: '#8d8d8d', marginTop: 6, display: 'flex' }}>
-                    Critical / High
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Injured player pills */}
-          {topInjured.length > 0 && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              {topInjured.map((p, i) => {
-                const col =
-                  p.severity === 'critical'
-                    ? '#fa4d56'
-                    : p.severity === 'high'
-                      ? '#f1c21b'
-                      : '#8d8d8d';
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: '#262626',
-                      border: '1px solid #393939',
-                      padding: '8px 16px',
-                      borderRadius: 2,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: col,
-                        display: 'flex',
-                      }}
-                    />
-                    <div style={{ color: '#c6c6c6', fontSize: 15, display: 'flex' }}>
-                      {p.player.name}
-                    </div>
-                  </div>
-                );
-              })}
-              {injuredCount > 3 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    background: '#262626',
-                    border: '1px solid #393939',
-                    padding: '8px 16px',
-                    borderRadius: 2,
-                    color: '#8d8d8d',
-                    fontSize: 15,
-                  }}
-                >
-                  +{injuredCount - 3} more
-                </div>
-              )}
-            </div>
-          )}
-
-          {injuredCount === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: '#42be65',
-                  display: 'flex',
-                }}
-              />
-              <div style={{ color: '#42be65', fontSize: 18, display: 'flex' }}>
-                Full squad available
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '18px 80px',
-            borderTop: '1px solid #262626',
-            color: '#525252',
-            fontSize: 14,
-            letterSpacing: '0.04em',
-          }}
-        >
-          Injury intelligence · squadcheck.xyz
         </div>
       </div>
-    ),
+
+      {/* Right content */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 60px",
+          gap: 20,
+        }}
+      >
+        {/* Team logo */}
+        {impact?.team.logo && (
+          <img
+            src={impact.team.logo}
+            width={88}
+            height={88}
+            style={{ objectFit: "contain" }}
+          />
+        )}
+
+        {/* Team name */}
+        <div
+          style={{
+            fontSize: 40,
+            fontWeight: 300,
+            color: "#f4f4f4",
+            display: "flex",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {teamName}
+        </div>
+
+        {/* Season record */}
+        {se && (
+          <div style={{ display: "flex", gap: 16, fontSize: 16 }}>
+            <div style={{ color: "#8d8d8d", display: "flex" }}>
+              P{se.played}
+            </div>
+            <div style={{ color: "#42be65", display: "flex" }}>
+              W{se.wins}
+            </div>
+            <div style={{ color: "#f1c21b", display: "flex" }}>
+              D{se.draws}
+            </div>
+            <div style={{ color: "#fa4d56", display: "flex" }}>
+              L{se.losses}
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div
+          style={{
+            width: 200,
+            height: 1,
+            background: "#262626",
+            display: "flex",
+          }}
+        />
+
+        {/* Power loss */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <div
+            style={{
+              fontSize: 56,
+              fontWeight: 300,
+              color: powerColor(powerLoss),
+              lineHeight: 1,
+              display: "flex",
+            }}
+          >
+            {powerLoss.toFixed(1)}%
+          </div>
+          <div style={{ fontSize: 16, color: "#8d8d8d", display: "flex" }}>
+            power loss
+          </div>
+        </div>
+
+        {/* Injury count */}
+        <div
+          style={{
+            fontSize: 18,
+            color: injuredCount > 0 ? "#c6c6c6" : "#42be65",
+            display: "flex",
+          }}
+        >
+          {injuredCount > 0
+            ? `${injuredCount} player${injuredCount !== 1 ? "s" : ""} injured`
+            : "Full squad available"}
+        </div>
+      </div>
+    </div>,
     { ...size },
   );
 }
