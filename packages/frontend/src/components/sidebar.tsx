@@ -241,7 +241,7 @@ export function Sidebar({ locale, onClose }: SidebarProps) {
       {/* Footer */}
       <div className="border-t border-sidebar-border py-3 space-y-2.5">
         <div className="flex items-center gap-1.5 px-4">
-          <NotificationBell />
+          <NotificationBell align="left" />
           <UserAvatar align="left" />
         </div>
         <ThemeToggle />
