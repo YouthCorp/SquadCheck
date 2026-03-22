@@ -27,7 +27,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "SquadCheck (스쿼드체크) — Football Injury Intelligence",
+    default: "SquadCheck — Football Injury Intelligence",
     template: "%s | SquadCheck",
   },
   description:
