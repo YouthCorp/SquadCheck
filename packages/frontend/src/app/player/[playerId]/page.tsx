@@ -17,16 +17,37 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const playerId = parseInt(params.playerId);
   try {
-    const player = await fetchApi<Player>(`/api/players/${playerId}`);
+    const [player, injuryData] = await Promise.all([
+      fetchApi<Player>(`/api/players/${playerId}`),
+      fetchApi<{ injuries: Injury[]; appearances: Appearance[] }>(`/api/players/${playerId}/injuries`).catch(() => null),
+    ]);
     const pos = player.position ?? '';
     const nat = player.nationality ?? '';
-    const title = `${player.name} Injury Report`;
-    const description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — full injury history, missed matches, and current availability status.`;
+    const injuries = injuryData?.injuries ?? [];
+    const currentSeasonInjuries = injuries.filter((i) => i.season === 2025);
+    const latestInjury = currentSeasonInjuries[currentSeasonInjuries.length - 1] ?? injuries[injuries.length - 1] ?? null;
+    const totalMissed = currentSeasonInjuries.length;
+
+    const title = `${player.name} Injury Update & History 2025/26`;
+    let description: string;
+    if (latestInjury && totalMissed > 0) {
+      description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''}: ${totalMissed} absence${totalMissed !== 1 ? 's' : ''} this season — latest: ${latestInjury.reason}. Full injury history, missed matches, and availability status.`;
+    } else {
+      description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — full injury history, missed matches, and current availability on SquadCheck.`;
+    }
+
     return {
       title,
       description,
-      openGraph: { title: `${player.name} Injury Report | SquadCheck`, description },
+      openGraph: { title: `${title} | SquadCheck`, description },
       alternates: { canonical: `/player/${playerId}` },
+      keywords: [
+        `${player.name} injury`,
+        `${player.name} injured`,
+        `${player.name} fitness update`,
+        `${player.name} injury history`,
+        `${player.name} availability`,
+      ],
     };
   } catch {
     return { title: 'Player Injury Report' };
@@ -162,14 +183,24 @@ export default async function PlayerPage({
   const sortedSeasons = Array.from(episodesBySeason.keys()).sort((a, b) => b - a);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
+  const currentTeam = injuries[0]?.team ?? null;
   const personJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
     name: player.name,
     ...(player.position ? { jobTitle: player.position } : {}),
-    ...(player.nationality ? { nationality: player.nationality } : {}),
+    ...(player.nationality ? { nationality: { '@type': 'Country', name: player.nationality } } : {}),
     ...(player.birthDate ? { birthDate: player.birthDate } : {}),
+    ...(player.photo ? { image: player.photo } : {}),
     url: `${siteUrl}/player/${playerId}`,
+    ...(currentTeam ? {
+      memberOf: {
+        '@type': 'SportsTeam',
+        name: currentTeam.name,
+        sport: 'Association Football',
+        url: `${siteUrl}/team/${currentTeam.id}`,
+      },
+    } : {}),
   };
 
   return (
@@ -279,9 +310,9 @@ export default async function PlayerPage({
       {sortedSeasons.length > 0 && (
         <Card className="p-0 gap-0">
           <div className="px-4 py-2.5 bg-muted/30 border-b border-border">
-            <span className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground">
+            <h2 className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground m-0">
               {t(locale, 'injury_history')}
-            </span>
+            </h2>
           </div>
           <div>
             {sortedSeasons.map((yr, si) => {

@@ -27,11 +27,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "SquadCheck — Injury Impact Analysis",
+    default: "SquadCheck (스쿼드체크) — Football Injury Intelligence",
     template: "%s | SquadCheck",
   },
   description:
-    "Track injury impact and predicted lineups across Premier League, La Liga, Serie A, Bundesliga, and Ligue 1. Power Loss %, recovery signals, and real-time squad analysis.",
+    "Track injury impact and predicted lineups across Premier League, La Liga, Serie A, Bundesliga, and Ligue 1. Power Loss %, recovery signals, and real-time squad analysis. 축구 부상 분석 · 예상 라인업 · 파워 로스",
   keywords: [
     "football injuries",
     "injury tracker",
@@ -41,6 +41,15 @@ export const metadata: Metadata = {
     "La Liga injuries",
     "Serie A injuries",
     "injury impact analysis",
+    "스쿼드체크",
+    "축구 부상",
+    "부상 분석",
+    "예상 라인업",
+    "프리미어리그 부상",
+    "라리가 부상",
+    "세리에A 부상",
+    "분데스리가 부상",
+    "리그앙 부상",
   ],
   icons: {
     icon: [
@@ -59,15 +68,15 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "SquadCheck",
-    title: "SquadCheck — Injury Impact Analysis",
+    siteName: "SquadCheck (스쿼드체크)",
+    title: "SquadCheck — Football Injury Intelligence",
     description:
-      "Quantify how injuries affect team strength. Predicted lineups, Power Loss %, and recovery signals across top European leagues.",
+      "Quantify how injuries affect team strength. Predicted lineups, Power Loss %, and recovery signals across top European leagues. 축구 부상이 팀 전력에 미치는 영향을 정량화.",
     url: SITE_URL,
   },
   twitter: {
     card: "summary_large_image",
-    title: "SquadCheck — Injury Impact Analysis",
+    title: "SquadCheck — Football Injury Intelligence",
     description:
       "Quantify how injuries affect team strength across top European leagues.",
   },
@@ -83,6 +92,11 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: SITE_URL,
+    languages: {
+      "en": SITE_URL,
+      "ko": SITE_URL,
+      "x-default": SITE_URL,
+    },
   },
 };
 
@@ -98,6 +112,19 @@ export default function RootLayout({
       className={cn(dmSans.variable, plexMono.variable, "dark")}
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "SquadCheck",
+              alternateName: "스쿼드체크",
+              url: SITE_URL,
+              logo: `${SITE_URL}/favicon-96x96.png`,
+            }),
+          }}
+        />
         <GoogleAnalytics />
         <AuthProvider>
           <LayoutShell locale={locale}>{children}</LayoutShell>

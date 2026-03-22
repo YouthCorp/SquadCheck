@@ -126,8 +126,14 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "SquadCheck",
+    alternateName: "스쿼드체크",
     url: siteUrl,
-    description: "Football injury impact analysis across top European leagues.",
+    description: "Football injury impact analysis across top European leagues. 축구 부상 분석 서비스.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/leaderboard`,
+      "query-input": "required name=search_term_string",
+    },
   };
 
   return (

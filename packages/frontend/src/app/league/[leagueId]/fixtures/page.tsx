@@ -117,8 +117,23 @@ export default async function FixturesPage({
     return `${tabBase}${sep}round=${encodeURIComponent(round)}`;
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: leagueName, item: `${siteUrl}/league/${leagueId}` },
+      { '@type': 'ListItem', position: 3, name: 'Fixtures & Results' },
+    ],
+  };
+
   return (
     <div className="max-w-[72rem] mx-auto">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {/* Page header */}
       <div className="mb-6 pb-4 border-b border-border">
         <p className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground mb-1">

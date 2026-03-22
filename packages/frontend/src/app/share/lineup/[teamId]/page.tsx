@@ -37,6 +37,7 @@ export async function generateMetadata({
     title,
     description: `Predicted starting lineup for ${teamName ?? "this team"} with Power Loss % and injury intelligence.`,
     alternates: { canonical: `/team/${params.teamId}` },
+    robots: { index: false, follow: true },
   };
 }
 

@@ -706,7 +706,20 @@ export default async function FixtureDetailPage({
         ...(fixture.venueCity && { address: fixture.venueCity }),
       },
     }),
-    ...(isCompleted && { eventStatus: "https://schema.org/EventScheduled" }),
+    eventStatus: isCompleted
+      ? "https://schema.org/EventCompleted"
+      : "https://schema.org/EventScheduled",
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: leagueName, item: `${SITE_URL}/league/${leagueId}` },
+      { "@type": "ListItem", position: 3, name: "Fixtures", item: `${SITE_URL}/league/${leagueId}/fixtures` },
+      { "@type": "ListItem", position: 4, name: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}` },
+    ],
   };
 
   return (
@@ -714,6 +727,10 @@ export default async function FixtureDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
       {/* Back button */}

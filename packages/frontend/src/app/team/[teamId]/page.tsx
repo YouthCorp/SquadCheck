@@ -2,6 +2,7 @@ import { fetchApi } from '@/lib/api';
 import Link from 'next/link';
 import { getLocale } from '@/lib/locale';
 import { t, tPos } from '@/lib/i18n';
+import { LEAGUE_NAMES } from '@/lib/constants';
 import type { Team, InjuryImpact } from '@/lib/types';
 import { InjuredPlayerCard } from '@/components/injured-player-card';
 import { OutcomeImpactCard } from '@/components/outcome-impact-card';
@@ -26,16 +27,25 @@ export async function generateMetadata({
     const teamName = impact.team.name;
     const count = impact.injuredPlayers.length;
     const powerLoss = impact.powerLossPct.toFixed(1);
-    const title = `${teamName} Injury Report`;
+    const injuredNames = impact.injuredPlayers.slice(0, 5).map((p) => p.player.name).join(', ');
+    const title = `${teamName} Injuries & Squad News 2025/26`;
     const description =
       count > 0
-        ? `${teamName}: ${count} player${count !== 1 ? 's' : ''} out, Power Loss ${powerLoss}%. See predicted lineup and recovery signals.`
-        : `${teamName} injury report: no current injuries. Full squad available.`;
+        ? `${teamName}: ${count} player${count !== 1 ? 's' : ''} out (${injuredNames}). Power Loss ${powerLoss}%. Predicted lineup, injury timeline, and recovery signals.`
+        : `${teamName}: Full squad available. Predicted lineup and squad analysis for the 2025/26 season.`;
     return {
       title,
       description,
       openGraph: { title: `${title} | SquadCheck`, description },
       alternates: { canonical: `/team/${teamId}` },
+      keywords: [
+        `${teamName} injuries`,
+        `${teamName} injury news`,
+        `${teamName} team news`,
+        `${teamName} predicted lineup`,
+        `${teamName} squad`,
+        `${teamName} injury update`,
+      ],
     };
   } catch {
     return { title: 'Team Injury Report' };
@@ -80,8 +90,50 @@ export default async function TeamPage({
 
   const playerLinkSuffix = `?team=${teamId}${backLeagueId ? `&league=${backLeagueId}` : ''}`;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
+  const leagueName = backLeagueId ? (LEAGUE_NAMES[backLeagueId] ?? null) : null;
+
+  const sportsTeamJsonLd = team ? {
+    '@context': 'https://schema.org',
+    '@type': 'SportsTeam',
+    name: team.name,
+    sport: 'Association Football',
+    url: `${siteUrl}/team/${teamId}`,
+    ...(team.logo ? { logo: team.logo } : {}),
+    ...(leagueName ? {
+      memberOf: {
+        '@type': 'SportsOrganization',
+        name: leagueName,
+      },
+    } : {}),
+  } : null;
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      ...(leagueName && backLeagueId ? [
+        { '@type': 'ListItem', position: 2, name: leagueName, item: `${siteUrl}/league/${backLeagueId}` },
+        { '@type': 'ListItem', position: 3, name: `${team?.name ?? 'Team'} Injury Report` },
+      ] : [
+        { '@type': 'ListItem', position: 2, name: `${team?.name ?? 'Team'} Injury Report` },
+      ]),
+    ],
+  };
+
   return (
     <div className="max-w-[72rem] mx-auto">
+      {sportsTeamJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(sportsTeamJsonLd) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {/* Back button */}
       {backLeagueId && (
         <Link

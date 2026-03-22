@@ -90,6 +90,10 @@ const ZONE_TEXT_COLOR: Record<ZoneType, string> = {
   relegation: 'text-[var(--sc-red)]',
 };
 
+export function generateStaticParams() {
+  return Object.keys(LEAGUE_NAMES).map((id) => ({ leagueId: id }));
+}
+
 export default async function LeaguePage({ params }: { params: { leagueId: string } }) {
   const leagueId = parseInt(params.leagueId);
   const locale = getLocale();
@@ -99,8 +103,23 @@ export default async function LeaguePage({ params }: { params: { leagueId: strin
 
   const total = standing?.entries.length ?? 0;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
+  const leagueName = LEAGUE_NAMES[leagueId] ?? `League ${leagueId}`;
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: leagueName },
+    ],
+  };
+
   return (
     <div className="max-w-[72rem] mx-auto">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {/* Page header */}
       <div className="mb-6 pb-4 border-b border-border">
         <p className="text-[0.6875rem] font-semibold tracking-wider uppercase text-muted-foreground mb-1">
