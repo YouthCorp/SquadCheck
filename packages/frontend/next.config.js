@@ -17,11 +17,15 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    // afterFiles: Next.js가 App Router 라우트 핸들러를 먼저 확인한 뒤,
-    // 매칭되는 핸들러가 없을 때만 proxy 적용됨.
-    // → /api/auth/* 는 NextAuth 라우트 핸들러가 먼저 처리하므로 Railway로 안 넘어감.
+    // Vercel Edge는 rewrite를 함수 호출 전에 적용하므로 afterFiles도 함수보다 먼저 실행됨.
+    // 해결책: auth 경로 self-rewrite를 프록시 규칙보다 먼저 두어
+    // /api/auth/* 가 첫 번째 규칙에 매칭되면 두 번째 프록시 규칙은 실행되지 않음.
     return {
       afterFiles: [
+        {
+          source: '/api/auth/:path*',
+          destination: '/api/auth/:path*',
+        },
         {
           source: '/api/:path*',
           destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/:path*`,
