@@ -40,6 +40,8 @@ export default function Image() {
         {/* Main heading */}
         <div
           style={{
+            display: 'flex',
+            flexDirection: 'column',
             fontSize: 72,
             fontWeight: 300,
             color: '#f4f4f4',
@@ -48,23 +50,23 @@ export default function Image() {
             letterSpacing: '-0.02em',
           }}
         >
-          Football injury
-          <br />
-          intelligence.
+          <span>Football injury</span>
+          <span>intelligence.</span>
         </div>
 
         {/* Subtitle */}
         <div
           style={{
+            display: 'flex',
+            flexDirection: 'column',
             fontSize: 24,
             color: '#8d8d8d',
             marginBottom: 56,
             lineHeight: 1.5,
           }}
         >
-          Injury impact analysis · Predicted lineups · Recovery signals
-          <br />
-          5 leagues · 9 cup competitions
+          <span>Injury impact analysis · Predicted lineups · Recovery signals</span>
+          <span>5 leagues · 9 cup competitions</span>
         </div>
 
         {/* Feature pills */}
