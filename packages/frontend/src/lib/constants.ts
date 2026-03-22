@@ -32,6 +32,9 @@ export const CTX_KEY: Record<string, TranslationKey> = {
 /** Current active season year (start year of the season, e.g. 2025 = 2025/26). Update when new season is seeded. */
 export const CURRENT_SEASON = 2025;
 
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
+
 export const LEAGUE_NAMES: Record<number, string> = {
   39: 'Premier League',
   140: 'La Liga',

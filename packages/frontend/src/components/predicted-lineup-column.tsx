@@ -1,11 +1,8 @@
 import { PitchLineup } from "@/components/pitch-lineup";
 import { ShareButton } from "@/components/share-button";
 import { t, type Locale } from "@/lib/i18n";
-import { CURRENT_SEASON } from "@/lib/constants";
+import { CURRENT_SEASON, SITE_URL } from "@/lib/constants";
 import type { PredictedLineup } from "@/lib/types";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
 
 export function PredictedLineupColumn({
   lineup,

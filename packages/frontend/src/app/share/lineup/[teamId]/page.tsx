@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ClientRedirect } from "./_client-redirect";
+import { CURRENT_SEASON } from "@/lib/constants";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const CURRENT_SEASON = 2025;
 
 interface PredictedLineup {
   teamId: number;

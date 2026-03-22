@@ -5,8 +5,9 @@ export const alt = "Predicted XI";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+import { CURRENT_SEASON } from "@/lib/constants";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const CURRENT_SEASON = 2025;
 
 interface PredictedLineup {
   teamId: number;

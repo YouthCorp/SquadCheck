@@ -2,7 +2,7 @@ import { fetchApi } from "@/lib/api";
 import Link from "next/link";
 import { getLocale } from "@/lib/locale";
 import { t, type Locale } from "@/lib/i18n";
-import { LEAGUE_NAMES, CURRENT_SEASON } from "@/lib/constants";
+import { LEAGUE_NAMES, CURRENT_SEASON, SITE_URL } from "@/lib/constants";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -689,14 +689,13 @@ export default async function FixtureDetailPage({
   const awayActualLineup =
     fixture.lineups.find((l) => l.team.id === fixture!.awayTeam.id) ?? null;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
     name: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
     sport: "Association Football",
     startDate: fixture.date,
-    url: `${siteUrl}/league/${leagueId}/fixtures/${fixtureId}`,
+    url: `${SITE_URL}/league/${leagueId}/fixtures/${fixtureId}`,
     description: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name} — ${leagueName} match analysis with injury impact and predicted lineups.`,
     homeTeam: { "@type": "SportsTeam", name: fixture.homeTeam.name },
     awayTeam: { "@type": "SportsTeam", name: fixture.awayTeam.name },

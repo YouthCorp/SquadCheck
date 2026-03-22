@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import { fetchApi } from "@/lib/api";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
-import { CURRENT_SEASON } from "@/lib/constants";
+import { CURRENT_SEASON, SITE_URL } from "@/lib/constants";
 import { SectionHeader } from "@/components/section-header";
 import { MatchupCard } from "@/components/matchup-card";
 import { PredictedLineupColumn } from "@/components/predicted-lineup-column";
 import { ShareButton } from "@/components/share-button";
 import type { InjuryImpact, PredictedLineup } from "@/lib/types";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://squadcheck.xyz";
 
 export async function generateMetadata({
   searchParams,
