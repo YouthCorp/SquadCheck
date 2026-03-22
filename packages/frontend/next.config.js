@@ -17,12 +17,22 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/:path*`,
-      },
-    ];
+    return {
+      // beforeFiles: NextAuth 경로는 Next.js가 처리 — Express API로 넘기지 않음
+      beforeFiles: [
+        {
+          source: '/api/auth/:path*',
+          destination: '/api/auth/:path*',
+        },
+      ],
+      afterFiles: [
+        {
+          source: '/api/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/:path*`,
+        },
+      ],
+      fallback: [],
+    };
   },
 };
 
