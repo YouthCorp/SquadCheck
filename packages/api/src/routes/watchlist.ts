@@ -2,11 +2,22 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { getPrisma } from '../lib/prisma';
+import {
+  watchlistReadLimiter,
+  watchlistWriteLimiter,
+} from '../middleware/rate-limit';
 
 const router = Router();
 
 const CURRENT_SEASON = 2025;
 const FREE_TIER_LIMIT = 5;
+
+router.use((req, res, next) => {
+  const limiter = req.method === 'GET'
+    ? watchlistReadLimiter
+    : watchlistWriteLimiter;
+  limiter(req, res, next);
+});
 
 // ─── GET /api/watchlist/players ──────────────────────────────────────────────
 // Returns the user's watchlist with injury status + latest signal per player

@@ -16,6 +16,7 @@ import { analysisRouter } from './routes/analysis';
 import { adminRouter } from './routes/admin';
 import { watchlistRouter } from './routes/watchlist';
 import { requireAuth } from './middleware/auth';
+import { analysisLimiter, apiBaseLimiter } from './middleware/rate-limit';
 
 // Cap the connection pool to avoid "too many clients" on Railway's shared PostgreSQL.
 // Appended to DATABASE_URL so it works with Railway's internal URL format.
@@ -31,8 +32,10 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '4000');
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000').split(',');
 
+app.set('trust proxy', 1);
 app.use(cors({ origin: CORS_ORIGINS }));
 app.use(express.json());
+app.use('/api', apiBaseLimiter);
 
 // HTTP Basic Auth guard for admin routes
 function adminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -64,7 +67,7 @@ app.use('/api/players', playersRouter);
 app.use('/api/fixtures', fixturesRouter);
 app.use('/api/injuries', injuriesRouter);
 app.use('/api/standings', standingsRouter);
-app.use('/api/analysis', analysisRouter);
+app.use('/api/analysis', analysisLimiter, analysisRouter);
 app.use('/api/admin', adminAuth, adminRouter);
 app.use('/api/watchlist', requireAuth, watchlistRouter);
 
