@@ -40,6 +40,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.userId = user.id;
+      }
+
+      if (typeof token.userId === 'string') {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: token.userId },
+          select: { tier: true },
+        });
+        token.tier = currentUser?.tier ?? 'free';
+      } else if (user) {
         token.tier = (user as any).tier ?? 'free';
       }
 
