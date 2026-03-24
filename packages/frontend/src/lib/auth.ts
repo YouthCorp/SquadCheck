@@ -2,8 +2,26 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Resend from 'next-auth/providers/resend';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { SignJWT } from 'jose';
+import { decodeJwt, SignJWT } from 'jose';
 import { prisma } from './prisma';
+
+const API_TOKEN_ISSUER = 'squadcheck-frontend';
+const API_TOKEN_AUDIENCE = 'squadcheck-api';
+const API_TOKEN_TTL = '15m';
+const API_TOKEN_REFRESH_WINDOW_SECONDS = 5 * 60;
+
+function shouldRefreshApiToken(apiToken: unknown): boolean {
+  if (typeof apiToken !== 'string' || !apiToken) return true;
+
+  try {
+    const payload = decodeJwt(apiToken);
+    if (typeof payload.exp !== 'number') return true;
+    const now = Math.floor(Date.now() / 1000);
+    return payload.exp - now <= API_TOKEN_REFRESH_WINDOW_SECONDS;
+  } catch {
+    return true;
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -24,12 +42,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.userId = user.id;
         token.tier = (user as any).tier ?? 'free';
       }
-      // Mint a HS256 API token once for Express API auth (jwtVerify-compatible).
-      // Stored in the encrypted NextAuth cookie; re-created only if absent.
-      if (!token.apiToken && token.userId) {
-        const secret = new TextEncoder().encode(process.env.AUTH_SECRET!);
-        token.apiToken = await new SignJWT({ userId: token.userId, tier: token.tier ?? 'free' })
+
+      // Keep the browser session long-lived, but rotate the API token frequently.
+      if (token.userId && shouldRefreshApiToken(token.apiToken)) {
+        const authSecret = process.env.AUTH_SECRET;
+        if (!authSecret) {
+          throw new Error('AUTH_SECRET is required to mint API tokens');
+        }
+
+        const secret = new TextEncoder().encode(authSecret);
+        token.apiToken = await new SignJWT({
+          userId: token.userId,
+          tier: token.tier ?? 'free',
+        })
           .setProtectedHeader({ alg: 'HS256' })
+          .setIssuedAt()
+          .setIssuer(API_TOKEN_ISSUER)
+          .setAudience(API_TOKEN_AUDIENCE)
+          .setExpirationTime(API_TOKEN_TTL)
           .sign(secret);
       }
       return token;
