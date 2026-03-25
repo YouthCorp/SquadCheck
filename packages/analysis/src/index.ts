@@ -72,3 +72,22 @@ export {
 // Re-export canonical domain constants for consumers that previously relied on
 // the analysis package as a proxy. Prefer importing from @squadcheck/database directly.
 export { buildExclusionFilter } from '@squadcheck/database';
+
+export {
+  resolveSeasonChain,
+  resolveTeamLeague,
+} from './utils/season-resolver';
+
+export {
+  analyzeTeamPower,
+  analyzeInjuryImpact,
+  analyzePredictedLineup,
+  analyzePlayerImpact,
+  analyzeTeamImpactReport,
+  type SeasonChain,
+  type TeamPowerResult,
+  type InjuryImpactResult,
+  type PredictedLineupResult,
+  type PlayerImpactResult,
+  type TeamImpactReportResult,
+} from './facades';

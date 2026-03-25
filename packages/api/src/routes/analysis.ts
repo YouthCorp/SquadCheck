@@ -1,60 +1,15 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { getPrisma, resolveSeason } from '../lib/prisma';
 import { cached } from '../lib/cache';
 import {
-  computePlayerWeights,
-  computeRichInjuryImpact,
-  computePerformanceDelta,
-  computeTeamPowerLoss,
-  computePredictedLineup,
-  computeTeamOutcomeImpact,
+  analyzeTeamPower,
+  analyzeInjuryImpact,
+  analyzePredictedLineup,
+  analyzePlayerImpact,
+  analyzeTeamImpactReport,
 } from '@squadcheck/analysis';
 
 export const analysisRouter = Router();
-
-// ── Season chain helper ─────────────────────────────────────
-async function resolveSeasonChain(
-  prisma: PrismaClient,
-  leagueId: number,
-  currentYear: number,
-  lookback = 2,
-): Promise<{ ids: number[]; years: number[] }> {
-  const years = Array.from({ length: lookback + 1 }, (_, i) => currentYear - i);
-  const seasons = await prisma.season.findMany({
-    where: { leagueId, year: { in: years } },
-    orderBy: { year: 'desc' },
-  });
-
-  const ids: number[] = [];
-  const foundYears: number[] = [];
-  for (const y of years) {
-    const s = seasons.find(s => s.year === y);
-    if (s) {
-      ids.push(s.id);
-      foundYears.push(s.year);
-    }
-  }
-  return { ids, years: foundYears };
-}
-
-async function resolveTeamLeague(prisma: PrismaClient, teamId: number): Promise<number | null> {
-  // Primary: find leagueId from player season stats
-  const statsEntry = await prisma.playerSeasonStats.findFirst({
-    where: { teamId },
-    select: { season: { select: { leagueId: true } } },
-    orderBy: { seasonId: 'desc' },
-  });
-  if (statsEntry) return statsEntry.season.leagueId;
-
-  // Fallback: find leagueId from standing entries (covers leagues without player stats seeded)
-  const standingEntry = await prisma.standingEntry.findFirst({
-    where: { teamId },
-    select: { standing: { select: { leagueId: true } } },
-    orderBy: { id: 'desc' },
-  });
-  return standingEntry?.standing.leagueId ?? null;
-}
 
 // ── GET /api/analysis/team-power/:teamId?season=2024 ────────
 analysisRouter.get('/team-power/:teamId', async (req, res, next) => {
@@ -69,13 +24,10 @@ analysisRouter.get('/team-power/:teamId', async (req, res, next) => {
       const team = await prisma.team.findUnique({ where: { id: teamId } });
       if (!team) return null;
 
-      const leagueId = await resolveTeamLeague(prisma, teamId);
-      if (!leagueId) return null;
+      const analysis = await analyzeTeamPower(prisma, teamId, season);
+      if (!analysis) return null;
 
-      const chain = await resolveSeasonChain(prisma, leagueId, season);
-      if (chain.ids.length === 0) return null;
-
-      const weights = await computePlayerWeights(prisma, teamId, chain.ids, chain.years);
+      const { weights } = analysis;
       if (weights.length === 0) return { team, season, players: [], totalWeight: 0 };
 
       const totalWeight = weights.reduce((sum, pw) => sum + pw.weight, 0);
@@ -127,26 +79,20 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
 
     const result = await cached(cacheKey, (r) => {
       // Short TTL when outcomeImpact is missing despite having injured players
-      // so the result is retried quickly once DB stats are populated
       if (r && (r as any).outcomeImpact === null && (r as any).injuredPlayers?.length > 0) return 30;
-      return 120; // aligned with live-updates (60s) and recovery-signals (120s) to reduce cross-panel stale window
+      return 120;
     }, async () => {
       const team = await prisma.team.findUnique({ where: { id: teamId } });
       if (!team) return null;
 
-      const leagueId = await resolveTeamLeague(prisma, teamId);
-      if (!leagueId) return null;
+      const analysis = await analyzeInjuryImpact(prisma, teamId, season, requestedLeagueId);
+      if (!analysis) return null;
 
-      const chain = await resolveSeasonChain(prisma, leagueId, season);
-      if (chain.ids.length === 0) return null;
+      const { rich, outcomeImpact, chain } = analysis;
 
-      const rich = await computeRichInjuryImpact(prisma, teamId, chain.ids, chain.years, season, requestedLeagueId);
-      if (!rich) return null;
-
-      // Fetch current-season stats directly — avoids showing prior-season
-      // goals/assists for players who were injured all current season.
+      // Fetch player photos, current-season stats, availability, league map
       const playerIds = rich.enrichedInjuredPlayers.map(p => p.playerId);
-      const [players, currentSeasonStats, availabilities, teamSeasonStats, standingEntry, leagues] = await Promise.all([
+      const [players, currentSeasonStats, availabilities, leagues] = await Promise.all([
         prisma.player.findMany({
           where: { id: { in: playerIds } },
           select: { id: true, name: true, photo: true, position: true },
@@ -167,15 +113,6 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
             signalCount: true,
           },
         }),
-        prisma.teamSeasonStats.findUnique({
-          where: { teamId_seasonId: { teamId, seasonId: chain.ids[0] } },
-          select: { avgXg: true, avgXgAgainst: true, totalGoals: true, totalConceded: true },
-        }),
-        prisma.standingEntry.findFirst({
-          where: { teamId, seasonId: chain.ids[0] },
-          select: { played: true, wins: true, draws: true, losses: true, goalsFor: true, goalsAgainst: true },
-          orderBy: { rank: 'asc' },
-        }),
         prisma.league.findMany({ select: { id: true, apiFootballId: true } }),
       ]);
       const photoMap = new Map(players.map(p => [p.id, p]));
@@ -186,13 +123,6 @@ analysisRouter.get('/injury-impact/:teamId', async (req, res, next) => {
       for (const a of availabilities) {
         if (!availMap.has(a.playerId)) availMap.set(a.playerId, a);
       }
-
-      // Compute outcome impact from enriched players + season stats
-      const outcomeImpact = computeTeamOutcomeImpact(
-        rich.enrichedInjuredPlayers,
-        teamSeasonStats,
-        standingEntry,
-      );
 
       return {
         team,
@@ -270,11 +200,12 @@ analysisRouter.get('/player-weight/:playerId', async (req, res, next) => {
 
     if (!ps) return res.json({ player, season, weight: 0, components: {}, dataSource: 'none' });
 
-    const chain = await resolveSeasonChain(prisma, ps.season.leagueId, season);
-    if (chain.ids.length === 0) return res.json({ player, season, weight: 0, components: {}, dataSource: 'none' });
+    const analysis = await analyzeTeamPower(prisma, ps.teamId, season);
+    if (!analysis || analysis.chain.ids.length === 0) {
+      return res.json({ player, season, weight: 0, components: {}, dataSource: 'none' });
+    }
 
-    const weights = await computePlayerWeights(prisma, ps.teamId, chain.ids, chain.years);
-    const pw = weights.find(w => w.playerId === playerId);
+    const pw = analysis.weights.find(w => w.playerId === playerId);
 
     if (!pw) return res.json({ player, season, weight: 0, components: {}, dataSource: 'none' });
 
@@ -320,18 +251,11 @@ analysisRouter.get('/player-impact/:playerId', async (req, res, next) => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    const leagueId = await resolveTeamLeague(prisma, teamId);
-    if (!leagueId) return res.status(404).json({ error: 'League not found' });
+    const analysis = await analyzePlayerImpact(prisma, teamId, playerId, season);
+    if (!analysis) return res.status(404).json({ error: 'League or season not found' });
 
-    const chain = await resolveSeasonChain(prisma, leagueId, season);
-    if (chain.ids.length === 0) return res.status(404).json({ error: 'Season not found' });
-
-    // Weight
-    const weights = await computePlayerWeights(prisma, teamId, chain.ids, chain.years);
+    const { weights, perfDelta } = analysis;
     const pw = weights.find(w => w.playerId === playerId);
-
-    // Performance delta
-    const perfDelta = await computePerformanceDelta(prisma, teamId, playerId, season);
 
     // Injury history
     const injuries = await prisma.injury.findMany({
@@ -382,14 +306,10 @@ analysisRouter.get('/team-impact-report/:teamId', async (req, res, next) => {
       const team = await prisma.team.findUnique({ where: { id: teamId } });
       if (!team) return null;
 
-      const leagueId = await resolveTeamLeague(prisma, teamId);
-      if (!leagueId) return null;
+      const analysis = await analyzeTeamImpactReport(prisma, teamId, season);
+      if (!analysis) return null;
 
-      const chain = await resolveSeasonChain(prisma, leagueId, season);
-      if (chain.ids.length === 0) return null;
-
-      const powerLoss = await computeTeamPowerLoss(prisma, teamId, chain.ids, chain.years, season);
-      if (!powerLoss) return null;
+      const { powerLoss, chain } = analysis;
 
       // Fetch player photos
       const allPlayerIds = [
@@ -460,16 +380,9 @@ analysisRouter.get('/predicted-lineup/:teamId', async (req, res, next) => {
     const cacheKey = `analysis:predicted-lineup:${teamId}:${season}:${leagueApiFootballId ?? 'all'}`;
 
     const result = await cached(cacheKey, 300, async () => {
-      const leagueId = await resolveTeamLeague(prisma, teamId);
-      if (!leagueId) return null;
-
-      const chain = await resolveSeasonChain(prisma, leagueId, season);
-      if (chain.ids.length === 0) return null;
-
-      const lineup = await computePredictedLineup(prisma, teamId, chain.ids, chain.years, season, requestedLeagueId);
-      if (!lineup) return null;
-
-      return lineup;
+      const analysis = await analyzePredictedLineup(prisma, teamId, season, requestedLeagueId);
+      if (!analysis) return null;
+      return analysis.lineup;
     });
 
     if (!result) return res.status(404).json({ error: 'Team or season not found' });
