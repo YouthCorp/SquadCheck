@@ -1,4 +1,8 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import {
+  DISCIPLINARY_REASONS as _DISCIPLINARY_REASONS,
+  buildExclusionFilter,
+} from '@squadcheck/database';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,33 +34,16 @@ export interface AbsenceRecord {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Narrow list: disciplinary absences only.
-// Used in resolveActiveInjuries Step 3 to identify served disciplinary bans.
-const DISCIPLINARY_REASONS = ['red card', 'suspended', 'suspension', 'yellow card'];
-
+// Disciplinary reasons from shared canonical source (@squadcheck/database).
 function isDisciplinary(reason: string): boolean {
   const r = reason.toLowerCase();
-  return DISCIPLINARY_REASONS.some(d => r === d || r.includes(d));
+  return (_DISCIPLINARY_REASONS as readonly string[]).some(d => r === d || r.includes(d));
 }
 
 // Broad list: all non-physical absences to exclude from injury panels.
 // Exported so callers (e.g. live-updates route) can build their own Prisma queries.
-export const NON_INJURY_EXCLUSION_FILTER: Prisma.InjuryWhereInput = {
-  NOT: {
-    OR: [
-      { reason: { contains: 'red card',           mode: 'insensitive' } },
-      { reason: { equals:   'suspended',          mode: 'insensitive' } },
-      { reason: { equals:   'suspension',         mode: 'insensitive' } },
-      { reason: { contains: 'yellow card',        mode: 'insensitive' } },
-      { reason: { equals:   'international duty', mode: 'insensitive' } },
-      { reason: { equals:   'inactive',           mode: 'insensitive' } },
-      { reason: { contains: 'coach',              mode: 'insensitive' } },
-      { reason: { equals:   'loan agreement',     mode: 'insensitive' } },
-      { reason: { equals:   'rest',               mode: 'insensitive' } },
-      { reason: { equals:   'doping',             mode: 'insensitive' } },
-    ],
-  },
-};
+// Built from canonical NON_INJURY_EXCLUSION_MATCHER in @squadcheck/database.
+export const NON_INJURY_EXCLUSION_FILTER: Prisma.InjuryWhereInput = buildExclusionFilter();
 
 // ── Shared utilities ──────────────────────────────────────────────────────────
 

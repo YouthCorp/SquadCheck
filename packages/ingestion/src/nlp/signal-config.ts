@@ -2,6 +2,19 @@
  * Centralized configuration for the recovery signal intelligence layer.
  * All thresholds and weights are defined here — never hardcoded elsewhere.
  */
+import {
+  DISCIPLINARY_REASONS,
+  NON_INJURY_EXCLUSION_REASONS,
+} from '@squadcheck/database';
+
+export { DISCIPLINARY_REASONS };
+
+/**
+ * Alias for NON_INJURY_EXCLUSION_REASONS from @squadcheck/database.
+ * Kept as a named export for backward compatibility with entity-matcher.ts.
+ */
+export const NON_SIGNAL_EXCLUSION_REASONS = NON_INJURY_EXCLUSION_REASONS;
+
 export const SIGNAL_CONFIG = {
   // ── Keyword classification thresholds ──
   keyword: {
@@ -67,43 +80,6 @@ export const SIGNAL_CONFIG = {
 
 export type SignalStage = keyof typeof SIGNAL_CONFIG.stageScores;
 export const SIGNAL_STAGES = Object.keys(SIGNAL_CONFIG.stageScores) as SignalStage[];
-
-/**
- * Injury reasons that indicate a disciplinary absence (red card / suspension / yellow cards).
- * These players are NOT real injury cases — they serve fixed match bans and return automatically.
- */
-export const DISCIPLINARY_REASONS = [
-  'red card',
-  'suspended',
-  'suspension',
-  'yellow card',
-  'yellow cards',
-] as const;
-
-/**
- * All non-physical absence reasons to exclude from the recovery signal pipeline.
- * Superset of DISCIPLINARY_REASONS — also excludes international duty, inactive,
- * coach absences, loan agreements, rest, and doping.
- *
- * NOTE: Intentionally mirrors NON_INJURY_EXCLUSION_FILTER in @squadcheck/analysis.
- * The ingestion package cannot import from @squadcheck/analysis (circular dep risk),
- * so the reason set must be duplicated here. If reasons change in injury-resolver.ts,
- * update this list in sync.
- * Used in buildInjuredPlayerIndex() so signal collection targets only real injuries.
- */
-export const NON_SIGNAL_EXCLUSION_REASONS = [
-  'red card',
-  'suspended',
-  'suspension',
-  'yellow card',
-  'yellow cards',
-  'international duty',
-  'inactive',
-  'coach',
-  'loan agreement',
-  'rest',
-  'doping',
-] as const;
 
 // ── Team aliases dictionary ──
 // key = normalizeName(team.name) EXACTLY as stored in DB

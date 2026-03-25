@@ -68,3 +68,7 @@ export {
   type ActiveInjury,
   type AbsenceRecord,
 } from './utils/injury-resolver';
+
+// Re-export canonical domain constants for consumers that previously relied on
+// the analysis package as a proxy. Prefer importing from @squadcheck/database directly.
+export { buildExclusionFilter } from '@squadcheck/database';

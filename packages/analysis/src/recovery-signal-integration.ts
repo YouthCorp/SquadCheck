@@ -1,7 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-
-const AVAILABILITY_THRESHOLD = 0.7;
-const CONFIDENCE_THRESHOLD = 0.5;
+import { AVAILABILITY_THRESHOLD, CONFIDENCE_THRESHOLD } from '@squadcheck/database';
 
 export interface SignalRecoveredInfo {
   predictedAvailability: number;
