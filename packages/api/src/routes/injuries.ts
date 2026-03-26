@@ -148,8 +148,17 @@ injuriesRouter.get('/live-updates', async (req, res, next) => {
         take: 200,
       });
 
+      // Only show recovery signals for players who are still actively injured.
+      // Guards against stale player_availability records for players who have
+      // already recovered (player_injury_status.isActive=false but availability
+      // not yet expired by the next ingestion cycle).
+      const activelyInjuredPlayerIds = new Set(
+        (rawInjuries as RawInj[]).map(inj => inj.playerId),
+      );
+
       const seenSignal = new Set<number>();
       const dedupedSignals = allSignals
+        .filter((pa) => activelyInjuredPlayerIds.has(pa.playerId))
         .filter((pa) => {
           if (seenSignal.has(pa.playerId)) return false;
           seenSignal.add(pa.playerId);

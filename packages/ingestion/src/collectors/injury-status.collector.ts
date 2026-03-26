@@ -49,12 +49,27 @@ export async function collectInjuryStatuses(
         const activePlayerIds = [...activeInjuries.keys()];
 
         if (activePlayerIds.length === 0) {
+          // Find previously active players before marking them resolved
+          const previouslyActiveAll = await prisma.playerInjuryStatus.findMany({
+            where: { teamId: team.id, season, isActive: true },
+            select: { playerId: true },
+          });
+          const allResolvedIds = previouslyActiveAll.map(r => r.playerId);
+
           // No active injuries — mark any previously active records as resolved
           const { count } = await prisma.playerInjuryStatus.updateMany({
             where: { teamId: team.id, season, isActive: true },
             data: { isActive: false, resolvedAt: new Date() },
           });
           totalResolved += count;
+
+          // Expire player_availability for all recovered players
+          if (allResolvedIds.length > 0) {
+            await prisma.playerAvailability.updateMany({
+              where: { playerId: { in: allResolvedIds }, expired: false },
+              data: { expired: true },
+            });
+          }
           continue;
         }
 
@@ -122,17 +137,38 @@ export async function collectInjuryStatuses(
           totalActive++;
         }
 
+        // Find players who were active but are now recovered — need their IDs to expire availability
+        const previouslyActive = await prisma.playerInjuryStatus.findMany({
+          where: {
+            teamId: team.id,
+            season,
+            isActive: true,
+            playerId: { notIn: activePlayerIds },
+          },
+          select: { playerId: true },
+        });
+        const resolvedPlayerIds = previouslyActive.map(r => r.playerId);
+
         // Mark as resolved: players previously active but no longer injured
         const { count } = await prisma.playerInjuryStatus.updateMany({
           where: {
             teamId: team.id,
             season,
             isActive: true,
-            playerId: { notIn: [...activeInjuries.keys()] },
+            playerId: { notIn: activePlayerIds },
           },
           data: { isActive: false, resolvedAt: new Date() },
         });
         totalResolved += count;
+
+        // Expire player_availability records for recovered players so they no longer
+        // appear in the home panel recovery signals section.
+        if (resolvedPlayerIds.length > 0) {
+          await prisma.playerAvailability.updateMany({
+            where: { playerId: { in: resolvedPlayerIds }, expired: false },
+            data: { expired: true },
+          });
+        }
       } catch (err) {
         console.warn(`[InjuryStatus] Error for team ${team.id} (league ${league.apiFootballId}):`, err);
       }
