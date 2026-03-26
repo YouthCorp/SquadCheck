@@ -1,5 +1,4 @@
-CLAUDE.md
-AGENTS.md
+*.md
 node_modules/
 dist/
 .env
