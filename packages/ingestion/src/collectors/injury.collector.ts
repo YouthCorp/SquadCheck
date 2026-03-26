@@ -28,14 +28,51 @@ export class InjuryCollector {
     console.log(`[InjuryCollector] Collecting injuries for league=${leagueApiId} season=${season}`);
 
     const res = await this.api.request<ApiInjury>('/injuries', { league: leagueApiId, season });
+    const playerApiIds = [...new Set(res.response.map((item) => item.player.id))];
+    const teamApiIds = [...new Set(res.response.map((item) => item.team.id))];
+    const fixtureApiIds = [...new Set(res.response.map((item) => item.fixture.id))];
+    const leagueApiIds = [...new Set(res.response.map((item) => item.league.id))];
+
+    const [players, teams, fixtures, leagues] = await Promise.all([
+      playerApiIds.length > 0
+        ? this.prisma.player.findMany({
+            where: { apiFootballId: { in: playerApiIds } },
+            select: { id: true, apiFootballId: true },
+          })
+        : Promise.resolve([]),
+      teamApiIds.length > 0
+        ? this.prisma.team.findMany({
+            where: { apiFootballId: { in: teamApiIds } },
+            select: { id: true, apiFootballId: true },
+          })
+        : Promise.resolve([]),
+      fixtureApiIds.length > 0
+        ? this.prisma.fixture.findMany({
+            where: { apiFootballId: { in: fixtureApiIds } },
+            select: { id: true, apiFootballId: true },
+          })
+        : Promise.resolve([]),
+      leagueApiIds.length > 0
+        ? this.prisma.league.findMany({
+            where: { apiFootballId: { in: leagueApiIds } },
+            select: { id: true, apiFootballId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const playerByApiId = new Map(players.map((player) => [player.apiFootballId, player]));
+    const teamByApiId = new Map(teams.map((team) => [team.apiFootballId, team]));
+    const fixtureByApiId = new Map(fixtures.map((fixture) => [fixture.apiFootballId, fixture]));
+    const leagueByApiId = new Map(leagues.map((league) => [league.apiFootballId, league]));
+
     let inserted = 0;
     let skipped = 0;
 
     for (const item of res.response) {
-      const player = await this.prisma.player.findUnique({ where: { apiFootballId: item.player.id } });
-      const team = await this.prisma.team.findUnique({ where: { apiFootballId: item.team.id } });
-      const fixture = await this.prisma.fixture.findUnique({ where: { apiFootballId: item.fixture.id } });
-      const league = await this.prisma.league.findUnique({ where: { apiFootballId: item.league.id } });
+      const player = playerByApiId.get(item.player.id);
+      const team = teamByApiId.get(item.team.id);
+      const fixture = fixtureByApiId.get(item.fixture.id);
+      const league = leagueByApiId.get(item.league.id);
 
       if (!fixture || !league || !team) {
         skipped++;
@@ -54,6 +91,10 @@ export class InjuryCollector {
               },
             })
           ).id;
+
+      if (!player) {
+        playerByApiId.set(item.player.id, { id: playerId, apiFootballId: item.player.id });
+      }
 
       try {
         await this.prisma.injury.upsert({

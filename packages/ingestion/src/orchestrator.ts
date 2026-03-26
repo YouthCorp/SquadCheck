@@ -223,13 +223,7 @@ export class Orchestrator {
       include: { league: true },
     });
 
-    // Pre-populate injury status from existing DB data so API endpoints are
-    // never empty while the full sync is still running (important on first deploy).
-    const preSyncYear =
-      currentSeasons.length > 0
-        ? Math.max(...currentSeasons.map((s) => s.year))
-        : 2025;
-    await collectInjuryStatuses(this.prisma, preSyncYear);
+    const impactedTeamsByScope = new Map<string, Set<number>>();
 
     for (const season of currentSeasons) {
       const leagueApiId = season.league.apiFootballId;
@@ -264,12 +258,22 @@ export class Orchestrator {
         select: {
           id: true,
           apiFootballId: true,
+          homeTeamId: true,
+          awayTeamId: true,
           homeTeam: { select: { apiFootballId: true } },
           awayTeam: { select: { apiFootballId: true } },
         },
         orderBy: { date: "desc" },
         take: 8,
       });
+
+      const scopeKey = `${leagueApiId}:${year}`;
+      const impactedTeams = impactedTeamsByScope.get(scopeKey) ?? new Set<number>();
+      for (const fixture of recentFixtures) {
+        impactedTeams.add(fixture.homeTeamId);
+        impactedTeams.add(fixture.awayTeamId);
+      }
+      impactedTeamsByScope.set(scopeKey, impactedTeams);
 
       for (const f of recentFixtures) {
         console.log(`  [Sync] Fixture details for ${f.apiFootballId}`);
@@ -304,12 +308,24 @@ export class Orchestrator {
         teamApiIdsToRefresh.add(f.homeTeam.apiFootballId);
         teamApiIdsToRefresh.add(f.awayTeam.apiFootballId);
       }
-      const injuredTeams = await this.prisma.playerInjuryStatus.findMany({
-        where: { leagueApiId, season: year, isActive: true },
+      const injuredTeamsMissingStats = await this.prisma.playerInjuryStatus.findMany({
+        where: {
+          leagueApiId,
+          season: year,
+          isActive: true,
+          player: {
+            seasonStats: {
+              none: {
+                leagueApiId,
+                season: { year },
+              },
+            },
+          },
+        },
         select: { team: { select: { apiFootballId: true } } },
         distinct: ['teamId'],
       });
-      for (const { team } of injuredTeams) {
+      for (const { team } of injuredTeamsMissingStats) {
         teamApiIdsToRefresh.add(team.apiFootballId);
       }
 
@@ -333,7 +349,7 @@ export class Orchestrator {
       ...new Set(currentSeasons.map((s) => s.league.apiFootballId)),
     ];
     const syncYears = [...new Set(currentSeasons.map((s) => s.year))];
-    await this.computeTeamSeasonStats(syncLeagueIds, syncYears);
+    await this.computeTeamSeasonStats(syncLeagueIds, syncYears, impactedTeamsByScope);
 
     // Mark expired PlayerAvailability rows for fixtures that are now completed
     await this.expireCompletedFixtureAvailability();
@@ -634,13 +650,22 @@ export class Orchestrator {
   ): Promise<void> {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-    const recentSignals = await this.prisma.recoverySignal.findMany({
+    const rawRecentSignals = await this.prisma.recoverySignal.findMany({
       where: { createdAt: { gte: fiveMinutesAgo } },
-      select: { playerId: true, teamId: true },
-      distinct: ["playerId"],
+      select: { playerId: true, teamId: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
     });
+    const recentSignals = new Map<number, { playerId: number; teamId: number }>();
+    for (const signal of rawRecentSignals) {
+      if (!recentSignals.has(signal.playerId)) {
+        recentSignals.set(signal.playerId, {
+          playerId: signal.playerId,
+          teamId: signal.teamId,
+        });
+      }
+    }
 
-    for (const { playerId, teamId } of recentSignals) {
+    for (const { playerId, teamId } of recentSignals.values()) {
       try {
         await computePlayerAvailability(this.prisma, playerId, teamId, season);
       } catch (err) {
@@ -1019,6 +1044,7 @@ export class Orchestrator {
   private async computeTeamSeasonStats(
     leagues: number[],
     seasons: number[],
+    impactedTeamsByScope?: Map<string, Set<number>>,
   ): Promise<void> {
     console.log("[Aggregates] Computing team season stats...");
 
@@ -1029,10 +1055,16 @@ export class Orchestrator {
       if (!league) continue;
 
       for (const season of seasons) {
-        const teams = await this.prisma.standingEntry.findMany({
-          where: { standing: { leagueId: league.id, season } },
-          select: { teamId: true },
-        });
+        const scopeKey = `${leagueApiId}:${season}`;
+        const impactedTeamIds = impactedTeamsByScope?.get(scopeKey);
+        const teams = impactedTeamIds
+          ? [...impactedTeamIds].map((teamId) => ({ teamId }))
+          : await this.prisma.standingEntry.findMany({
+              where: { standing: { leagueId: league.id, season } },
+              select: { teamId: true },
+            });
+
+        if (teams.length === 0) continue;
 
         const seasonRecord = await this.prisma.season.findUnique({
           where: { leagueId_year: { leagueId: league.id, year: season } },

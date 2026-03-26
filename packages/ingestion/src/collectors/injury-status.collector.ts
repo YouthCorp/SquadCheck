@@ -30,16 +30,16 @@ export async function collectInjuryStatuses(
   let totalResolved = 0;
 
   for (const league of leagues) {
-    // All teams that played in this league+season
-    const teams = await prisma.team.findMany({
-      where: {
-        OR: [
-          { homeFixtures: { some: { leagueId: league.id, season } } },
-          { awayFixtures: { some: { leagueId: league.id, season } } },
-        ],
-      },
-      select: { id: true },
+    // All teams that played in this league+season.
+    // Query fixtures directly instead of traversing team relations for every league.
+    const leagueFixtures = await prisma.fixture.findMany({
+      where: { leagueId: league.id, season },
+      select: { homeTeamId: true, awayTeamId: true },
     });
+    const teamIds = [...new Set(
+      leagueFixtures.flatMap((fixture) => [fixture.homeTeamId, fixture.awayTeamId]),
+    )];
+    const teams = teamIds.map((id) => ({ id }));
 
     for (const team of teams) {
       try {

@@ -74,12 +74,17 @@ export async function computePlayerAvailability(
 
   // Step 4: Determine official_status from Injury table
   // If player has no active injury record → they are "available" (API-confirmed)
-  const latestInjury = await prisma.injury.findFirst({
-    where: { playerId, season },
-    orderBy: { fixtureDate: 'desc' },
+  const activeStatus = await prisma.playerInjuryStatus.findFirst({
+    where: {
+      playerId,
+      teamId,
+      season,
+      isActive: true,
+    },
+    select: { id: true },
   });
 
-  const officialStatus = latestInjury ? 'injured' : 'available';
+  const officialStatus = activeStatus ? 'injured' : 'available';
 
   // Combine: predictedAvailability = BASE + recoverySignalScore × SIGNAL_WEIGHT
   const cfg = SIGNAL_CONFIG.availability[officialStatus] ?? SIGNAL_CONFIG.availability.injured;

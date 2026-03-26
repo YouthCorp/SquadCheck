@@ -35,8 +35,8 @@ let isRunning = false;
 let isSignalRunning = false;
 
 async function runSync() {
-  if (isRunning) {
-    console.log('[Scheduler] Sync already running, skipping');
+  if (isRunning || isSignalRunning) {
+    console.log('[Scheduler] Another ingestion task is already running, skipping sync');
     return;
   }
 
@@ -53,8 +53,8 @@ async function runSync() {
 }
 
 async function runSignalCollection() {
-  if (isSignalRunning) {
-    console.log('[SignalScheduler] Signal collection already running, skipping');
+  if (isSignalRunning || isRunning) {
+    console.log('[SignalScheduler] Another ingestion task is already running, skipping signal collection');
     return;
   }
 
@@ -81,11 +81,17 @@ if (process.env.ANTHROPIC_API_KEY) {
 }
 
 // Run once immediately on startup (set SKIP_STARTUP_SYNC=true to disable for local dev)
-if (process.env.SKIP_STARTUP_SYNC !== 'true') {
-  runSync();
+async function runStartupTasks(): Promise<void> {
+  await runSync();
   if (process.env.ANTHROPIC_API_KEY) {
-    runSignalCollection();
+    await runSignalCollection();
   }
+}
+
+if (process.env.SKIP_STARTUP_SYNC !== 'true') {
+  runStartupTasks().catch((err) => {
+    console.error('[Scheduler] Startup tasks failed:', err);
+  });
 }
 
 process.on('SIGTERM', async () => {

@@ -36,11 +36,22 @@ export class FixtureCollector {
     if (!league) throw new Error(`League ${leagueApiId} not found in DB`);
 
     const res = await this.api.request<ApiFixture>('/fixtures', { league: leagueApiId, season });
+    const teamApiIds = [...new Set(
+      res.response.flatMap((item) => [item.teams.home.id, item.teams.away.id]),
+    )];
+    const teams = teamApiIds.length > 0
+      ? await this.prisma.team.findMany({
+          where: { apiFootballId: { in: teamApiIds } },
+          select: { id: true, apiFootballId: true },
+        })
+      : [];
+    const teamByApiId = new Map(teams.map((team) => [team.apiFootballId, team]));
+
     let count = 0;
 
     for (const item of res.response) {
-      const homeTeam = await this.prisma.team.findUnique({ where: { apiFootballId: item.teams.home.id } });
-      const awayTeam = await this.prisma.team.findUnique({ where: { apiFootballId: item.teams.away.id } });
+      const homeTeam = teamByApiId.get(item.teams.home.id);
+      const awayTeam = teamByApiId.get(item.teams.away.id);
 
       if (!homeTeam || !awayTeam) {
         console.warn(`  Skipping fixture ${item.fixture.id}: missing team(s)`);

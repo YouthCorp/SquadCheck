@@ -163,6 +163,29 @@ export async function notifyWatchlistChanges(
     ]),
   );
 
+  const watcherRows = await prisma.watchlistPlayer.findMany({
+    where: { playerId: { in: playerIds } },
+    select: { playerId: true, userId: true },
+  });
+  const watchersByPlayerId = new Map<number, string[]>();
+  for (const row of watcherRows) {
+    const existing = watchersByPlayerId.get(row.playerId) ?? [];
+    existing.push(row.userId);
+    watchersByPlayerId.set(row.playerId, existing);
+  }
+
+  const watcherUserIds = [...new Set(watcherRows.map((row) => row.userId))];
+  const usersWithPushRows = watcherUserIds.length > 0
+    ? await prisma.user.findMany({
+        where: {
+          id: { in: watcherUserIds },
+          pushSubscription: { not: Prisma.DbNull },
+        },
+        select: { id: true, pushSubscription: true },
+      })
+    : [];
+  const pushUserById = new Map(usersWithPushRows.map((user) => [user.id, user]));
+
   for (const playerId of playerIds) {
     const injury = injuryMap.get(playerId);
     const avail = availMap.get(playerId);
@@ -189,33 +212,24 @@ export async function notifyWatchlistChanges(
 
     if (!alertData) continue;
 
-    // Get all users watching this player
-    const watchers = await prisma.watchlistPlayer.findMany({
-      where: { playerId },
-      select: { userId: true },
-    });
-
-    if (watchers.length === 0) continue;
+    const watcherIds = watchersByPlayerId.get(playerId) ?? [];
+    if (watcherIds.length === 0) continue;
 
     // Batch insert alerts for all watchers
     await prisma.watchlistAlert.createMany({
-      data: watchers.map((w) => ({
-        userId: w.userId,
+      data: watcherIds.map((userId) => ({
+        userId,
         playerId,
         ...alertData,
       })),
     });
 
-    console.log(`[Notifier] ${alertData.alertType} for ${player.name} → ${watchers.length} watcher(s)`);
+    console.log(`[Notifier] ${alertData.alertType} for ${player.name} → ${watcherIds.length} watcher(s)`);
 
     // Send web push to users who have a push subscription
-    const usersWithPush = await prisma.user.findMany({
-      where: {
-        id: { in: watchers.map((w) => w.userId) },
-        pushSubscription: { not: Prisma.DbNull },
-      },
-      select: { id: true, pushSubscription: true },
-    });
+    const usersWithPush = watcherIds
+      .map((userId) => pushUserById.get(userId))
+      .filter((user): user is NonNullable<typeof user> => !!user);
 
     if (usersWithPush.length === 0) continue;
 
