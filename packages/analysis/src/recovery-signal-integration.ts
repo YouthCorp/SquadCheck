@@ -1,5 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { AVAILABILITY_THRESHOLD, CONFIDENCE_THRESHOLD } from '@squadcheck/database';
+import type { PrismaClient } from '@prisma/client';
+import type { AvailabilityRecord } from './ports';
+import { fetchRecoverySignalData, fetchUpcomingFixtureId } from './data-access';
+
+// ── Types ────────────────────────────────────────────────
 
 export interface SignalRecoveredInfo {
   predictedAvailability: number;
@@ -16,37 +19,18 @@ export interface RecoverySignalResult {
   signalRecovered: Map<number, SignalRecoveredInfo>;
 }
 
+// ── Pure function ────────────────────────────────────────
+
 /**
- * Consults PlayerAvailability to find injured players with strong recovery signals
- * and removes them from the injured set so they can be considered for the lineup.
- *
- * Immutable: original injuredIds Set is never modified.
- *
- * @param prisma        DB client
- * @param injuredIds    Current injured player ID set (from standard injury detection logic)
- * @param upcomingFixtureId  The fixture this lineup prediction is for (null = no fixture context)
+ * Pure version: applies recovery signals from pre-fetched availability data.
+ * No DB dependency — testable with mock data.
  */
-export async function applyRecoverySignals(
-  prisma: PrismaClient,
+export function applyRecoverySignalsPure(
   injuredIds: Set<number>,
-  upcomingFixtureId: number | null,
-): Promise<RecoverySignalResult> {
+  availabilities: AvailabilityRecord[],
+): RecoverySignalResult {
   const adjustedInjuredIds = new Set(injuredIds);
   const signalRecovered = new Map<number, SignalRecoveredInfo>();
-
-  if (!upcomingFixtureId || injuredIds.size === 0) {
-    return { adjustedInjuredIds, signalRecovered };
-  }
-
-  const availabilities = await prisma.playerAvailability.findMany({
-    where: {
-      playerId: { in: [...injuredIds] },
-      fixtureId: upcomingFixtureId,
-      expired: false,
-      predictedAvailability: { gte: AVAILABILITY_THRESHOLD },
-      confidenceLevel: { gte: CONFIDENCE_THRESHOLD },
-    },
-  });
 
   for (const a of availabilities) {
     adjustedInjuredIds.delete(a.playerId);
@@ -62,25 +46,31 @@ export async function applyRecoverySignals(
   return { adjustedInjuredIds, signalRecovered };
 }
 
+// ── Legacy wrapper (backward-compatible) ─────────────────
+
 /**
- * For a given team and season, finds the next upcoming fixture ID.
- * Returns null if no upcoming fixture exists.
+ * @deprecated Use applyRecoverySignalsPure with fetchRecoverySignalData
+ */
+export async function applyRecoverySignals(
+  prisma: PrismaClient,
+  injuredIds: Set<number>,
+  upcomingFixtureId: number | null,
+): Promise<RecoverySignalResult> {
+  if (!upcomingFixtureId || injuredIds.size === 0) {
+    return { adjustedInjuredIds: new Set(injuredIds), signalRecovered: new Map() };
+  }
+
+  const availabilities = await fetchRecoverySignalData(prisma, injuredIds, upcomingFixtureId);
+  return applyRecoverySignalsPure(injuredIds, availabilities);
+}
+
+/**
+ * @deprecated Use fetchUpcomingFixtureId from data-access
  */
 export async function findUpcomingFixtureId(
   prisma: PrismaClient,
   teamId: number,
   season: number,
 ): Promise<number | null> {
-  const fixture = await prisma.fixture.findFirst({
-    where: {
-      season,
-      status: { notIn: ['FT', 'AET', 'PEN', 'CANC', 'ABD'] },
-      date: { gte: new Date() },
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-    },
-    orderBy: { date: 'asc' },
-    select: { id: true },
-  });
-
-  return fixture?.id ?? null;
+  return fetchUpcomingFixtureId(prisma, teamId, season);
 }

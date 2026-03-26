@@ -1,7 +1,9 @@
-import { PrismaClient } from '@prisma/client';
-import { computePlayerWeights, PlayerWeight } from './player-weight';
-import { computeTeamPerformanceDeltas, PerformanceDeltaSummary, MatchAggregates } from './performance-delta';
-import { resolveActiveInjuries } from './utils/injury-resolver';
+import type { PrismaClient } from '@prisma/client';
+import type { LineupEntry } from './ports';
+import { fetchTeamPowerLossData, fetchPlayerWeightData, fetchActiveInjuryData, fetchTeamPerformanceDeltasData } from './data-access';
+import { computePlayerWeights, computePlayerWeightsPure, PlayerWeight } from './player-weight';
+import { computeTeamPerformanceDeltas, computeTeamPerformanceDeltasPure, PerformanceDeltaSummary, MatchAggregates } from './performance-delta';
+import { resolveActiveInjuries, resolveActiveInjuriesPure, ActiveInjury } from './utils/injury-resolver';
 
 // ── Starter Profile ─────────────────────────────────────────
 export type StarterRole = 'regular_starter' | 'rotation' | 'bench';
@@ -13,7 +15,7 @@ export interface StarterProfile {
   starterFrequency: number;
   role: StarterRole;
   lastStartFixtureDate: Date | null;
-  lastAppearanceFixtureDate: Date | null; // most recent appearance (start OR sub) — best injury date proxy
+  lastAppearanceFixtureDate: Date | null;
 }
 
 function classifyStarterRole(frequency: number): StarterRole {
@@ -55,7 +57,6 @@ function classifyInjuryContext(
   lineups: number,
   totalTeamFixtures: number,
 ): InjuryContext {
-  // Pre-season absence: 0 lineups this season
   if (lineups === 0) {
     return {
       type: 'pre_season_absence',
@@ -64,7 +65,6 @@ function classifyInjuryContext(
     };
   }
 
-  // Early season loss: appeared in <25% of team fixtures
   const fixtureRatio = lineups / Math.max(totalTeamFixtures, 1);
   if (fixtureRatio < 0.25 && lineups <= 5) {
     return {
@@ -74,7 +74,6 @@ function classifyInjuryContext(
     };
   }
 
-  // Recent injury: missed 4 or fewer fixtures since last start
   const fixturesSinceLastStart = totalTeamFixtures - starterProfile.starterCount - starterProfile.substituteCount;
   if (fixturesSinceLastStart <= 4) {
     return {
@@ -84,7 +83,6 @@ function classifyInjuryContext(
     };
   }
 
-  // Extended absence: was active but out for a long stretch
   if (starterProfile.starterCount >= 3) {
     return {
       type: 'extended_absence',
@@ -93,7 +91,6 @@ function classifyInjuryContext(
     };
   }
 
-  // Mid-season loss (default for active starters who got injured)
   return {
     type: 'mid_season_loss',
     timingMultiplier: TIMING_MULTIPLIERS.mid_season_loss,
@@ -108,10 +105,7 @@ function classifySeverity(score: number, role: StarterRole, starterCount: number
   if (score >= 0.70) return 'critical';
   if (score >= 0.50) return 'high';
   if (score >= 0.30) return 'moderate';
-  // Regular starters (≥60% all-comp start rate) are always at least moderate.
   if (role === 'regular_starter') return 'moderate';
-  // Rotation players with 10+ starts are likely league regulars on multi-competition
-  // teams — cup fixtures inflate teamFixtures and suppress the frequency below 0.60.
   if (role === 'rotation' && starterCount >= 10) return 'moderate';
   return 'low';
 }
@@ -160,61 +154,34 @@ export interface EnrichedTeamPowerLoss extends TeamPowerLoss {
   enrichedInjuredPlayers: EnrichedInjuredPlayer[];
 }
 
-// ── Main function ───────────────────────────────────────────
-export async function computeTeamPowerLoss(
-  prisma: PrismaClient,
-  teamId: number,
-  seasonIds: number[],
-  seasonYears: number[],
-  season: number,
-  injuryLeagueId?: number | null,
-): Promise<EnrichedTeamPowerLoss | null> {
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
-  if (!team) return null;
+// ── Pure function ───────────────────────────────────────────
 
-  const weights = await computePlayerWeights(prisma, teamId, seasonIds, seasonYears);
+/**
+ * Pure version: compute team power loss from pre-computed data.
+ * No DB dependency — testable with mock data.
+ */
+export function computeTeamPowerLossPure(
+  teamId: number,
+  teamName: string,
+  season: number,
+  weights: PlayerWeight[],
+  activeInjuries: Map<number, ActiveInjury>,
+  teamFixtures: number,
+  lineupData: LineupEntry[],
+  perfDeltas: Map<number, PerformanceDeltaSummary>,
+): EnrichedTeamPowerLoss | null {
   if (weights.length === 0) return null;
 
   const totalWeight = weights.reduce((sum, pw) => sum + pw.weight, 0);
 
-  // Resolve currently active injuries using shared utility.
-  // Cross-competition recovery is handled inside resolveActiveInjuries
-  // (lineup check has no league filter — recovery in any competition counts).
-  const latestInjuryByPlayer = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
-
-  // latestTeamInjuryDate is used for the 90-day stale filter below
-  const latestTeamInjuryDate = latestInjuryByPlayer.size > 0
-    ? new Date(Math.max(...[...latestInjuryByPlayer.values()].map(i => i.fixtureDate.getTime())))
+  const latestTeamInjuryDate = activeInjuries.size > 0
+    ? new Date(Math.max(...[...activeInjuries.values()].map(i => i.fixtureDate.getTime())))
     : new Date(0);
 
-  const weightMap = new Map(weights.map((w) => [w.playerId, w]));
-  const injuredPlayerIds = [...latestInjuryByPlayer.keys()].filter(id => weightMap.has(id));
+  const weightMap = new Map(weights.map(w => [w.playerId, w]));
+  const injuredPlayerIds = [...activeInjuries.keys()].filter(id => weightMap.has(id));
 
-  // ── Starter profiles (single query) ───────────────────────
-  const teamFixtures = await prisma.fixture.count({
-    where: {
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-      season,
-      status: { in: ['FT', 'AET', 'PEN'] },
-    },
-  });
-
-  const lineupData = await prisma.fixtureLineupPlayer.findMany({
-    where: {
-      playerId: { in: injuredPlayerIds },
-      lineup: {
-        teamId,
-        fixture: { season },
-      },
-    },
-    select: {
-      playerId: true,
-      isStarting: true,
-      lineup: { select: { fixture: { select: { date: true } } } },
-    },
-    orderBy: { lineup: { fixture: { date: 'desc' } } },
-  });
-
+  // ── Starter profiles ───────────────────────
   const starterProfiles = new Map<number, StarterProfile>();
   for (const pid of injuredPlayerIds) {
     const entries = lineupData.filter(e => e.playerId === pid);
@@ -226,55 +193,42 @@ export async function computeTeamPowerLoss(
     const substituteCount = subs.length;
     const freq = teamFixtures > 0 ? starterCount / teamFixtures : 0;
 
-    const lastAppearanceEntry = entries[0]; // entries ordered desc — includes starters + subs
+    const lastAppearanceEntry = entries[0];
     starterProfiles.set(pid, {
       starterCount,
       substituteCount,
       totalTeamFixtures: teamFixtures,
       starterFrequency: round(freq),
       role: classifyStarterRole(freq),
-      lastStartFixtureDate: lastStartEntry ? lastStartEntry.lineup.fixture.date : null,
-      lastAppearanceFixtureDate: lastAppearanceEntry ? lastAppearanceEntry.lineup.fixture.date : null,
+      lastStartFixtureDate: lastStartEntry ? lastStartEntry.fixtureDate : null,
+      lastAppearanceFixtureDate: lastAppearanceEntry ? lastAppearanceEntry.fixtureDate : null,
     });
   }
 
-  // Remove players who are no longer at this club.
-  // Players with appearances are clearly still registered.
-  // Players with 0 appearances but a recent injury record (≤90 days old) are
-  // long-term injured but still registered (e.g. injured before season start).
-  // Players with 0 appearances AND a stale injury record (>90 days old) have
-  // likely transferred away — their early-season injury records are residual.
+  // Remove transferred/stale players
   const ninetyDaysAgo = new Date(latestTeamInjuryDate.getTime() - 90 * 24 * 60 * 60 * 1000);
   const activeInjuredPlayerIds = injuredPlayerIds.filter(pid => {
     const sp = starterProfiles.get(pid);
     if (!sp) return false;
     if (sp.starterCount + sp.substituteCount > 0) return true;
-    const injury = latestInjuryByPlayer.get(pid);
+    const injury = activeInjuries.get(pid);
     return injury ? injury.fixtureDate >= ninetyDaysAgo : false;
   });
 
-  // ── Performance deltas (batch) ────────────────────────────
-  const perfDeltas = await computeTeamPerformanceDeltas(prisma, teamId, season, activeInjuredPlayerIds);
-
-  // ── Build results ─────────────────────────────────────────
+  // ── Build results ─────────────────────────
   let injuredWeight = 0;
   const injuredPlayers: InjuredPlayer[] = [];
   const enrichedInjuredPlayers: EnrichedInjuredPlayer[] = [];
 
   for (const pid of activeInjuredPlayerIds) {
     const pw = weightMap.get(pid)!;
-    const injury = latestInjuryByPlayer.get(pid)!;
+    const injury = activeInjuries.get(pid)!;
     const starter = starterProfiles.get(pid)!;
     const perf = perfDeltas.get(pid);
 
-    // Use live lineup counts for injury context classification.
-    // playerSeasonStats.lineups can be stale (e.g. on multi-competition teams before
-    // the next sync refreshes stats), so always use the accurate fixture_lineup_players data.
     const currentSeasonLineups = starter.starterCount + starter.substituteCount;
-
     const injCtx = classifyInjuryContext(starter, currentSeasonLineups, teamFixtures);
 
-    // Composite impact score (weight × timing × role — no raw delta noise)
     const compositeImpactScore = clamp(
       pw.weight * injCtx.timingMultiplier * STARTER_ROLE_MULTIPLIER[starter.role],
       0, 1,
@@ -283,9 +237,6 @@ export async function computeTeamPowerLoss(
     injuredWeight += pw.weight;
     const weightPct = totalWeight > 0 ? round((pw.weight / totalWeight) * 100) : 0;
 
-    // Win rate boost: estimated win rate improvement if this player returns.
-    // Based on player's weight share (quality) × starter frequency (tactical importance).
-    // Only computed for players who have actually appeared this season.
     const hasAppearances = starter.starterCount + starter.substituteCount > 0;
     const winRateBoost = hasAppearances
       ? round(weightPct * starter.starterFrequency * 1.5, 2)
@@ -325,7 +276,7 @@ export async function computeTeamPowerLoss(
   injuredPlayers.sort((a, b) => b.weight - a.weight);
 
   const injuredIds = new Set(activeInjuredPlayerIds);
-  const healthyTopPlayers = weights.filter((w) => !injuredIds.has(w.playerId)).slice(0, 5);
+  const healthyTopPlayers = weights.filter(w => !injuredIds.has(w.playerId)).slice(0, 5);
 
   const compositeImpactTotal = round(
     enrichedInjuredPlayers.reduce((sum, p) => sum + p.compositeImpactScore, 0),
@@ -333,7 +284,7 @@ export async function computeTeamPowerLoss(
 
   return {
     teamId,
-    teamName: team.name,
+    teamName,
     season,
     totalWeight: round(totalWeight),
     injuredWeight: round(injuredWeight),
@@ -343,6 +294,51 @@ export async function computeTeamPowerLoss(
     compositeImpactTotal,
     enrichedInjuredPlayers,
   };
+}
+
+// ── Legacy wrapper (backward-compatible) ─────────────────
+
+/**
+ * @deprecated Use computeTeamPowerLossPure with pre-fetched data
+ */
+export async function computeTeamPowerLoss(
+  prisma: PrismaClient,
+  teamId: number,
+  seasonIds: number[],
+  seasonYears: number[],
+  season: number,
+  injuryLeagueId?: number | null,
+): Promise<EnrichedTeamPowerLoss | null> {
+  // Fetch weights
+  const weights = await computePlayerWeights(prisma, teamId, seasonIds, seasonYears);
+  if (weights.length === 0) return null;
+
+  // Fetch active injuries
+  const activeInjuries = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
+
+  // Determine injured player IDs that exist in weights
+  const weightMap = new Map(weights.map(w => [w.playerId, w]));
+  const injuredPlayerIds = [...activeInjuries.keys()].filter(id => weightMap.has(id));
+
+  // Fetch additional data
+  const extraData = await fetchTeamPowerLossData(prisma, teamId, season, injuredPlayerIds);
+  if (!extraData) return null;
+
+  // Fetch performance deltas
+  // Need to compute activeInjuredPlayerIds first (stale filter)
+  // For legacy wrapper, let pure function handle the stale filter internally
+  const perfDeltas = await computeTeamPerformanceDeltas(prisma, teamId, season, injuredPlayerIds);
+
+  return computeTeamPowerLossPure(
+    teamId,
+    extraData.teamName,
+    season,
+    weights,
+    activeInjuries,
+    extraData.teamFixtures,
+    extraData.lineupData,
+    perfDeltas,
+  );
 }
 
 // ── Utilities ───────────────────────────────────────────────

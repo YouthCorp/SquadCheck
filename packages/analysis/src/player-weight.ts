@@ -1,4 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+import type { PlayerWeightInput, PlayerStatRecord } from './ports';
+import { fetchPlayerWeightData } from './data-access';
 
 // ── Position classification ─────────────────────────────────
 export type PositionGroup = 'GK' | 'DEF' | 'MID' | 'FWD';
@@ -80,7 +82,6 @@ function computeSkillScore(
 
   switch (posGroup) {
     case 'GK': {
-      // defensive_actions_per90 = (tackles + interceptions) per 90
       const defActions = clamp(per90((s.tacklesTotal || 0) + (s.interceptions || 0), mins) / 6, 0, 1);
       const duelRate = clamp(duelWinRate(s.duelsTotal, s.duelsWon), 0, 1);
       const score = defActions * 0.60 + duelRate * 0.40;
@@ -129,32 +130,22 @@ function resolveDecay(seasons: SeasonStatsRow[]): {
   const prior1 = seasons.find(s => s.seasonIndex === 1);
   const prior2 = seasons.find(s => s.seasonIndex === 2);
 
-  // Current season with >= 5 lineups: use it directly
   if (current && current.lineups >= 5) {
     return { effective: current, decayFactor: 1.0, dataSource: 'current' };
   }
-
-  // Current season with 1-4 lineups: blend with prior
   if (current && current.lineups >= 1 && prior1) {
     return { effective: blendStats(current, prior1, 0.5, 0.5 * 0.75), decayFactor: 0.875, dataSource: 'blended' };
   }
-
-  // Current season with 1-4 lineups but no prior: use current
   if (current && current.lineups >= 1) {
     return { effective: current, decayFactor: 1.0, dataSource: 'current' };
   }
-
-  // No current season lineups: fall back to prior
   if (prior1 && prior1.lineups > 0) {
     return { effective: prior1, decayFactor: 0.75, dataSource: 'prior-1' };
   }
-
-  // Fall back to 2 seasons ago
   if (prior2 && prior2.lineups > 0) {
     return { effective: prior2, decayFactor: 0.5625, dataSource: 'prior-2' };
   }
 
-  // No data at all — return current (or first available) with zero decay
   const fallback = current || prior1 || prior2 || seasons[0];
   return { effective: fallback, decayFactor: 0.5, dataSource: 'prior-2' };
 }
@@ -197,28 +188,15 @@ function blendStats(a: SeasonStatsRow, b: SeasonStatsRow, wA: number, wB: number
   };
 }
 
-// ── Main entry point ────────────────────────────────────────
+// ── Pure function ────────────────────────────────────────────
+
 /**
- * Compute position-aware, multi-season player weights for a team.
- *
- * @param seasonIds  - ordered [currentSeasonId, priorSeasonId, ...] (max 3)
- * @param seasonYears - corresponding years [2024, 2023, ...] (unused for now, reserved)
+ * Pure version: compute player weights from pre-fetched data.
+ * No DB dependency — testable with mock data.
  */
-export async function computePlayerWeights(
-  prisma: PrismaClient,
-  teamId: number,
-  seasonIds: number[],
-  seasonYears: number[],
-): Promise<PlayerWeight[]> {
-  if (seasonIds.length === 0) return [];
-
-  // Fetch all season stats for this team across all requested seasons
-  const allStats = await prisma.playerSeasonStats.findMany({
-    where: { teamId, seasonId: { in: seasonIds } },
-    include: { player: { select: { id: true, name: true, position: true } } },
-  });
-
-  if (allStats.length === 0) return [];
+export function computePlayerWeightsPure(data: PlayerWeightInput): PlayerWeight[] {
+  const { allStats, seasonIds } = data;
+  if (seasonIds.length === 0 || allStats.length === 0) return [];
 
   // Group by playerId
   const playerMap = new Map<number, SeasonStatsRow[]>();
@@ -229,8 +207,8 @@ export async function computePlayerWeights(
     const row: SeasonStatsRow = {
       seasonIndex,
       lineups: ps.lineups || 0,
-      playerName: ps.player.name,
-      playerPosition: ps.player.position,
+      playerName: ps.playerName,
+      playerPosition: ps.playerPosition,
       stats: {
         minutes: ps.minutes,
         goalsTotal: ps.goalsTotal,
@@ -305,7 +283,22 @@ export async function computePlayerWeights(
   return results.sort((a, b) => b.weight - a.weight);
 }
 
-// ── Legacy wrapper (backward-compatible) ────────────────────
+// ── Legacy wrappers (backward-compatible) ────────────────────
+
+/**
+ * @deprecated Use computePlayerWeightsPure with fetchPlayerWeightData
+ */
+export async function computePlayerWeights(
+  prisma: PrismaClient,
+  teamId: number,
+  seasonIds: number[],
+  seasonYears: number[],
+): Promise<PlayerWeight[]> {
+  if (seasonIds.length === 0) return [];
+  const data = await fetchPlayerWeightData(prisma, teamId, seasonIds);
+  return computePlayerWeightsPure(data);
+}
+
 /** @deprecated Use computePlayerWeights with seasonIds array */
 export async function computePlayerWeightsLegacy(
   prisma: PrismaClient,

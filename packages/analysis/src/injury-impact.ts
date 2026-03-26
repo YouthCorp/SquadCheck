@@ -1,5 +1,9 @@
-import { PrismaClient } from '@prisma/client';
-import { computeTeamPowerLoss, EnrichedInjuredPlayer } from './team-power-loss';
+import type { PrismaClient } from '@prisma/client';
+import type { InjuryImpactInput } from './ports';
+import { fetchInjuryImpactData } from './data-access';
+import { computeTeamPowerLoss, EnrichedInjuredPlayer, EnrichedTeamPowerLoss } from './team-power-loss';
+
+// ── Types ────────────────────────────────────────────────
 
 export interface InjuryImpactSummary {
   teamId: number;
@@ -18,49 +22,54 @@ export interface InjuryImpactSummary {
   }[];
 }
 
-export async function computeInjuryImpact(
-  prisma: PrismaClient,
-  teamId: number,
-  season: number,
-  injuryLeagueId?: number | null,
-): Promise<InjuryImpactSummary | null> {
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
-  if (!team) return null;
+export interface RichInjuryImpact extends InjuryImpactSummary {
+  powerLoss: {
+    totalWeight: number;
+    injuredWeight: number;
+    powerLossPct: number;
+    compositeImpactTotal: number;
+  };
+  enrichedInjuredPlayers: EnrichedInjuredPlayer[];
+  severitySummary: {
+    critical: number;
+    high: number;
+    moderate: number;
+    low: number;
+  };
+}
 
-  const injuries = await prisma.injury.findMany({
-    where: { teamId, season, ...(injuryLeagueId ? { leagueId: injuryLeagueId } : {}) },
-    include: { player: { select: { id: true, name: true } } },
-    orderBy: { fixtureDate: 'asc' },
-  });
+// ── Pure functions ───────────────────────────────────────
+
+/**
+ * Pure version: compute injury impact summary from pre-fetched data.
+ */
+export function computeInjuryImpactPure(data: InjuryImpactInput): InjuryImpactSummary {
+  const { teamId, teamName, season, injuries } = data;
 
   if (injuries.length === 0) {
     return {
-      teamId, teamName: team.name, season,
+      teamId, teamName, season,
       totalInjuries: 0, uniquePlayers: 0,
       injuryTypes: [], injuryReasons: [], monthlyDistribution: [], mostInjuredPlayers: [],
     };
   }
 
-  // Count by type
   const typeCount = new Map<string, number>();
   for (const inj of injuries) {
     typeCount.set(inj.type, (typeCount.get(inj.type) || 0) + 1);
   }
 
-  // Count by reason
   const reasonCount = new Map<string, number>();
   for (const inj of injuries) {
     reasonCount.set(inj.reason, (reasonCount.get(inj.reason) || 0) + 1);
   }
 
-  // Monthly distribution
   const monthCount = new Map<string, number>();
   for (const inj of injuries) {
-    const month = inj.fixtureDate.toISOString().slice(0, 7); // YYYY-MM
+    const month = inj.fixtureDate.toISOString().slice(0, 7);
     monthCount.set(month, (monthCount.get(month) || 0) + 1);
   }
 
-  // Most injured players
   const playerMap = new Map<number, { name: string; count: number; types: Set<string> }>();
   for (const inj of injuries) {
     const existing = playerMap.get(inj.playerId);
@@ -69,7 +78,7 @@ export async function computeInjuryImpact(
       existing.types.add(inj.type);
     } else {
       playerMap.set(inj.playerId, {
-        name: inj.player.name,
+        name: inj.playerName,
         count: 1,
         types: new Set([inj.type]),
       });
@@ -78,7 +87,7 @@ export async function computeInjuryImpact(
 
   return {
     teamId,
-    teamName: team.name,
+    teamName,
     season,
     totalInjuries: injuries.length,
     uniquePlayers: playerMap.size,
@@ -103,38 +112,13 @@ export async function computeInjuryImpact(
   };
 }
 
-// ── Rich Injury Impact (integrates composite scores) ────────
-export interface RichInjuryImpact extends InjuryImpactSummary {
-  powerLoss: {
-    totalWeight: number;
-    injuredWeight: number;
-    powerLossPct: number;
-    compositeImpactTotal: number;
-  };
-  enrichedInjuredPlayers: EnrichedInjuredPlayer[];
-  severitySummary: {
-    critical: number;
-    high: number;
-    moderate: number;
-    low: number;
-  };
-}
-
-export async function computeRichInjuryImpact(
-  prisma: PrismaClient,
-  teamId: number,
-  seasonIds: number[],
-  seasonYears: number[],
-  season: number,
-  injuryLeagueId?: number | null,
-): Promise<RichInjuryImpact | null> {
-  // Get base injury summary (backward-compatible)
-  const base = await computeInjuryImpact(prisma, teamId, season, injuryLeagueId);
-  if (!base) return null;
-
-  // Get enriched power loss data
-  const powerLoss = await computeTeamPowerLoss(prisma, teamId, seasonIds, seasonYears, season, injuryLeagueId);
-
+/**
+ * Pure version: compute rich injury impact from pre-computed sub-results.
+ */
+export function computeRichInjuryImpactPure(
+  base: InjuryImpactSummary,
+  powerLoss: EnrichedTeamPowerLoss | null,
+): RichInjuryImpact {
   const enrichedPlayers = powerLoss?.enrichedInjuredPlayers ?? [];
 
   const severitySummary = { critical: 0, high: 0, moderate: 0, low: 0 };
@@ -153,4 +137,38 @@ export async function computeRichInjuryImpact(
     enrichedInjuredPlayers: enrichedPlayers,
     severitySummary,
   };
+}
+
+// ── Legacy wrappers (backward-compatible) ────────────────
+
+/**
+ * @deprecated Use computeInjuryImpactPure with fetchInjuryImpactData
+ */
+export async function computeInjuryImpact(
+  prisma: PrismaClient,
+  teamId: number,
+  season: number,
+  injuryLeagueId?: number | null,
+): Promise<InjuryImpactSummary | null> {
+  const data = await fetchInjuryImpactData(prisma, teamId, season, injuryLeagueId);
+  if (!data) return null;
+  return computeInjuryImpactPure(data);
+}
+
+/**
+ * @deprecated Use computeRichInjuryImpactPure with pre-computed data
+ */
+export async function computeRichInjuryImpact(
+  prisma: PrismaClient,
+  teamId: number,
+  seasonIds: number[],
+  seasonYears: number[],
+  season: number,
+  injuryLeagueId?: number | null,
+): Promise<RichInjuryImpact | null> {
+  const base = await computeInjuryImpact(prisma, teamId, season, injuryLeagueId);
+  if (!base) return null;
+
+  const powerLoss = await computeTeamPowerLoss(prisma, teamId, seasonIds, seasonYears, season, injuryLeagueId);
+  return computeRichInjuryImpactPure(base, powerLoss);
 }

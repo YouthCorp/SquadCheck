@@ -1,4 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+import type { PerformanceDeltaInput, TeamPerformanceDeltasInput, FixtureWithStats } from './ports';
+import { fetchPerformanceDeltaData, fetchTeamPerformanceDeltasData } from './data-access';
+
+// ── Types ────────────────────────────────────────────────
 
 export interface PerformanceDelta {
   teamId: number;
@@ -29,48 +33,24 @@ export interface MatchAggregates {
   avgPossession: number | null;
 }
 
-export async function computePerformanceDelta(
-  prisma: PrismaClient,
-  teamId: number,
-  playerId: number,
-  season: number,
-): Promise<PerformanceDelta | null> {
-  const [team, player] = await Promise.all([
-    prisma.team.findUnique({ where: { id: teamId } }),
-    prisma.player.findUnique({ where: { id: playerId } }),
-  ]);
-  if (!team || !player) return null;
+export interface PerformanceDeltaSummary {
+  playerId: number;
+  withPlayer: MatchAggregates;
+  withoutPlayer: MatchAggregates;
+  delta: PerformanceDelta['delta'];
+  hasSignificantSample: boolean;
+}
 
-  // Get all finished fixtures for this team in this season
-  const fixtures = await prisma.fixture.findMany({
-    where: {
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-      season,
-      status: { in: ['FT', 'AET', 'PEN'] },
-    },
-    include: {
-      statistics: { where: { teamId } },
-    },
-    orderBy: { date: 'asc' },
-  });
+// ── Pure functions ───────────────────────────────────────
 
-  // Get fixture IDs where this player was in the lineup (started)
-  const lineupFixtures = await prisma.fixtureLineupPlayer.findMany({
-    where: {
-      playerId,
-      isStarting: true,
-      lineup: {
-        teamId,
-        fixture: { season },
-      },
-    },
-    select: { lineup: { select: { fixtureId: true } } },
-  });
+/**
+ * Pure version: compute performance delta from pre-fetched data.
+ */
+export function computePerformanceDeltaPure(data: PerformanceDeltaInput): PerformanceDelta {
+  const { teamId, teamName, season, playerId, playerName, fixtures, startedFixtureIds } = data;
 
-  const startedFixtureIds = new Set(lineupFixtures.map((lf) => lf.lineup.fixtureId));
-
-  const withMatches: typeof fixtures = [];
-  const withoutMatches: typeof fixtures = [];
+  const withMatches: FixtureWithStats[] = [];
+  const withoutMatches: FixtureWithStats[] = [];
 
   for (const f of fixtures) {
     if (startedFixtureIds.has(f.id)) {
@@ -85,10 +65,10 @@ export async function computePerformanceDelta(
 
   return {
     teamId,
-    teamName: team.name,
+    teamName,
     season,
     playerId,
-    playerName: player.name,
+    playerName,
     withPlayer: withAgg,
     withoutPlayer: withoutAgg,
     delta: {
@@ -107,54 +87,14 @@ export async function computePerformanceDelta(
   };
 }
 
-// ── Batch: compute performance deltas for multiple players at once ──
-export interface PerformanceDeltaSummary {
-  playerId: number;
-  withPlayer: MatchAggregates;
-  withoutPlayer: MatchAggregates;
-  delta: PerformanceDelta['delta'];
-  hasSignificantSample: boolean;
-}
-
-export async function computeTeamPerformanceDeltas(
-  prisma: PrismaClient,
-  teamId: number,
-  season: number,
-  playerIds: number[],
-): Promise<Map<number, PerformanceDeltaSummary>> {
-  if (playerIds.length === 0) return new Map();
-
-  // Single query: all finished fixtures for this team in this season
-  const fixtures = await prisma.fixture.findMany({
-    where: {
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-      season,
-      status: { in: ['FT', 'AET', 'PEN'] },
-    },
-    include: {
-      statistics: { where: { teamId } },
-    },
-    orderBy: { date: 'asc' },
-  });
-
-  const fixtureIds = fixtures.map(f => f.id);
-  if (fixtureIds.length === 0) return new Map();
-
-  // Single query: all lineup entries for requested players in these fixtures
-  const lineupEntries = await prisma.fixtureLineupPlayer.findMany({
-    where: {
-      playerId: { in: playerIds },
-      isStarting: true,
-      lineup: {
-        teamId,
-        fixtureId: { in: fixtureIds },
-      },
-    },
-    select: {
-      playerId: true,
-      lineup: { select: { fixtureId: true } },
-    },
-  });
+/**
+ * Pure version: compute performance deltas for multiple players.
+ */
+export function computeTeamPerformanceDeltasPure(
+  data: TeamPerformanceDeltasInput,
+): Map<number, PerformanceDeltaSummary> {
+  const { teamId, fixtures, lineupEntries, playerIds } = data;
+  if (playerIds.length === 0 || fixtures.length === 0) return new Map();
 
   // Build player → Set<fixtureId> map
   const playerFixtureMap = new Map<number, Set<number>>();
@@ -162,16 +102,15 @@ export async function computeTeamPerformanceDeltas(
     playerFixtureMap.set(pid, new Set());
   }
   for (const entry of lineupEntries) {
-    playerFixtureMap.get(entry.playerId)?.add(entry.lineup.fixtureId);
+    playerFixtureMap.get(entry.playerId)?.add(entry.fixtureId);
   }
 
-  // Compute per-player with/without from in-memory data
   const results = new Map<number, PerformanceDeltaSummary>();
 
   for (const pid of playerIds) {
     const startedIds = playerFixtureMap.get(pid)!;
-    const withMatches: typeof fixtures = [];
-    const withoutMatches: typeof fixtures = [];
+    const withMatches: FixtureWithStats[] = [];
+    const withoutMatches: FixtureWithStats[] = [];
 
     for (const f of fixtures) {
       if (startedIds.has(f.id)) {
@@ -207,6 +146,36 @@ export async function computeTeamPerformanceDeltas(
   }
 
   return results;
+}
+
+// ── Legacy wrappers (backward-compatible) ────────────────
+
+/**
+ * @deprecated Use computePerformanceDeltaPure with fetchPerformanceDeltaData
+ */
+export async function computePerformanceDelta(
+  prisma: PrismaClient,
+  teamId: number,
+  playerId: number,
+  season: number,
+): Promise<PerformanceDelta | null> {
+  const data = await fetchPerformanceDeltaData(prisma, teamId, playerId, season);
+  if (!data) return null;
+  return computePerformanceDeltaPure(data);
+}
+
+/**
+ * @deprecated Use computeTeamPerformanceDeltasPure with fetchTeamPerformanceDeltasData
+ */
+export async function computeTeamPerformanceDeltas(
+  prisma: PrismaClient,
+  teamId: number,
+  season: number,
+  playerIds: number[],
+): Promise<Map<number, PerformanceDeltaSummary>> {
+  if (playerIds.length === 0) return new Map();
+  const data = await fetchTeamPerformanceDeltasData(prisma, teamId, season, playerIds);
+  return computeTeamPerformanceDeltasPure(data);
 }
 
 // ── Aggregation helper ──────────────────────────────────────

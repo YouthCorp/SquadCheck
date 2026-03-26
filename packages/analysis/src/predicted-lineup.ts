@@ -1,6 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { computePlayerWeights } from './player-weight';
-import { resolveActiveInjuries } from './utils/injury-resolver';
+import type { PrismaClient } from '@prisma/client';
+import type { LineupEntry, DeploymentEntry, RecentFormationEntry } from './ports';
+import { fetchPredictedLineupData, fetchActiveInjuryData, fetchRecoverySignalData, fetchUpcomingFixtureId, fetchPlayerWeightData, fetchPlayerPhotos } from './data-access';
+import { computePlayerWeights, computePlayerWeightsPure } from './player-weight';
+import { resolveActiveInjuries, resolveActiveInjuriesPure, type ActiveInjury } from './utils/injury-resolver';
 import type { PositionGroup } from './player-weight';
 import {
   getFormationTemplate,
@@ -11,8 +13,10 @@ import {
 } from './formation-templates';
 import {
   applyRecoverySignals,
+  applyRecoverySignalsPure,
   findUpcomingFixtureId,
   type SignalRecoveredInfo,
+  type RecoverySignalResult,
 } from './recovery-signal-integration';
 
 // ── Types ────────────────────────────────────────────────────
@@ -37,14 +41,12 @@ export interface PredictedPlayer {
   compositeScore: number;
   role: StarterRole;
   recentReturn: boolean;
-  // New: slot-level position info
-  slotPosition: string;   // e.g. "ST", "LW", "RB"
-  slotLabel: string;       // display label
-  pitchX: number;          // 0-100, left→right
-  pitchY: number;          // 0-100, GK(0)→attack(100)
+  slotPosition: string;
+  slotLabel: string;
+  pitchX: number;
+  pitchY: number;
   positionAffinity: number;
   recentStarterFrequency: number;
-  // Signal-based recovery (optional — only set when player was moved from injured → available)
   signalRecovered?: {
     predictedAvailability: number;
     latestSignalStage: string | null;
@@ -120,72 +122,42 @@ function round(val: number, decimals = 3): number {
 
 interface DeploymentProfile {
   playerId: number;
-  positionCounts: Map<SpecificPosition, number>;  // recency-weighted counts
+  positionCounts: Map<SpecificPosition, number>;
   primaryPosition: SpecificPosition | null;
   secondaryPositions: SpecificPosition[];
-  recentStarterFrequency: number;  // recency-weighted starter frequency
+  recentStarterFrequency: number;
   totalWeightedStarts: number;
 }
 
-// ── Recency weighting for deployment profiling ───────────────
-
 const RECENCY_WEIGHTS = [
-  1.0, 1.0, 1.0, 1.0, 1.0,     // matches 1-5 (most recent)
-  0.7, 0.7, 0.7, 0.7, 0.7,     // matches 6-10
-  0.4, 0.4, 0.4, 0.4, 0.4,     // matches 11-15
+  1.0, 1.0, 1.0, 1.0, 1.0,
+  0.7, 0.7, 0.7, 0.7, 0.7,
+  0.4, 0.4, 0.4, 0.4, 0.4,
 ];
 
-// ── Build deployment profiles from fixture data ──────────────
+// ── Build deployment profiles (pure — from pre-fetched data) ──
 
-async function buildDeploymentProfiles(
-  prisma: PrismaClient,
-  teamId: number,
-  season: number,
+function buildDeploymentProfilesPure(
+  deploymentEntries: DeploymentEntry[],
   playerIds: number[],
-): Promise<Map<number, DeploymentProfile>> {
-  // Fetch recent fixture lineups with grid data, sorted by date desc
-  const recentStarterData = await prisma.fixtureLineupPlayer.findMany({
-    where: {
-      playerId: { in: playerIds },
-      isStarting: true,
-      lineup: {
-        teamId,
-        fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } },
-      },
-    },
-    select: {
-      playerId: true,
-      grid: true,
-      lineup: {
-        select: {
-          formation: true,
-          fixture: { select: { date: true } },
-        },
-      },
-    },
-    orderBy: { lineup: { fixture: { date: 'desc' } } },
-  });
-
-  // Get unique fixture dates for this team (for recency ordering)
+): Map<number, DeploymentProfile> {
+  // Get unique fixture dates for recency ordering
   const fixtureDatesDesc: Date[] = [];
   const seenDates = new Set<number>();
-  for (const entry of recentStarterData) {
-    const ts = entry.lineup.fixture.date.getTime();
+  for (const entry of deploymentEntries) {
+    const ts = entry.fixtureDate.getTime();
     if (!seenDates.has(ts)) {
       seenDates.add(ts);
-      fixtureDatesDesc.push(entry.lineup.fixture.date);
+      fixtureDatesDesc.push(entry.fixtureDate);
     }
   }
-  // fixtureDatesDesc is already desc-sorted from the query
+  // Sort desc (entries should already be ordered, but ensure)
+  fixtureDatesDesc.sort((a, b) => b.getTime() - a.getTime());
 
-  // Build date→matchIndex mapping (0 = most recent)
   const dateToIndex = new Map<number, number>();
   fixtureDatesDesc.forEach((d, i) => dateToIndex.set(d.getTime(), i));
 
-  // Group entries by player and build profiles
   const profileMap = new Map<number, DeploymentProfile>();
-
-  // Initialize profiles for all players
   for (const pid of playerIds) {
     profileMap.set(pid, {
       playerId: pid,
@@ -198,8 +170,8 @@ async function buildDeploymentProfiles(
   }
 
   // Group entries by player
-  const entriesByPlayer = new Map<number, typeof recentStarterData>();
-  for (const entry of recentStarterData) {
+  const entriesByPlayer = new Map<number, DeploymentEntry[]>();
+  for (const entry of deploymentEntries) {
     const arr = entriesByPlayer.get(entry.playerId) ?? [];
     arr.push(entry);
     entriesByPlayer.set(entry.playerId, arr);
@@ -211,18 +183,14 @@ async function buildDeploymentProfiles(
     const profile = profileMap.get(pid)!;
     let weightedStarts = 0;
 
-    // Only consider first 15 matches worth of data per player
-    const playerMatchDates = new Set<number>();
     for (const entry of entries) {
-      const matchIdx = dateToIndex.get(entry.lineup.fixture.date.getTime()) ?? 999;
-      if (matchIdx >= RECENCY_WEIGHTS.length) continue; // older than 15 matches
-      playerMatchDates.add(entry.lineup.fixture.date.getTime());
+      const matchIdx = dateToIndex.get(entry.fixtureDate.getTime()) ?? 999;
+      if (matchIdx >= RECENCY_WEIGHTS.length) continue;
 
       const recencyWeight = RECENCY_WEIGHTS[matchIdx] ?? 0.4;
       weightedStarts += recencyWeight;
 
-      // Resolve grid position using formation template
-      const formation = entry.lineup.formation;
+      const formation = entry.formation;
       const grid = entry.grid;
       if (formation && grid) {
         const specificPos = resolveGridPosition(formation, grid);
@@ -234,15 +202,11 @@ async function buildDeploymentProfiles(
     }
 
     profile.totalWeightedStarts = weightedStarts;
-
-    // Calculate recency-weighted starter frequency
-    // Denominator = sum of weights for recent team matches the player could have played
     const maxWeightSum = RECENCY_WEIGHTS.slice(0, maxRecentMatches).reduce((a, b) => a + b, 0);
     profile.recentStarterFrequency = maxWeightSum > 0
       ? round(weightedStarts / maxWeightSum)
       : 0;
 
-    // Determine primary and secondary positions
     if (profile.positionCounts.size > 0) {
       const sorted = [...profile.positionCounts.entries()].sort((a, b) => b[1] - a[1]);
       profile.primaryPosition = sorted[0][0];
@@ -285,30 +249,24 @@ function computePositionAffinity(
 ): number {
   const profile = player.deploymentProfile;
 
-  // Check primary position
   if (profile.primaryPosition) {
     if (profile.primaryPosition === slotPos) return 1.0;
-    // Check compatible positions
     const affinityFromTemplate = positionAffinityForSlot(profile.primaryPosition, slotPos);
     if (affinityFromTemplate >= 0.85) return 0.85;
   }
 
-  // Check secondary positions
   for (const secPos of profile.secondaryPositions) {
     if (secPos === slotPos) return 0.70;
     const affinityFromTemplate = positionAffinityForSlot(secPos, slotPos);
     if (affinityFromTemplate >= 0.85) return 0.65;
   }
 
-  // No deployment data — fall back to position group match
   if (profile.primaryPosition === null) {
-    // Use registered position group as fallback
     const slotGroup = getFormationTemplate('4-4-2')
       .find(s => s.specificPosition === slotPos)?.positionGroup;
     if (slotGroup && slotGroup === player.positionGroup) return 0.40;
   }
 
-  // Check if at least position group matches
   const template = getFormationTemplate('4-4-2');
   const slotDef = template.find(s => s.specificPosition === slotPos);
   if (slotDef && slotDef.positionGroup === player.positionGroup) return 0.35;
@@ -320,7 +278,6 @@ function assignPlayersToSlots(
   formationSlots: FormationSlot[],
   availablePlayers: ScoredPlayer[],
 ): SlotAssignment[] {
-  // For each slot, compute fit scores for all available players
   const slotCandidates = formationSlots.map(slot => {
     const candidates = availablePlayers.map(player => {
       const affinity = computePositionAffinity(player, slot.specificPosition);
@@ -331,17 +288,13 @@ function assignPlayersToSlots(
     return { slot, candidates, viableCandidateCount: viableCandidates.length };
   });
 
-  // Sort slots by constraint level (hardest to fill first)
   slotCandidates.sort((a, b) => a.viableCandidateCount - b.viableCandidateCount);
 
   const assignments: SlotAssignment[] = [];
   const assignedPlayerIds = new Set<number>();
 
   for (const { slot, candidates } of slotCandidates) {
-    // Filter out already-assigned players
     const available = candidates.filter(c => !assignedPlayerIds.has(c.player.playerId));
-
-    // Sort by fitScore descending
     available.sort((a, b) => b.fitScore - a.fitScore);
 
     const best = available[0];
@@ -359,51 +312,30 @@ function assignPlayersToSlots(
   return assignments;
 }
 
-// ── Main function ─────────────────────────────────────────────
+// ── Pure function ─────────────────────────────────────────────
 
-export async function computePredictedLineup(
-  prisma: PrismaClient,
+/**
+ * Pure version: compute predicted lineup from pre-fetched/pre-computed data.
+ * No DB dependency — testable with mock data.
+ */
+export function computePredictedLineupPure(
   teamId: number,
-  seasonIds: number[],
-  seasonYears: number[],
+  teamName: string,
+  teamLogo: string | null,
   season: number,
-  injuryLeagueId?: number | null,
-): Promise<PredictedLineup | null> {
-  // 1. Validate team exists
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
-  if (!team) return null;
-
-  // 2. Compute player weights for the full squad
-  const weights = await computePlayerWeights(prisma, teamId, seasonIds, seasonYears);
+  weights: import('./player-weight').PlayerWeight[],
+  teamFixtures: number,
+  lineupData: LineupEntry[],
+  deploymentEntries: DeploymentEntry[],
+  recentFormations: RecentFormationEntry[],
+  activeInjuries: Map<number, ActiveInjury>,
+  recoverySignalResult: RecoverySignalResult,
+  upcomingFixtureId: number | null,
+  playerPhotos: Map<number, string | null>,
+): PredictedLineup | null {
   if (weights.length === 0) return null;
 
   const allPlayerIds = weights.map(w => w.playerId);
-
-  // 3. Count team's completed fixtures this season (for starterFrequency denominator)
-  const teamFixtures = await prisma.fixture.count({
-    where: {
-      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-      season,
-      status: { in: ['FT', 'AET', 'PEN'] },
-    },
-  });
-
-  // 4. Fetch lineup data for ALL squad players
-  const lineupData = await prisma.fixtureLineupPlayer.findMany({
-    where: {
-      playerId: { in: allPlayerIds },
-      lineup: {
-        teamId,
-        fixture: { season },
-      },
-    },
-    select: {
-      playerId: true,
-      isStarting: true,
-      lineup: { select: { fixture: { select: { date: true } } } },
-    },
-    orderBy: { lineup: { fixture: { date: 'desc' } } },
-  });
 
   // Build starter profiles for each player
   interface StarterProfile {
@@ -429,38 +361,25 @@ export async function computePredictedLineup(
     });
   }
 
-  // 5. Build deployment profiles (grid-based position analysis)
-  const deploymentProfiles = await buildDeploymentProfiles(prisma, teamId, season, allPlayerIds);
+  // Build deployment profiles (pure)
+  const deploymentProfiles = buildDeploymentProfilesPure(deploymentEntries, allPlayerIds);
 
-  // 6. Detect formation from last 10 completed fixtures
-  const recentLineups = await prisma.fixtureLineup.findMany({
-    where: {
-      teamId,
-      fixture: { season, status: { in: ['FT', 'AET', 'PEN'] } },
-    },
-    select: {
-      formation: true,
-      fixture: { select: { date: true } },
-    },
-    orderBy: { fixture: { date: 'desc' } },
-    take: 10,
-  });
-
+  // Detect formation
   let formation = '4-4-2';
   let formationSource: 'historical' | 'default' = 'default';
   let formationCandidates: string[] = ['4-4-2'];
 
-  if (recentLineups.length > 0) {
+  if (recentFormations.length > 0) {
     const formationCount = new Map<string, { count: number; latestDate: Date }>();
-    for (const lu of recentLineups) {
+    for (const lu of recentFormations) {
       if (!lu.formation) continue;
       const existing = formationCount.get(lu.formation);
       if (!existing) {
-        formationCount.set(lu.formation, { count: 1, latestDate: lu.fixture.date });
+        formationCount.set(lu.formation, { count: 1, latestDate: lu.fixtureDate });
       } else {
         existing.count += 1;
-        if (lu.fixture.date > existing.latestDate) {
-          existing.latestDate = lu.fixture.date;
+        if (lu.fixtureDate > existing.latestDate) {
+          existing.latestDate = lu.fixtureDate;
         }
       }
     }
@@ -478,42 +397,30 @@ export async function computePredictedLineup(
 
   let positionSlots = parseFormation(formation);
 
-  // 7. Build injured player ID set using shared resolver.
-  // Cross-competition recovery is handled inside resolveActiveInjuries
-  // (lineup check has no league filter — recovery in any competition counts).
-  const latestInjuryByPlayer = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
-
-  const latestTeamInjuryDate = latestInjuryByPlayer.size > 0
-    ? new Date(Math.max(...[...latestInjuryByPlayer.values()].map(i => i.fixtureDate.getTime())))
+  // Injury handling
+  const latestTeamInjuryDate = activeInjuries.size > 0
+    ? new Date(Math.max(...[...activeInjuries.values()].map(i => i.fixtureDate.getTime())))
     : new Date(0);
 
-  const injuredIds = new Set(latestInjuryByPlayer.keys());
+  const injuredIds = new Set(activeInjuries.keys());
 
-  // 7b. Apply recovery signals: move high-confidence recovery players to available pool
-  const upcomingFixtureId = await findUpcomingFixtureId(prisma, teamId, season);
-  const { adjustedInjuredIds, signalRecovered } = await applyRecoverySignals(
-    prisma,
-    injuredIds,
-    upcomingFixtureId,
-  );
-  // Use adjusted set from here on (immutable — original injuredIds preserved above)
+  // Apply recovery signals (already computed)
+  const { adjustedInjuredIds, signalRecovered } = recoverySignalResult;
   const effectiveInjuredIds = adjustedInjuredIds;
 
-  // 8. Detect recently-returned players
+  // Detect recently-returned players
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const recentReturnIds = new Set<number>();
-  for (const [pid, inj] of latestInjuryByPlayer) {
+  for (const [pid, inj] of activeInjuries) {
     if (!effectiveInjuredIds.has(pid) && inj.fixtureDate >= thirtyDaysAgo) {
       recentReturnIds.add(pid);
     }
   }
 
-  // 9. Compute composite scores for all available (non-injured) players
+  // Compute composite scores
   const maxWeight = Math.max(...weights.map(w => w.weight), 0.001);
-
   const availablePlayers: ScoredPlayer[] = [];
   const injuredWithScores: Array<ScoredPlayer & { injuryReason: string }> = [];
-
   const ninetyDaysAgo = new Date(latestTeamInjuryDate.getTime() - 90 * 24 * 60 * 60 * 1000);
 
   for (const pw of weights) {
@@ -529,7 +436,7 @@ export async function computePredictedLineup(
     if (!isInjured) {
       if (sp.starterCount === 0) continue;
     } else if (sp.starterCount + sp.substituteCount === 0) {
-      const injury = latestInjuryByPlayer.get(pw.playerId);
+      const injury = activeInjuries.get(pw.playerId);
       if (!injury || injury.fixtureDate < ninetyDaysAgo) continue;
     }
 
@@ -537,7 +444,6 @@ export async function computePredictedLineup(
     const dp = deploymentProfiles.get(pw.playerId);
     const recentStarterFreq = dp?.recentStarterFrequency ?? 0;
 
-    // Updated composite score: recent form + season consistency + quality
     const compositeScore = round(
       0.35 * recentStarterFreq + 0.20 * sp.starterFrequency + 0.45 * normWeight,
     );
@@ -564,13 +470,12 @@ export async function computePredictedLineup(
     };
 
     if (isInjured) {
-      const injury = latestInjuryByPlayer.get(pw.playerId);
+      const injury = activeInjuries.get(pw.playerId);
       injuredWithScores.push({
         ...scored,
         injuryReason: injury?.reason ?? 'Unknown',
       });
     } else {
-      // If signal-recovered, attach signal info to scored player
       const sigInfo = signalRecovered.get(pw.playerId);
       if (sigInfo) {
         (scored as ScoredPlayer & { signalRecoveredInfo?: SignalRecoveredInfo }).signalRecoveredInfo = sigInfo;
@@ -579,11 +484,9 @@ export async function computePredictedLineup(
     }
   }
 
-  // 10. Slot-based lineup assignment using formation template
+  // Slot-based lineup assignment
   let formationTemplate = getFormationTemplate(formation);
 
-  // Try each formation candidate until one can be filled
-  // (at least 11 available players can be assigned)
   for (const candidate of formationCandidates) {
     const template = getFormationTemplate(candidate);
     const assignments = assignPlayersToSlots(template, availablePlayers);
@@ -597,21 +500,7 @@ export async function computePredictedLineup(
 
   const finalAssignments = assignPlayersToSlots(formationTemplate, availablePlayers);
 
-  // 11. Determine wouldHaveStarted for injured players
-  // For each injured player, check if they would have displaced any starter
-
-  // 12. Fetch photos for all players
-  const allRelevantIds = [
-    ...finalAssignments.map(a => a.player.playerId),
-    ...injuredWithScores.map(p => p.playerId),
-  ];
-  const playerRecords = await prisma.player.findMany({
-    where: { id: { in: allRelevantIds } },
-    select: { id: true, photo: true },
-  });
-  const photoMap = new Map(playerRecords.map(p => [p.id, p.photo]));
-
-  // 13. Build final starters list (sorted by pitchY asc = GK first, then defense, mid, fwd)
+  // Build final starters list
   const sortedAssignments = [...finalAssignments].sort((a, b) => {
     if (a.slot.pitchY !== b.slot.pitchY) return a.slot.pitchY - b.slot.pitchY;
     return a.slot.pitchX - b.slot.pitchX;
@@ -622,7 +511,7 @@ export async function computePredictedLineup(
     return {
       playerId: a.player.playerId,
       playerName: a.player.playerName,
-      photo: photoMap.get(a.player.playerId) ?? null,
+      photo: playerPhotos.get(a.player.playerId) ?? null,
       position: a.player.position,
       positionGroup: a.slot.positionGroup,
       weight: a.player.weight,
@@ -647,9 +536,8 @@ export async function computePredictedLineup(
     };
   });
 
-  // 14. Build unavailable list with wouldHaveStarted
+  // Build unavailable list
   const finalUnavailable: UnavailablePlayer[] = injuredWithScores.map(p => {
-    // Simulate: would this injured player have displaced someone in any slot?
     let wouldHaveStarted = false;
     for (const assignment of finalAssignments) {
       const injuredAffinity = computePositionAffinity(p, assignment.slot.specificPosition);
@@ -662,7 +550,7 @@ export async function computePredictedLineup(
     return {
       playerId: p.playerId,
       playerName: p.playerName,
-      photo: photoMap.get(p.playerId) ?? null,
+      photo: playerPhotos.get(p.playerId) ?? null,
       position: p.position,
       positionGroup: p.positionGroup,
       weight: p.weight,
@@ -673,8 +561,8 @@ export async function computePredictedLineup(
 
   return {
     teamId,
-    teamName: team.name,
-    teamLogo: team.logo,
+    teamName,
+    teamLogo,
     season,
     formation,
     formationSource,
@@ -689,4 +577,58 @@ export async function computePredictedLineup(
     starters: finalStarters,
     unavailable: finalUnavailable,
   };
+}
+
+// ── Legacy wrapper (backward-compatible) ─────────────────────
+
+/**
+ * @deprecated Use computePredictedLineupPure with pre-fetched data
+ */
+export async function computePredictedLineup(
+  prisma: PrismaClient,
+  teamId: number,
+  seasonIds: number[],
+  seasonYears: number[],
+  season: number,
+  injuryLeagueId?: number | null,
+): Promise<PredictedLineup | null> {
+  // 1. Compute player weights
+  const weights = await computePlayerWeights(prisma, teamId, seasonIds, seasonYears);
+  if (weights.length === 0) return null;
+
+  const allPlayerIds = weights.map(w => w.playerId);
+
+  // 2. Fetch lineup/deployment/formation data
+  const layoutData = await fetchPredictedLineupData(prisma, teamId, season, allPlayerIds);
+  if (!layoutData) return null;
+
+  // 3. Resolve injuries
+  const activeInjuries = await resolveActiveInjuries(prisma, teamId, season, injuryLeagueId);
+  const injuredIds = new Set(activeInjuries.keys());
+
+  // 4. Recovery signals
+  const upcomingFixtureId = await findUpcomingFixtureId(prisma, teamId, season);
+  const availabilities = await fetchRecoverySignalData(prisma, injuredIds, upcomingFixtureId);
+  const recoverySignalResult = applyRecoverySignalsPure(injuredIds, availabilities);
+
+  // 5. Fetch photos
+  const allRelevantIds = [...allPlayerIds, ...activeInjuries.keys()];
+  const playerPhotos = await fetchPlayerPhotos(prisma, [...new Set(allRelevantIds)]);
+
+  // 6. Pure computation
+  return computePredictedLineupPure(
+    teamId,
+    layoutData.teamName,
+    layoutData.teamLogo,
+    season,
+    weights,
+    layoutData.teamFixtures,
+    layoutData.lineupData,
+    layoutData.deploymentEntries,
+    layoutData.recentFormations,
+    activeInjuries,
+    recoverySignalResult,
+    upcomingFixtureId,
+    playerPhotos,
+  );
 }

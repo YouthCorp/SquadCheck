@@ -1,4 +1,44 @@
+// ── Pure data interfaces (Prisma-free) ──────────────────────
+export type {
+  InjuryRecord,
+  FixtureInfo,
+  AppearanceEntry,
+  PlayerStatRecord,
+  FixtureWithStats,
+  LineupEntry,
+  AvailabilityRecord,
+  DeploymentEntry,
+  RecentFormationEntry,
+  PlayerWeightInput,
+  PerformanceDeltaInput,
+  TeamPerformanceDeltasInput,
+  ActiveInjuryInput,
+  AbsenceTransitionInput,
+  InjuryImpactInput,
+} from './ports';
+
+// ── Data access (Prisma queries) ────────────────────────────
 export {
+  NON_INJURY_EXCLUSION_FILTER,
+  fetchPlayerWeightData,
+  fetchPerformanceDeltaData,
+  fetchTeamPerformanceDeltasData,
+  fetchActiveInjuryData,
+  fetchAbsenceTransitionData,
+  fetchInjuryImpactData,
+  fetchRecoverySignalData,
+  fetchUpcomingFixtureId,
+  fetchTeamPowerLossData,
+  fetchPredictedLineupData,
+  fetchPlayerPhotos,
+  fetchSeasonChainData,
+  fetchTeamLeagueId,
+  fetchOutcomeImpactData,
+} from './data-access';
+
+// ── Player weights ──────────────────────────────────────────
+export {
+  computePlayerWeightsPure,
   computePlayerWeights,
   computePlayerWeightsLegacy,
   classifyPosition,
@@ -6,7 +46,9 @@ export {
   type PositionGroup,
 } from './player-weight';
 
+// ── Team power loss ─────────────────────────────────────────
 export {
+  computeTeamPowerLossPure,
   computeTeamPowerLoss,
   type TeamPowerLoss,
   type EnrichedTeamPowerLoss,
@@ -19,21 +61,30 @@ export {
   type Severity,
 } from './team-power-loss';
 
+// ── Injury impact ───────────────────────────────────────────
 export {
+  computeInjuryImpactPure,
+  computeRichInjuryImpactPure,
   computeInjuryImpact,
   computeRichInjuryImpact,
   type InjuryImpactSummary,
   type RichInjuryImpact,
 } from './injury-impact';
 
+// ── Performance delta ───────────────────────────────────────
 export {
+  computePerformanceDeltaPure,
+  computeTeamPerformanceDeltasPure,
   computePerformanceDelta,
   computeTeamPerformanceDeltas,
   type PerformanceDelta,
   type PerformanceDeltaSummary,
+  type MatchAggregates,
 } from './performance-delta';
 
+// ── Predicted lineup ────────────────────────────────────────
 export {
+  computePredictedLineupPure,
   computePredictedLineup,
   type PredictedLineup,
   type PredictedPlayer,
@@ -41,6 +92,7 @@ export {
   type PositionSlots,
 } from './predicted-lineup';
 
+// ── Formation templates ─────────────────────────────────────
 export {
   getFormationTemplate,
   resolveGridPosition,
@@ -49,6 +101,7 @@ export {
   type SpecificPosition,
 } from './formation-templates';
 
+// ── Team outcome impact ─────────────────────────────────────
 export {
   computeTeamOutcomeImpact,
   type TeamOutcomeImpact,
@@ -58,13 +111,22 @@ export {
   type StandingEntryInput,
 } from './team-outcome-impact';
 
-export { type MatchAggregates } from './performance-delta';
-
+// ── Recovery signals ────────────────────────────────────────
 export {
+  applyRecoverySignalsPure,
+  applyRecoverySignals,
+  findUpcomingFixtureId,
+  type RecoverySignalResult,
+  type SignalRecoveredInfo,
+} from './recovery-signal-integration';
+
+// ── Injury resolver ─────────────────────────────────────────
+export {
+  resolveActiveInjuriesPure,
+  resolveAbsenceTransitionsPure,
   resolveActiveInjuries,
   resolveAbsenceTransitions,
   buildLatestAppearanceMap,
-  NON_INJURY_EXCLUSION_FILTER,
   type ActiveInjury,
   type AbsenceRecord,
 } from './utils/injury-resolver';
@@ -73,11 +135,13 @@ export {
 // the analysis package as a proxy. Prefer importing from @squadcheck/database directly.
 export { buildExclusionFilter } from '@squadcheck/database';
 
+// ── Season resolver ─────────────────────────────────────────
 export {
   resolveSeasonChain,
   resolveTeamLeague,
 } from './utils/season-resolver';
 
+// ── Facades ─────────────────────────────────────────────────
 export {
   analyzeTeamPower,
   analyzeInjuryImpact,
