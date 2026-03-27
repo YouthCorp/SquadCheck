@@ -8,7 +8,7 @@
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { ARTICLE_PATH_SEGMENTS } from './club-news.parser';
+import { isLikelyArticlePath } from './club-news.parser';
 
 const HTTP_HEADERS = {
   'User-Agent': 'SquadCheck/1.0 (injury tracking bot)',
@@ -308,8 +308,7 @@ function filterAndSortUrls(
 
     // Must match an article path segment
     const pathname = parsed.pathname.toLowerCase();
-    const isArticle = ARTICLE_PATH_SEGMENTS.some(seg => pathname.includes(seg));
-    if (!isArticle) return;
+    if (!isLikelyArticlePath(pathname)) return;
 
     // Extract the best available date
     const lastmodText = $(el).find('lastmod').first().text().trim();

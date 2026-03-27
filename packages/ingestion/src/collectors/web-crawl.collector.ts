@@ -1,19 +1,6 @@
 /**
- * Web crawl collector — fetches EPL club official news pages and feeds
+ * Web crawl collector fetches club official news pages and feeds
  * article text into the existing NLP recovery-signal pipeline.
- *
- * Complements RSS collection by covering sources that have no public RSS feed
- * (most EPL club official sites). Especially valuable for low-profile players
- * whose return news is only published by their own club.
- *
- * Architecture mirrors RecoverySignalCollector:
- *   1. Load active crawl sources from rss_feed_sources (sourceType='crawl')
- *   2. Fetch each news listing page (LightPanda → axios fallback)
- *   3. Extract article links (up to 20 per source)
- *   4. Fetch each article, extract text
- *   5. Dedup via rss_articles.urlHash (same table used by RSS)
- *   6. Run existing entity match → keyword → Claude NLP pipeline
- *   7. Upsert recovery_signals (classifiedBy='web_crawl')
  */
 
 import crypto from 'crypto';
@@ -21,19 +8,32 @@ import { PrismaClient } from '@prisma/client';
 import { fetchPageHtml } from '../crawlers/lightpanda.client';
 import { extractArticleLinks, extractArticleContent } from '../crawlers/club-news.parser';
 import { discoverArticleUrls } from '../crawlers/sitemap-parser';
-import { buildInjuredPlayerIndex, matchAllEntities } from '../nlp/entity-matcher';
+import { buildInjuredPlayerIndex, matchAllEntities, normalizeName } from '../nlp/entity-matcher';
 import { classifyByKeyword, needsClaudeClassification } from '../nlp/keyword-patterns';
-import { SIGNAL_CONFIG } from '../nlp/signal-config';
+import { SIGNAL_CONFIG, TEAM_ALIASES } from '../nlp/signal-config';
 
-// Delay between article fetches to avoid hammering club servers
 const INTER_ARTICLE_DELAY_MS = 600;
-// Max articles to process per source per cycle (dedup will skip already-seen ones)
 const MAX_ARTICLES_PER_SOURCE = 20;
+
+type ProcessOutcome =
+  | 'signals_inserted'
+  | 'entity_no_match'
+  | 'negation_detected'
+  | 'claude_unavailable'
+  | 'claude_no_result'
+  | 'keyword_rejected'
+  | 'below_confidence'
+  | 'article_error';
+
+interface ProcessResult {
+  inserted: number;
+  outcome: ProcessOutcome;
+}
 
 function cleanUrl(rawUrl: string): string {
   try {
     const url = new URL(rawUrl);
-    ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'fbclid', 'gclid'].forEach(p =>
+    ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'fbclid', 'gclid'].forEach((p) =>
       url.searchParams.delete(p),
     );
     url.hostname = url.hostname.toLowerCase();
@@ -58,10 +58,10 @@ function computeFinalConfidence(
   const ageInDays = (Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24);
   const recencyWeight = Math.exp(-ageInDays / SIGNAL_CONFIG.aggregation.RECENCY_HALF_LIFE_DAYS);
   return (
-    entityConfidence  * 0.25 +
+    entityConfidence * 0.25 +
     sourceReliability * 0.20 +
     keywordConfidence * 0.40 +
-    recencyWeight     * 0.15
+    recencyWeight * 0.15
   );
 }
 
@@ -98,7 +98,9 @@ export class WebCrawlCollector {
       }
     }
 
-    console.log(`[WebCrawl] ══ Cycle Complete ══ ${sources.length} sources processed, ${totalInserted} signals inserted`);
+    console.log(
+      `[WebCrawl] Cycle Complete: ${sources.length} sources processed, ${totalInserted} signals inserted`,
+    );
     return totalInserted;
   }
 
@@ -106,13 +108,11 @@ export class WebCrawlCollector {
     source: { id: number; url: string; name: string; reliability: number; lastFetched: Date | null },
     injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>,
   ): Promise<number> {
-    // Step 1: Discover articles via sitemap (primary) or HTML parsing (fallback)
     const origin = new URL(source.url).origin;
     let articleUrls = await discoverArticleUrls(origin, { maxAgeDays: 7 });
     let discoveryMethod = 'sitemap';
 
     if (articleUrls.length === 0) {
-      // Sitemap failed — try old HTML parsing as fallback
       discoveryMethod = 'html-fallback';
       console.log(`[WebCrawl] ${source.name}: sitemap empty, trying HTML fallback`);
       try {
@@ -125,10 +125,6 @@ export class WebCrawlCollector {
 
     if (articleUrls.length === 0) {
       console.log(`[WebCrawl] ${source.name}: no articles found (tried ${discoveryMethod})`);
-      await this.prisma.rssFeedSource.update({
-        where: { id: source.id },
-        data: { lastFetched: new Date() },
-      });
       return 0;
     }
 
@@ -136,54 +132,90 @@ export class WebCrawlCollector {
 
     const since = source.lastFetched ?? new Date(0);
     let inserted = 0;
+    let articleFetchFailed = 0;
+    let entityNoMatch = 0;
+    let keywordRejected = 0;
+    let negationDetected = 0;
+    let claudeUnavailable = 0;
+    let belowConfidence = 0;
+    let articleErrors = 0;
 
     for (const articleUrl of articleUrls.slice(0, MAX_ARTICLES_PER_SOURCE)) {
       const urlHash = hashUrl(articleUrl);
-
-      // Dedup check
       const existing = await this.prisma.rssArticle.findUnique({ where: { urlHash } });
       if (existing?.processedAt !== null && existing?.processedAt !== undefined) {
-        continue; // Already processed
+        continue;
       }
 
-      // Step 2: Fetch article page
       let articleHtml: string;
       try {
         const result = await fetchPageHtml(articleUrl);
         articleHtml = result.html;
       } catch (err) {
         console.warn(`[WebCrawl] Failed to fetch article ${articleUrl}:`, (err as Error).message);
+        articleFetchFailed++;
         continue;
       }
 
-      // Step 3: Extract content
       const { title, text, publishedAt } = extractArticleContent(articleHtml);
 
-      // Skip articles older than lastFetched (or older than 7 days if no lastFetched)
       if (publishedAt < since && since.getTime() > 0) continue;
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       if (publishedAt < sevenDaysAgo) continue;
 
-      // Step 4: Upsert into rss_articles for dedup
-      const rssArticleId = existing?.id ?? (await this.prisma.rssArticle.create({
-        data: {
-          source: source.name,
-          url:     articleUrl,
-          urlHash,
-          title:   title || '',
-          publishedAt,
-        },
-      })).id;
+      const rssArticleId =
+        existing?.id ??
+        (
+          await this.prisma.rssArticle.create({
+            data: {
+              source: source.name,
+              url: articleUrl,
+              urlHash,
+              title: title || '',
+              publishedAt,
+            },
+          })
+        ).id;
 
-      // Step 5: Run NLP pipeline
       const articleText = `${title} ${text}`;
-      inserted += await this.processArticle(
-        { rssArticleId, articleUrl, title, text: articleText, publishedAt, sourceId: source.id, sourceReliability: source.reliability },
+      const result = await this.processArticle(
+        {
+          rssArticleId,
+          articleUrl,
+          title,
+          text: articleText,
+          publishedAt,
+          sourceId: source.id,
+          sourceReliability: source.reliability,
+        },
         injuredIndex,
+        source.name,
       );
+      inserted += result.inserted;
 
-      // Rate-limit between article fetches
-      await new Promise(r => setTimeout(r, INTER_ARTICLE_DELAY_MS));
+      switch (result.outcome) {
+        case 'entity_no_match':
+          entityNoMatch++;
+          break;
+        case 'keyword_rejected':
+          keywordRejected++;
+          break;
+        case 'negation_detected':
+          negationDetected++;
+          break;
+        case 'claude_unavailable':
+        case 'claude_no_result':
+          claudeUnavailable++;
+          break;
+        case 'below_confidence':
+          belowConfidence++;
+          break;
+        case 'article_error':
+          articleErrors++;
+          break;
+      }
+
+      await new Promise((r) => setTimeout(r, INTER_ARTICLE_DELAY_MS));
     }
 
     await this.prisma.rssFeedSource.update({
@@ -191,34 +223,44 @@ export class WebCrawlCollector {
       data: { lastFetched: new Date() },
     });
 
-    console.log(`[WebCrawl] ${source.name}: ${inserted} signals from ${articleUrls.length} links`);
+    console.log(
+      `[WebCrawl] ${source.name}: ${inserted} signals from ${articleUrls.length} links ` +
+        `(fetchFail=${articleFetchFailed}, entityMiss=${entityNoMatch}, keywordReject=${keywordRejected}, ` +
+        `negation=${negationDetected}, claudeSkip=${claudeUnavailable}, lowConfidence=${belowConfidence}, articleError=${articleErrors})`,
+    );
     return inserted;
   }
 
-  private async processArticle(item: {
-    rssArticleId: number;
-    articleUrl:   string;
-    title:        string;
-    text:         string;
-    publishedAt:  Date;
-    sourceId:     number;
-    sourceReliability: number;
-  }, injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>): Promise<number> {
+  private async processArticle(
+    item: {
+      rssArticleId: number;
+      articleUrl: string;
+      title: string;
+      text: string;
+      publishedAt: Date;
+      sourceId: number;
+      sourceReliability: number;
+    },
+    injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>,
+    sourceName: string,
+  ): Promise<ProcessResult> {
     const { rssArticleId, articleUrl, text, publishedAt, sourceId, sourceReliability } = item;
 
     try {
-      // Entity match — returns all matched players in the article
-      const entities = matchAllEntities(text, injuredIndex);
+      const directEntities = matchAllEntities(text, injuredIndex);
+      const entities =
+        directEntities.length > 0
+          ? directEntities
+          : this.matchEntitiesFromSourceContext(text, sourceName, injuredIndex);
       if (entities.length === 0) {
         await this.markProcessed(rssArticleId);
-        return 0;
+        return { inserted: 0, outcome: 'entity_no_match' };
       }
 
-      // Keyword classification (Pass 1) — run ONCE for the whole article
       const keywordResult = classifyByKeyword(text);
       if (keywordResult?.negationDetected) {
         await this.markProcessed(rssArticleId);
-        return 0;
+        return { inserted: 0, outcome: 'negation_detected' };
       }
 
       const usesClaude = needsClaudeClassification(
@@ -232,38 +274,42 @@ export class WebCrawlCollector {
       let rawKeywordConfidence: number;
       let snippet: string | undefined;
 
-      // Use the first entity for Claude context (article-level classification)
       const firstEntity = entities[0];
 
       if (usesClaude) {
         if (!process.env.ANTHROPIC_API_KEY) {
           await this.markProcessed(rssArticleId);
-          return 0;
+          return { inserted: 0, outcome: 'claude_unavailable' };
         }
+
         const { classifyWithClaude } = await import('../nlp/claude-classifier');
         snippet = text.slice(0, 500);
-        const claudeResult = await classifyWithClaude(snippet, firstEntity.playerName!, firstEntity.teamName!);
+        const claudeResult = await classifyWithClaude(
+          snippet,
+          firstEntity.playerName!,
+          firstEntity.teamName!,
+        );
         this.claudeCallsThisCycle++;
 
         if (!claudeResult) {
           await this.markProcessed(rssArticleId);
-          return 0;
+          return { inserted: 0, outcome: 'claude_no_result' };
         }
 
-        stage                = claudeResult.stage;
-        recoveryScore        = claudeResult.recoveryScore;
+        stage = claudeResult.stage;
+        recoveryScore = claudeResult.recoveryScore;
         rawKeywordConfidence = claudeResult.confidence;
       } else {
         if (!keywordResult || keywordResult.confidence < SIGNAL_CONFIG.keyword.AMBIGUOUS_LOWER) {
           await this.markProcessed(rssArticleId);
-          return 0;
+          return { inserted: 0, outcome: 'keyword_rejected' };
         }
-        stage                = keywordResult.stage;
-        recoveryScore        = keywordResult.score;
+
+        stage = keywordResult.stage;
+        recoveryScore = keywordResult.score;
         rawKeywordConfidence = keywordResult.confidence;
       }
 
-      // Loop through each matched entity and upsert a signal per player
       let insertCount = 0;
       for (const entity of entities) {
         const finalConfidence = computeFinalConfidence(
@@ -278,23 +324,23 @@ export class WebCrawlCollector {
         await this.prisma.recoverySignal.upsert({
           where: { playerId_articleUrl: { playerId: entity.playerId!, articleUrl } },
           create: {
-            playerId:         entity.playerId!,
-            teamId:           entity.teamId!,
+            playerId: entity.playerId!,
+            teamId: entity.teamId!,
             sourceId,
             articleUrl,
-            articleTitle:     item.title || '',
+            articleTitle: item.title || '',
             publishedAt,
-            signalStage:      stage,
+            signalStage: stage,
             recoveryScore,
-            confidence:       finalConfidence,
-            classifiedBy:     'web_crawl',
+            confidence: finalConfidence,
+            classifiedBy: 'web_crawl',
             extractedSnippet: snippet ?? null,
           },
           update: {
-            signalStage:      stage,
+            signalStage: stage,
             recoveryScore,
-            confidence:       finalConfidence,
-            classifiedBy:     'web_crawl',
+            confidence: finalConfidence,
+            classifiedBy: 'web_crawl',
             extractedSnippet: snippet ?? null,
           },
         });
@@ -303,11 +349,63 @@ export class WebCrawlCollector {
       }
 
       await this.markProcessed(rssArticleId);
-      return insertCount;
+      if (insertCount === 0) {
+        return { inserted: 0, outcome: 'below_confidence' };
+      }
+      return { inserted: insertCount, outcome: 'signals_inserted' };
     } catch (err) {
       console.warn(`[WebCrawl] Article error (${articleUrl}):`, (err as Error).message);
-      return 0;
+      return { inserted: 0, outcome: 'article_error' };
     }
+  }
+
+  private matchEntitiesFromSourceContext(
+    articleText: string,
+    sourceName: string,
+    injuredIndex: Awaited<ReturnType<typeof buildInjuredPlayerIndex>>,
+  ): ReturnType<typeof matchAllEntities> {
+    const text = normalizeName(articleText);
+    const sourceText = normalizeName(sourceName);
+    const unique = new Map<number, ReturnType<typeof matchAllEntities>[number]>();
+
+    for (const [nameKey, players] of injuredIndex) {
+      if (nameKey.length < 4) continue;
+      if (!this.containsToken(text, nameKey)) continue;
+
+      for (const player of players) {
+        if (!this.sourceMatchesTeam(sourceText, player.teamName)) continue;
+        unique.set(player.id, {
+          matched: true,
+          playerId: player.id,
+          teamId: player.teamId,
+          playerName: player.name,
+          teamName: player.teamName,
+          entityConfidence: 0.8,
+          matchTier: 'alias',
+        });
+      }
+    }
+
+    return [...unique.values()];
+  }
+
+  private sourceMatchesTeam(sourceText: string, teamName: string): boolean {
+    const normalizedTeam = normalizeName(teamName);
+    if (this.containsToken(sourceText, normalizedTeam)) {
+      return true;
+    }
+
+    const aliases = TEAM_ALIASES[normalizedTeam] ?? [];
+    return aliases.some((alias) => {
+      const normalizedAlias = normalizeName(alias);
+      return normalizedAlias.length >= 3 && this.containsToken(sourceText, normalizedAlias);
+    });
+  }
+
+  private containsToken(text: string, token: string): boolean {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`);
+    return re.test(text);
   }
 
   private async markProcessed(rssArticleId: number): Promise<void> {

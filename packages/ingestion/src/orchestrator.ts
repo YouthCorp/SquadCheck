@@ -626,12 +626,12 @@ export class Orchestrator {
       { name: "Reims News",           url: "https://www.stade-de-reims.com/actualites",             reliability: 0.83, language: "fr" },
       { name: "Nantes News",          url: "https://www.fcnantes.com/actualites",                   reliability: 0.83, language: "fr" },
       { name: "Brest News",           url: "https://www.stade-brestois.com/actualites",             reliability: 0.83, language: "fr" },
-      { name: "Toulouse News",        url: "https://www.tfc.info/actualites",                       reliability: 0.82, language: "fr" },
-      { name: "Strasbourg News",      url: "https://www.rcstrasbourg.eu/actualites",                reliability: 0.82, language: "fr" },
-      { name: "Le Havre News",        url: "https://www.havre-ac.fr/actualites",                    reliability: 0.82, language: "fr" },
-      { name: "Lorient News",         url: "https://www.fclorientsudbreatgne.fr/actualites",        reliability: 0.82, language: "fr" },
+      { name: "Toulouse News",        url: "https://www.toulousefc.com/actualites",                 reliability: 0.82, language: "fr" },
+      { name: "Strasbourg News",      url: "https://www.rcstrasbourgalsace.fr/actualites",          reliability: 0.82, language: "fr" },
+      { name: "Le Havre News",        url: "https://www.hac-foot.com/actualites",                   reliability: 0.82, language: "fr" },
+      { name: "Lorient News",         url: "https://www.fclorient.bzh/actualites",                  reliability: 0.82, language: "fr" },
       { name: "Metz News",            url: "https://www.fcmetz.com/actualites",                     reliability: 0.82, language: "fr" },
-      { name: "Clermont News",        url: "https://www.clermontfoot.co.fr/actualites",             reliability: 0.82, language: "fr" },
+      { name: "Clermont News",        url: "https://www.clermontfoot.com/",                         reliability: 0.82, language: "fr" },
     ];
     for (const s of sources) {
       await this.prisma.rssFeedSource.upsert({

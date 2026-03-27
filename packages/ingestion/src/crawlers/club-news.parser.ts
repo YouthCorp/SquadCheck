@@ -17,10 +17,44 @@ export const ARTICLE_PATH_SEGMENTS = [
   '/news/', '/article/', '/articles/', '/story/', '/stories/',
   '/press-release/', '/media/', '/match-report/', '/match_report/',
   '/match-preview/', '/team-news/', '/injury-update/',
+  '/actualites/', '/actualite/', '/noticias/', '/noticia/',
+  '/aktuell/', '/aktuelles/', '/nieuws/',
+];
+
+const NON_ARTICLE_PATH_SEGMENTS = [
+  '/match/', '/matches/', '/billetterie/', '/ticketing/', '/shop/', '/store/',
+  '/video/', '/videos/', '/gallery/', '/photos/', '/academy/', '/formation/',
+  '/equipe/', '/equipes/', '/team/', '/teams/', '/joueurs/', '/player/',
+  '/players/', '/staff/', '/calendrier/', '/fixtures/', '/partner/', '/partners/',
 ];
 
 /** Max article links to extract per crawl (prevents overloading) */
 const MAX_LINKS_PER_SOURCE = 20;
+
+export function isLikelyArticlePath(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+
+  if (ARTICLE_PATH_SEGMENTS.some(seg => normalized.includes(seg))) {
+    return true;
+  }
+
+  if (NON_ARTICLE_PATH_SEGMENTS.some(seg => normalized.includes(seg))) {
+    return false;
+  }
+
+  if (normalized === '/' || normalized.length < 12) {
+    return false;
+  }
+
+  if (/\.(xml|jpg|jpeg|png|gif|webp|svg|pdf|mp4)$/i.test(normalized)) {
+    return false;
+  }
+
+  const lastSegment = normalized.split('/').filter(Boolean).pop() ?? '';
+  const hyphenCount = (lastSegment.match(/-/g) ?? []).length;
+
+  return hyphenCount >= 3;
+}
 
 /**
  * Extracts article URLs from a club news listing page.
@@ -52,8 +86,7 @@ export function extractArticleLinks(html: string, sourceUrl: string): string[] {
     }
 
     const pathname = new URL(absolute).pathname.toLowerCase();
-    const isArticleLink = ARTICLE_PATH_SEGMENTS.some(seg => pathname.includes(seg));
-    if (!isArticleLink) return;
+    if (!isLikelyArticlePath(pathname)) return;
 
     // Deduplicate (strip hash/trailing slash)
     const normalised = absolute.split('#')[0].replace(/\/$/, '');
