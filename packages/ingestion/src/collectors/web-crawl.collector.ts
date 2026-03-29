@@ -133,6 +133,9 @@ export class WebCrawlCollector {
     const since = source.lastFetched ?? new Date(0);
     let inserted = 0;
     let articleFetchFailed = 0;
+    let alreadyProcessedSkipped = 0;
+    let olderThanLastFetchedSkipped = 0;
+    let staleArticleSkipped = 0;
     let entityNoMatch = 0;
     let keywordRejected = 0;
     let negationDetected = 0;
@@ -144,6 +147,7 @@ export class WebCrawlCollector {
       const urlHash = hashUrl(articleUrl);
       const existing = await this.prisma.rssArticle.findUnique({ where: { urlHash } });
       if (existing?.processedAt !== null && existing?.processedAt !== undefined) {
+        alreadyProcessedSkipped++;
         continue;
       }
 
@@ -159,9 +163,15 @@ export class WebCrawlCollector {
 
       const { title, text, publishedAt } = extractArticleContent(articleHtml);
 
-      if (publishedAt < since && since.getTime() > 0) continue;
+      if (publishedAt < since && since.getTime() > 0) {
+        olderThanLastFetchedSkipped++;
+        continue;
+      }
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      if (publishedAt < sevenDaysAgo) continue;
+      if (publishedAt < sevenDaysAgo) {
+        staleArticleSkipped++;
+        continue;
+      }
 
       const rssArticleId =
         existing?.id ??
@@ -225,7 +235,8 @@ export class WebCrawlCollector {
 
     console.log(
       `[WebCrawl] ${source.name}: ${inserted} signals from ${articleUrls.length} links ` +
-        `(fetchFail=${articleFetchFailed}, entityMiss=${entityNoMatch}, keywordReject=${keywordRejected}, ` +
+        `(alreadyProcessed=${alreadyProcessedSkipped}, olderThanLastFetched=${olderThanLastFetchedSkipped}, staleArticle=${staleArticleSkipped}, ` +
+        `fetchFail=${articleFetchFailed}, entityMiss=${entityNoMatch}, keywordReject=${keywordRejected}, ` +
         `negation=${negationDetected}, claudeSkip=${claudeUnavailable}, lowConfidence=${belowConfidence}, articleError=${articleErrors})`,
     );
     return inserted;

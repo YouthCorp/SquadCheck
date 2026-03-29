@@ -34,12 +34,12 @@ const MAX_LINKS_PER_SOURCE = 20;
 export function isLikelyArticlePath(pathname: string): boolean {
   const normalized = pathname.toLowerCase();
 
-  if (ARTICLE_PATH_SEGMENTS.some(seg => normalized.includes(seg))) {
-    return true;
-  }
-
   if (NON_ARTICLE_PATH_SEGMENTS.some(seg => normalized.includes(seg))) {
     return false;
+  }
+
+  if (ARTICLE_PATH_SEGMENTS.some(seg => normalized.includes(seg))) {
+    return true;
   }
 
   if (normalized === '/' || normalized.length < 12) {
