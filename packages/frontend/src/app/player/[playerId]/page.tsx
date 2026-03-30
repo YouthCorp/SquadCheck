@@ -28,12 +28,12 @@ export async function generateMetadata({
     const latestInjury = currentSeasonInjuries[currentSeasonInjuries.length - 1] ?? injuries[injuries.length - 1] ?? null;
     const totalMissed = currentSeasonInjuries.length;
 
-    const title = `${player.name} Injury Update & History 2025/26`;
+    const title = `${player.name} Injury Updates, Return Date & Availability 2025/26`;
     let description: string;
     if (latestInjury && totalMissed > 0) {
-      description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''}: ${totalMissed} absence${totalMissed !== 1 ? 's' : ''} this season — latest: ${latestInjury.reason}. Full injury history, missed matches, and availability status.`;
+      description = `${player.name}${pos ? ` (${pos})` : ""}${nat ? ` | ${nat}` : ""}: ${totalMissed} absence${totalMissed !== 1 ? "s" : ""} this season. Latest injury update: ${latestInjury.reason}. Track injury history, missed matches, return timeline, and current availability on SquadCheck.`;
     } else {
-      description = `${player.name}${pos ? ` (${pos})` : ''}${nat ? ` · ${nat}` : ''} — full injury history, missed matches, and current availability on SquadCheck.`;
+      description = `${player.name}${pos ? ` (${pos})` : ""}${nat ? ` | ${nat}` : ""}. Track injury updates, missed matches, return timeline, and current availability on SquadCheck.`;
     }
 
     return {
@@ -43,8 +43,13 @@ export async function generateMetadata({
       alternates: { canonical: `/player/${playerId}` },
       keywords: [
         `${player.name} injury`,
+        `${player.name} injury updates`,
+        `${player.name} latest injury news`,
         `${player.name} injured`,
         `${player.name} fitness update`,
+        `${player.name} return date`,
+        `${player.name} return update`,
+        `${player.name} status today`,
         `${player.name} injury history`,
         `${player.name} availability`,
       ],
@@ -184,6 +189,8 @@ export default async function PlayerPage({
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://squadcheck.xyz';
   const currentTeam = injuries[0]?.team ?? null;
+  const latestSeason = sortedSeasons[0] ?? null;
+  const latestEpisode = latestSeason ? episodesBySeason.get(latestSeason)?.[0] ?? null : null;
   const personJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -203,11 +210,29 @@ export default async function PlayerPage({
     } : {}),
   };
 
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      ...(currentTeam ? [
+        { '@type': 'ListItem', position: 2, name: currentTeam.name, item: `${siteUrl}/team/${currentTeam.id}` },
+        { '@type': 'ListItem', position: 3, name: `${player.name} Injury Updates`, item: `${siteUrl}/player/${playerId}` },
+      ] : [
+        { '@type': 'ListItem', position: 2, name: `${player.name} Injury Updates`, item: `${siteUrl}/player/${playerId}` },
+      ]),
+    ],
+  };
+
   return (
     <div className="max-w-[56rem] mx-auto">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* Back button */}
       {backTeamId && (
@@ -237,6 +262,37 @@ export default async function PlayerPage({
           </div>
         </div>
       </div>
+
+      <Card className="mb-6 p-4 gap-2">
+        <h2 className="text-sm font-semibold text-foreground m-0">
+          {locale === 'ko' ? `${player.name} ?? ????` : `${player.name} injury updates`}
+        </h2>
+        <p className="text-sm text-muted-foreground leading-6 m-0">
+          {locale === 'ko'
+            ? `${player.name}? ?? ?? ??, ?? ??, ?? ??, ?? ???? ? ????? ??? ? ????.`
+            : `Track ${player.name}'s latest injury status, missed matches, return timeline, and availability in one place.`}
+        </p>
+        {latestEpisode && (
+          <p className="text-xs text-muted-foreground/80 leading-5 m-0">
+            {locale === 'ko'
+              ? `?? ??: ${latestEpisode.reason} ${latestEpisode.ongoing ? "??? ?? ?? ???" : "??? ?? ???"} ${latestEpisode.missedCount}?? ???? ?????.`
+              : `Latest record: ${latestEpisode.reason} with ${latestEpisode.missedCount} missed match${latestEpisode.missedCount !== 1 ? "es" : ""}${latestEpisode.ongoing ? ", and the current absence may still be active." : "."}`}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-3 text-xs">
+          {currentTeam && (
+            <Link
+              href={`/team/${currentTeam.id}${backLeagueId ? `?league=${backLeagueId}` : ""}`}
+              className="text-primary no-underline hover:underline"
+            >
+              {locale === 'ko' ? `${currentTeam.name} ? ?? ?? ??` : `View ${currentTeam.name} team injury updates`}
+            </Link>
+          )}
+          <Link href="/injuries?tab=recovery" className="text-primary no-underline hover:underline">
+            {locale === 'ko' ? '?? ?? ?? ??' : 'View recovery signals hub'}
+          </Link>
+        </div>
+      </Card>
 
       {/* Season stats */}
       {player.seasonStats.length > 0 && (

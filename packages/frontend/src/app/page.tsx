@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import { fetchApi } from "@/lib/api";
@@ -15,6 +16,12 @@ import { HomeInjuryWatchPanel } from "@/components/home-injury-watch-panel";
 import { HomeLiveUpdatesPanel } from "@/components/home-live-updates-panel";
 
 const LEAGUE_IDS = [39, 140, 135, 78, 61] as const;
+
+export const metadata: Metadata = {
+  title: "Football Injury Updates, Team News & Predicted Lineups",
+  description:
+    "Track football injury updates, player availability, team news, and predicted lineups across the Premier League, La Liga, Serie A, Bundesliga, and Ligue 1.",
+};
 
 export default async function Home() {
   const locale = getLocale();
@@ -126,12 +133,13 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "SquadCheck",
-    alternateName: "스쿼드체크",
+    alternateName: "SquadCheck Football Injury Intelligence",
     url: siteUrl,
-    description: "Football injury impact analysis across top European leagues. 축구 부상 분석 서비스.",
+    description:
+      "Football injury updates, player availability, team news, and predicted lineups across top European leagues.",
     potentialAction: {
       "@type": "SearchAction",
-      target: `${siteUrl}/leaderboard`,
+      target: `${siteUrl}/injuries`,
       "query-input": "required name=search_term_string",
     },
   };

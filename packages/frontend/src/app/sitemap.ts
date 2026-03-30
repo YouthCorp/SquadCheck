@@ -84,6 +84,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           }
         } else {
           console.error(`[sitemap] standings fetch failed for league ${leagueId}: ${res.status}`);
+          const fallbackRes = await fetch(`${apiBase}/api/injuries/summary?league=${leagueId}`, {
+            next: { revalidate: 3600 },
+          });
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (Array.isArray(fallbackData)) {
+              for (const entry of fallbackData) {
+                if (entry?.team?.id) teamIds.add(entry.team.id);
+              }
+            }
+          }
         }
       } catch (e) {
         console.error(`[sitemap] standings fetch error for league ${leagueId}:`, e);

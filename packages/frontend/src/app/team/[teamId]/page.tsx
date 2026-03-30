@@ -28,11 +28,11 @@ export async function generateMetadata({
     const count = impact.injuredPlayers.length;
     const powerLoss = impact.powerLossPct.toFixed(1);
     const injuredNames = impact.injuredPlayers.slice(0, 5).map((p) => p.player.name).join(', ');
-    const title = `${teamName} Injuries & Squad News 2025/26`;
+    const title = `${teamName} Injury Updates, Team News & Availability 2025/26`;
     const description =
       count > 0
-        ? `${teamName}: ${count} player${count !== 1 ? 's' : ''} out (${injuredNames}). Power Loss ${powerLoss}%. Predicted lineup, injury timeline, and recovery signals.`
-        : `${teamName}: Full squad available. Predicted lineup and squad analysis for the 2025/26 season.`;
+        ? `${teamName}: ${count} player${count !== 1 ? 's' : ''} out (${injuredNames}). Power Loss ${powerLoss}%. Track latest team injury updates, return signals, predicted lineup impact, and who is out.`
+        : `${teamName}: Full squad available. Track team news, player availability, predicted lineup changes, and injury status for the 2025/26 season.`;
     return {
       title,
       description,
@@ -40,10 +40,14 @@ export async function generateMetadata({
       alternates: { canonical: `/team/${teamId}` },
       keywords: [
         `${teamName} injuries`,
+        `${teamName} injury updates`,
         `${teamName} injury news`,
+        `${teamName} latest team news`,
         `${teamName} team news`,
         `${teamName} predicted lineup`,
         `${teamName} squad`,
+        `${teamName} who is out`,
+        `${teamName} return updates`,
         `${teamName} injury update`,
       ],
     };
@@ -160,6 +164,27 @@ export default async function TeamPage({
             <PowerLossGauge value={impact.powerLossPct} size="lg" locale={locale} />
           </div>
         )}
+      </div>
+
+      <div className="mb-6 rounded-lg border border-border bg-card/60 p-4">
+        <h2 className="text-sm font-semibold text-foreground m-0">
+          {locale === 'ko'
+            ? `${team?.name ?? `Team ${teamId}`} 부상 업데이트`
+            : `${team?.name ?? `Team ${teamId}`} injury updates`}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-2 mb-0 leading-6">
+          {locale === 'ko'
+            ? `${team?.name ?? `Team ${teamId}`}의 결장자, 복귀 신호, 예상 라인업 영향, 현재 스쿼드 가용성을 한 페이지에서 확인할 수 있습니다.`
+            : `Track who is out for ${team?.name ?? `Team ${teamId}`}, latest recovery signals, predicted lineup impact, and current squad availability in one place.`}
+        </p>
+        <div className="flex flex-wrap gap-3 mt-3 text-xs">
+          <Link href="/injuries?tab=injuries" className="text-primary no-underline hover:underline">
+            {locale === 'ko' ? '전체 부상 뉴스 허브 보기' : 'View injury news hub'}
+          </Link>
+          <Link href="/injuries?tab=recovery" className="text-primary no-underline hover:underline">
+            {locale === 'ko' ? '전체 복귀 신호 허브 보기' : 'View recovery signals hub'}
+          </Link>
+        </div>
       </div>
 
       {/* Stat grid */}

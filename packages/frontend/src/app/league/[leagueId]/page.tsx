@@ -21,13 +21,20 @@ export async function generateMetadata({
   const isCup = CUP_IDS_NO_STANDINGS.has(leagueId);
   const title = isCup ? leagueName : `${leagueName} Standings`;
   const description = isCup
-    ? `${leagueName} fixtures and results with injury impact analysis.`
-    : `${leagueName} standings with injury-aware team power analysis. See Power Loss % for every club this season.`;
+    ? `${leagueName} fixtures, results, injury updates, and player availability analysis.`
+    : `${leagueName} standings with injury-aware team power analysis, team injury updates, and player availability signals for every club this season.`;
   return {
     title,
     description,
     openGraph: { title: `${title} | SquadCheck`, description },
     alternates: { canonical: `/league/${leagueId}` },
+    keywords: [
+      `${leagueName} injury updates`,
+      `${leagueName} injury news`,
+      `${leagueName} team news`,
+      `${leagueName} player availability`,
+      `${leagueName} predicted lineup`,
+    ],
   };
 }
 

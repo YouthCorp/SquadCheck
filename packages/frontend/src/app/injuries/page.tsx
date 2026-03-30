@@ -21,7 +21,7 @@ type SearchParams = {
 };
 
 const TAB_LABELS = {
-  injuries: { en: 'New Injuries', ko: '신규 부상 / 복귀' },
+  injuries: { en: 'New Injuries', ko: '신규 부상' },
   recovery: { en: 'Recovery & Returns', ko: '복귀 신호 / 복귀 완료' },
 } as const;
 
@@ -261,22 +261,22 @@ export default async function InjuriesPage({
     : (locale === 'ko' ? '신규 부상 및 복귀 히스토리' : 'Injury News and Return History');
   const introText = tab === 'recovery'
     ? (locale === 'ko'
-      ? '축구 복귀 신호, 복귀 업데이트, 예상 가용성 변화를 한 곳에서 추적합니다.'
+      ? '축구 복귀 신호, 복귀 업데이트, 예상 출전 가능성 변화를 한곳에서 추적합니다.'
       : 'Track football recovery signals, return updates, and expected availability changes in one place.')
     : (locale === 'ko'
-      ? '축구 신규 부상, 결장 이슈, 복귀 히스토리를 리그별로 확인할 수 있습니다.'
+      ? '축구 신규 부상, 결장 이슈, 복귀 히스토리를 주요 리그별로 확인할 수 있습니다.'
       : 'Track football injury news, absences, and return history across major leagues.');
 
   const statusOptions = tab === 'injuries'
     ? [
-        { value: 'all', label: locale === 'ko' ? '전체' : 'All' },
-        { value: 'active_only', label: locale === 'ko' ? '신규 부상' : 'New injuries' },
-        { value: 'returned_only', label: locale === 'ko' ? '복귀 완료' : 'Returned' },
+        { value: 'all', label: locale === 'ko' ? '??' : 'All' },
+        { value: 'active_only', label: locale === 'ko' ? '?? ??' : 'New injuries' },
+        { value: 'returned_only', label: locale === 'ko' ? '?? ??' : 'Returned' },
       ]
     : [
-        { value: 'all', label: locale === 'ko' ? '전체' : 'All' },
-        { value: 'signal', label: locale === 'ko' ? '복귀 신호' : 'Signals' },
-        { value: 'returned', label: locale === 'ko' ? '복귀 완료' : 'Returned' },
+        { value: 'all', label: locale === 'ko' ? '??' : 'All' },
+        { value: 'signal', label: locale === 'ko' ? '?? ??' : 'Signals' },
+        { value: 'returned', label: locale === 'ko' ? '?? ??' : 'Returned' },
       ];
 
   const collectionJsonLd = {
