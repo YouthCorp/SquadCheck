@@ -6,27 +6,18 @@ config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
 import { PrismaClient } from '@prisma/client';
 import { ApiFootballClient } from './client/api-football';
 import { Orchestrator } from './orchestrator';
+import { backfillInjuryFeedFromCurrentState } from './scripts/backfill-injury-feed';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const command = process.argv[2] || 'help';
 
-  const apiKey = process.env.API_FOOTBALL_KEY;
-  if (!apiKey) {
-    console.error('Missing API_FOOTBALL_KEY in .env');
-    process.exit(1);
-  }
-
-  const perMinute = parseInt(process.env.API_FOOTBALL_PER_MINUTE || '280');
-  const dailyLimit = parseInt(process.env.API_FOOTBALL_DAILY_LIMIT || '7500');
-  const api = new ApiFootballClient(apiKey, perMinute, dailyLimit);
-  const orchestrator = new Orchestrator(api, prisma);
-
   const ALL_PHASES = ['leagues', 'teams', 'standings', 'fixtures', 'injuries', 'players', 'fixture_details', 'aggregates'];
 
   switch (command) {
     case 'seed': {
+      const orchestrator = createOrchestrator();
       const leagueArg = getArg('--leagues');
       const seasonArg = getArg('--seasons');
       const skipArg   = getArg('--skip');
@@ -63,8 +54,14 @@ async function main() {
     }
 
     case 'sync': {
+      const orchestrator = createOrchestrator();
       // Incremental sync: current seasons only
       await orchestrator.incrementalSync();
+      break;
+    }
+
+    case 'backfill:injury-feed': {
+      await backfillInjuryFeedFromCurrentState(prisma, getArg('--season'));
       break;
     }
 
@@ -80,6 +77,7 @@ Commands:
   seed --only=players                Run only the players phase
   seed --skip=leagues,teams          Skip specific phases
   sync                               Incremental sync (current seasons only)
+  backfill:injury-feed               Seed injury feed history from current DB state
   help                               Show this help
 
 Available phases:
@@ -95,6 +93,9 @@ Examples:
   # Force re-run a specific phase (ignores COMPLETED checkpoint)
   seed --leagues=61 --seasons=2025 --only=players --force=players
 
+  # Seed the injury feed from current active injuries and live recovery signals
+  backfill:injury-feed --season=2025
+
 Environment:
   API_FOOTBALL_KEY          API key (required)
   API_FOOTBALL_PER_MINUTE   Rate limit per minute (default: 280)
@@ -102,6 +103,19 @@ Environment:
 `);
       break;
   }
+}
+
+function createOrchestrator(): Orchestrator {
+  const apiKey = process.env.API_FOOTBALL_KEY;
+  if (!apiKey) {
+    console.error('Missing API_FOOTBALL_KEY in .env');
+    process.exit(1);
+  }
+
+  const perMinute = parseInt(process.env.API_FOOTBALL_PER_MINUTE || '280');
+  const dailyLimit = parseInt(process.env.API_FOOTBALL_DAILY_LIMIT || '7500');
+  const api = new ApiFootballClient(apiKey, perMinute, dailyLimit);
+  return new Orchestrator(api, prisma);
 }
 
 function getArg(flag: string): string | undefined {

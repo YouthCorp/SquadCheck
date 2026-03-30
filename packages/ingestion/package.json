@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "seed": "ts-node src/index.ts seed",
+    "backfill:injury-feed": "ts-node src/index.ts backfill:injury-feed",
     "sync": "ts-node src/index.ts sync",
     "dev": "ts-node src/index.ts"
   },
