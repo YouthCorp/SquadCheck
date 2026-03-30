@@ -185,6 +185,61 @@ export interface LiveUpdatesData {
   recentSignals: RecentSignalEntry[];
 }
 
+export type InjuryFeedEventType =
+  | 'new_injury'
+  | 'recovery_signal_started'
+  | 'recovery_signal_upgraded'
+  | 'recovery_signal_downgraded'
+  | 'returned_to_squad';
+
+export interface InjuryFeedItem {
+  id: number;
+  eventType: InjuryFeedEventType;
+  eventTime: string;
+  player: { id: number; name: string; photo: string | null; position: string | null };
+  team: { id: number; name: string; logo: string | null };
+  leagueApiFootballId: number;
+  title: string;
+  summary: string;
+  injury: { reason: string | null; type: string | null } | null;
+  recovery: {
+    predictedAvailability: number;
+    confidenceLevel: number;
+    latestSignalStage: string | null;
+    signalCount: number;
+  } | null;
+  returnStatus: {
+    isReturned: boolean;
+    returnedAt: string | null;
+  };
+  article: {
+    title: string | null;
+    url: string | null;
+    sourceName: string | null;
+  } | null;
+}
+
+export interface InjuryFeedResponse {
+  items: InjuryFeedItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  appliedFilters: {
+    tab: 'injuries' | 'recovery';
+    status: 'all' | 'active_only' | 'returned_only' | 'signal' | 'returned';
+    season: number;
+    league: number | null;
+    teamId: number | null;
+  };
+}
+
+export interface InjuryFeedFiltersResponse {
+  leagues: Array<{ apiFootballId: number; name: string; logo: string | null }>;
+}
+
 export interface InjurySummaryEntry {
   team: { id: number; name: string; logo: string | null } | undefined;
   injuryCount: number;

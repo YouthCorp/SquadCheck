@@ -219,6 +219,12 @@ export function HomeLiveUpdatesPanel({ data, locale }: Props) {
             <span className="text-sm font-semibold text-foreground">
               {t(locale, "recent_injuries")}
             </span>
+            <Link
+              href="/injuries?tab=injuries"
+              className="ml-auto text-[0.6875rem] text-primary no-underline hover:underline"
+            >
+              {locale === "ko" ? "전체 보기" : "View all"}
+            </Link>
           </div>
           <ScrollHint maxHeight="480px" className="divide-y divide-border/50">
             {recentInjuries.length === 0 ? (
@@ -241,6 +247,12 @@ export function HomeLiveUpdatesPanel({ data, locale }: Props) {
               {t(locale, "recovery_signals")}
             </span>
             <InfoTooltip content={t(locale, "tooltip_recovery_signal")} />
+            <Link
+              href="/injuries?tab=recovery"
+              className="ml-auto text-[0.6875rem] text-primary no-underline hover:underline"
+            >
+              {locale === "ko" ? "전체 보기" : "View all"}
+            </Link>
           </div>
           <ScrollHint maxHeight="480px" className="divide-y divide-border/50">
             {recentSignals.length === 0 ? (

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { resolveActiveInjuries } from '@squadcheck/analysis';
+import { emitNewInjuryEvents, emitReturnEvents } from '../events/injury-feed-events';
 
 // Top 5 domestic leagues tracked for injury status
 const TRACKED_LEAGUE_API_IDS = [39, 140, 135, 78, 61];
@@ -8,7 +9,7 @@ const TRACKED_LEAGUE_API_IDS = [39, 140, 135, 78, 61];
  * Computes and caches the current injury status for all players in tracked leagues.
  *
  * For each team in each tracked league:
- *   1. Runs resolveActiveInjuries() — the single authoritative injury resolution algorithm
+ *   1. Runs resolveActiveInjuries() as the authoritative injury resolution algorithm
  *   2. Upserts active injuries into player_injury_status
  *   3. Marks previously active records as resolved if the player is no longer injured
  *
@@ -30,8 +31,6 @@ export async function collectInjuryStatuses(
   let totalResolved = 0;
 
   for (const league of leagues) {
-    // All teams that played in this league+season.
-    // Query fixtures directly instead of traversing team relations for every league.
     const leagueFixtures = await prisma.fixture.findMany({
       where: { leagueId: league.id, season },
       select: { homeTeamId: true, awayTeamId: true },
@@ -39,31 +38,58 @@ export async function collectInjuryStatuses(
     const teamIds = [...new Set(
       leagueFixtures.flatMap((fixture) => [fixture.homeTeamId, fixture.awayTeamId]),
     )];
-    const teams = teamIds.map((id) => ({ id }));
+    const teams = await prisma.team.findMany({
+      where: { id: { in: teamIds } },
+      select: { id: true, name: true },
+    });
 
     for (const team of teams) {
       try {
-        // resolveActiveInjuries: no leagueId filter — cup injuries count too
-        const activeInjuries = await resolveActiveInjuries(prisma, team.id, season);
+        const previousStatuses = await prisma.playerInjuryStatus.findMany({
+          where: { teamId: team.id, season, isActive: true },
+          select: {
+            id: true,
+            playerId: true,
+            reason: true,
+            type: true,
+            fixtureId: true,
+            player: { select: { name: true } },
+          },
+        });
+        const previousStatusMap = new Map(previousStatuses.map((status) => [status.playerId, status]));
 
+        const activeInjuries = await resolveActiveInjuries(prisma, team.id, season);
         const activePlayerIds = [...activeInjuries.keys()];
 
         if (activePlayerIds.length === 0) {
-          // Find previously active players before marking them resolved
-          const previouslyActiveAll = await prisma.playerInjuryStatus.findMany({
-            where: { teamId: team.id, season, isActive: true },
-            select: { playerId: true },
-          });
-          const allResolvedIds = previouslyActiveAll.map(r => r.playerId);
+          const allResolvedIds = previousStatuses.map((status) => status.playerId);
+          const resolvedAtNow = new Date();
 
-          // No active injuries — mark any previously active records as resolved
           const { count } = await prisma.playerInjuryStatus.updateMany({
             where: { teamId: team.id, season, isActive: true },
-            data: { isActive: false, resolvedAt: new Date() },
+            data: { isActive: false, resolvedAt: resolvedAtNow },
           });
           totalResolved += count;
 
-          // Expire player_availability for all recovered players
+          if (previousStatuses.length > 0) {
+            await emitReturnEvents(
+              prisma,
+              season,
+              previousStatuses.map((status) => ({
+                playerId: status.playerId,
+                playerName: status.player.name,
+                teamId: team.id,
+                teamName: team.name,
+                leagueApiId: league.apiFootballId,
+                season,
+                eventTime: resolvedAtNow,
+                injuryStatusId: status.id,
+                previousInjuryReason: status.reason,
+                previousInjuryType: status.type,
+              })),
+            );
+          }
+
           if (allResolvedIds.length > 0) {
             await prisma.playerAvailability.updateMany({
               where: { playerId: { in: allResolvedIds }, expired: false },
@@ -73,38 +99,39 @@ export async function collectInjuryStatuses(
           continue;
         }
 
-        // Find the earliest injury record per active player — this is the start of
-        // their current injury streak. Using asc order + first-seen-wins gives us
-        // the first fixture they missed, not the most recent one.
         const allInjuryRecords = await prisma.injury.findMany({
           where: { teamId: team.id, season, playerId: { in: activePlayerIds } },
           orderBy: { fixtureDate: 'asc' },
           select: { playerId: true, fixtureId: true, fixtureDate: true },
         });
 
-        // Batch-fetch authoritative fixture.date for all injury fixtureIds (no API Football drift)
-        const allInjuryFixtureIds = [...new Set(allInjuryRecords.map(r => r.fixtureId))];
+        const allInjuryFixtureIds = [...new Set(allInjuryRecords.map((record) => record.fixtureId))];
         const fixtureDateMap = new Map<number, Date>();
         if (allInjuryFixtureIds.length > 0) {
           const fixtures = await prisma.fixture.findMany({
             where: { id: { in: allInjuryFixtureIds } },
             select: { id: true, date: true },
           });
-          for (const f of fixtures) fixtureDateMap.set(f.id, f.date);
+          for (const fixture of fixtures) fixtureDateMap.set(fixture.id, fixture.date);
         }
 
-        // First injury record per player (asc order → first-seen = earliest)
         const earliestByPlayer = new Map<number, { fixtureId: number; injuredSince: Date }>();
-        for (const inj of allInjuryRecords) {
-          if (!earliestByPlayer.has(inj.playerId)) {
-            earliestByPlayer.set(inj.playerId, {
-              fixtureId: inj.fixtureId,
-              injuredSince: fixtureDateMap.get(inj.fixtureId) ?? inj.fixtureDate,
+        for (const injury of allInjuryRecords) {
+          if (!earliestByPlayer.has(injury.playerId)) {
+            earliestByPlayer.set(injury.playerId, {
+              fixtureId: injury.fixtureId,
+              injuredSince: fixtureDateMap.get(injury.fixtureId) ?? injury.fixtureDate,
             });
           }
         }
 
-        // Upsert each active injury
+        const playerRows = await prisma.player.findMany({
+          where: { id: { in: activePlayerIds } },
+          select: { id: true, name: true },
+        });
+        const playerNameMap = new Map(playerRows.map((player) => [player.id, player.name]));
+        const newInjuryEvents: Parameters<typeof emitNewInjuryEvents>[2] = [];
+
         for (const [playerId, injury] of activeInjuries) {
           const earliest = earliestByPlayer.get(playerId);
           const injuredSince = earliest?.injuredSince
@@ -112,7 +139,7 @@ export async function collectInjuryStatuses(
             ?? injury.fixtureDate;
           const injuryFixtureId = earliest?.fixtureId ?? injury.fixtureId;
 
-          await prisma.playerInjuryStatus.upsert({
+          const upserted = await prisma.playerInjuryStatus.upsert({
             where: { playerId_teamId_season: { playerId, teamId: team.id, season } },
             create: {
               playerId,
@@ -133,23 +160,36 @@ export async function collectInjuryStatuses(
               isActive: true,
               resolvedAt: null,
             },
+            select: { id: true },
           });
+
+          if (!previousStatusMap.has(playerId)) {
+            newInjuryEvents.push({
+              playerId,
+              playerName: playerNameMap.get(playerId) ?? `Player ${playerId}`,
+              teamId: team.id,
+              teamName: team.name,
+              leagueApiId: league.apiFootballId,
+              season,
+              eventTime: injuredSince ?? new Date(),
+              injuryStatusId: upserted.id,
+              injuryFixtureId,
+              injuryReason: injury.reason,
+              injuryType: injury.type,
+              injuredSince,
+            });
+          }
           totalActive++;
         }
 
-        // Find players who were active but are now recovered — need their IDs to expire availability
-        const previouslyActive = await prisma.playerInjuryStatus.findMany({
-          where: {
-            teamId: team.id,
-            season,
-            isActive: true,
-            playerId: { notIn: activePlayerIds },
-          },
-          select: { playerId: true },
-        });
-        const resolvedPlayerIds = previouslyActive.map(r => r.playerId);
+        if (newInjuryEvents.length > 0) {
+          await emitNewInjuryEvents(prisma, season, newInjuryEvents);
+        }
 
-        // Mark as resolved: players previously active but no longer injured
+        const resolvedStatuses = previousStatuses.filter((status) => !activePlayerIds.includes(status.playerId));
+        const resolvedPlayerIds = resolvedStatuses.map((status) => status.playerId);
+        const resolvedAtNow = new Date();
+
         const { count } = await prisma.playerInjuryStatus.updateMany({
           where: {
             teamId: team.id,
@@ -157,12 +197,29 @@ export async function collectInjuryStatuses(
             isActive: true,
             playerId: { notIn: activePlayerIds },
           },
-          data: { isActive: false, resolvedAt: new Date() },
+          data: { isActive: false, resolvedAt: resolvedAtNow },
         });
         totalResolved += count;
 
-        // Expire player_availability records for recovered players so they no longer
-        // appear in the home panel recovery signals section.
+        if (resolvedStatuses.length > 0) {
+          await emitReturnEvents(
+            prisma,
+            season,
+            resolvedStatuses.map((status) => ({
+              playerId: status.playerId,
+              playerName: status.player.name,
+              teamId: team.id,
+              teamName: team.name,
+              leagueApiId: league.apiFootballId,
+              season,
+              eventTime: resolvedAtNow,
+              injuryStatusId: status.id,
+              previousInjuryReason: status.reason,
+              previousInjuryType: status.type,
+            })),
+          );
+        }
+
         if (resolvedPlayerIds.length > 0) {
           await prisma.playerAvailability.updateMany({
             where: { playerId: { in: resolvedPlayerIds }, expired: false },
@@ -175,5 +232,5 @@ export async function collectInjuryStatuses(
     }
   }
 
-  console.log(`[InjuryStatus] Done — ${totalActive} active, ${totalResolved} newly resolved`);
+  console.log(`[InjuryStatus] Done - ${totalActive} active, ${totalResolved} newly resolved`);
 }

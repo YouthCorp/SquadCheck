@@ -1,5 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { SIGNAL_CONFIG } from '../nlp/signal-config';
+import {
+  compareSignalState,
+  emitRecoverySignalEvents,
+  type RecoverySignalEventChange,
+} from '../events/injury-feed-events';
 
 /**
  * Recomputes PlayerAvailability for a single player for their next upcoming fixture.
@@ -9,7 +14,7 @@ import { SIGNAL_CONFIG } from '../nlp/signal-config';
  * 2. Aggregate RecoverySignals from the last SIGNAL_WINDOW_DAYS days
  * 3. Compute weighted recoverySignalScore
  * 4. Combine with officialStatus to produce predictedAvailability
- * 5. Upsert PlayerAvailability (playerId + fixtureId)
+ * 5. Upsert PlayerAvailability and emit history events when the signal state changed
  */
 export async function computePlayerAvailability(
   prisma: PrismaClient,
@@ -17,7 +22,6 @@ export async function computePlayerAvailability(
   teamId: number,
   season: number,
 ): Promise<void> {
-  // Step 1: Find next upcoming fixture for this team
   const now = new Date();
   const upcomingFixture = await prisma.fixture.findFirst({
     where: {
@@ -30,13 +34,18 @@ export async function computePlayerAvailability(
     select: { id: true, date: true },
   });
 
-  if (!upcomingFixture) return; // No upcoming fixture — nothing to compute
+  if (!upcomingFixture) return;
 
   const fixtureId = upcomingFixture.id;
+  const previousAvailability = await prisma.playerAvailability.findUnique({
+    where: { playerId_fixtureId: { playerId, fixtureId } },
+    select: {
+      predictedAvailability: true,
+      latestSignalStage: true,
+      signalCount: true,
+    },
+  });
 
-  // Step 2: Get recent signals within the aggregation window.
-  // Upper bound = fixture date: only signals published BEFORE the match count.
-  // Post-match articles (e.g. "Player returned in 2-1 win") must not inflate availability.
   const { SIGNAL_WINDOW_DAYS, RECENCY_HALF_LIFE_DAYS } = SIGNAL_CONFIG.aggregation;
   const windowStart = new Date(Date.now() - SIGNAL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
@@ -45,11 +54,12 @@ export async function computePlayerAvailability(
       playerId,
       publishedAt: { gte: windowStart, lte: upcomingFixture.date },
     },
-    include: { source: { select: { reliability: true } } },
+    include: {
+      source: { select: { id: true, name: true, reliability: true } },
+    },
     orderBy: { publishedAt: 'desc' },
   });
 
-  // Step 3: Weighted average of recovery scores
   let weightedSum = 0;
   let weightTotal = 0;
   let latestStage: string | null = null;
@@ -59,10 +69,10 @@ export async function computePlayerAvailability(
     const ageInDays =
       (Date.now() - signal.publishedAt.getTime()) / (1000 * 60 * 60 * 24);
     const recencyWeight = Math.exp(-ageInDays / RECENCY_HALF_LIFE_DAYS);
-    const w = recencyWeight * signal.source.reliability * signal.confidence;
+    const weight = recencyWeight * signal.source.reliability * signal.confidence;
 
-    weightedSum += signal.recoveryScore * w;
-    weightTotal += w;
+    weightedSum += signal.recoveryScore * weight;
+    weightTotal += weight;
 
     if (!latestSignalAt || signal.publishedAt > latestSignalAt) {
       latestSignalAt = signal.publishedAt;
@@ -72,32 +82,34 @@ export async function computePlayerAvailability(
 
   const recoverySignalScore = weightTotal > 0 ? weightedSum / weightTotal : 0;
 
-  // Step 4: Determine official_status from Injury table
-  // If player has no active injury record → they are "available" (API-confirmed)
-  const activeStatus = await prisma.playerInjuryStatus.findFirst({
+  const currentStatus = await prisma.playerInjuryStatus.findFirst({
     where: {
       playerId,
       teamId,
       season,
-      isActive: true,
     },
-    select: { id: true },
+    select: { isActive: true, leagueApiId: true },
   });
 
-  const officialStatus = activeStatus ? 'injured' : 'available';
-
-  // Combine: predictedAvailability = BASE + recoverySignalScore × SIGNAL_WEIGHT
+  const officialStatus = currentStatus?.isActive ? 'injured' : 'available';
   const cfg = SIGNAL_CONFIG.availability[officialStatus] ?? SIGNAL_CONFIG.availability.injured;
   const predictedAvailability = Math.min(1, cfg.BASE + recoverySignalScore * cfg.SIGNAL_WEIGHT);
 
-  // Confidence increases with more signals from diverse sources
-  const uniqueSources = new Set(signals.map(s => s.sourceId)).size;
+  const uniqueSources = new Set(signals.map((signal) => signal.sourceId)).size;
   const confidenceLevel =
     signals.length === 0
       ? 0
       : Math.min(1, (0.5 + 0.1 * signals.length + 0.1 * uniqueSources) * recoverySignalScore);
 
-  // Step 5: Upsert PlayerAvailability
+  const playerRow = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { name: true },
+  });
+  const teamRow = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { name: true },
+  });
+
   await prisma.playerAvailability.upsert({
     where: { playerId_fixtureId: { playerId, fixtureId } },
     create: {
@@ -123,4 +135,36 @@ export async function computePlayerAvailability(
       signalCount: signals.length,
     },
   });
+
+  const eventType = compareSignalState(previousAvailability, {
+    predictedAvailability,
+    latestSignalStage: latestStage,
+    signalCount: signals.length,
+  });
+
+  if (!eventType || signals.length <= 0) return;
+
+  const latestSignal = signals[0] ?? null;
+  const changes: RecoverySignalEventChange[] = [{
+    playerId,
+    playerName: playerRow?.name ?? `Player ${playerId}`,
+    teamId,
+    teamName: teamRow?.name ?? `Team ${teamId}`,
+    leagueApiId: currentStatus?.leagueApiId ?? 0,
+    season,
+    fixtureId,
+    eventTime: latestSignalAt ?? now,
+    eventType,
+    predictedAvailability,
+    confidenceLevel,
+    latestSignalStage: latestStage,
+    signalCount: signals.length,
+    officialStatus,
+    recoverySignalId: latestSignal?.id ?? null,
+    articleTitle: latestSignal?.articleTitle ?? null,
+    articleUrl: latestSignal?.articleUrl ?? null,
+    sourceName: latestSignal?.source.name ?? null,
+  }];
+
+  await emitRecoverySignalEvents(prisma, season, changes);
 }

@@ -83,6 +83,7 @@ model Team {
   teamSeasonStats  TeamSeasonStats[]
   recoverySignals  RecoverySignal[]
   injuryStatuses   PlayerInjuryStatus[]
+  injuryFeedEvents InjuryFeedEvent[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -114,6 +115,7 @@ model Player {
   injuryStatuses       PlayerInjuryStatus[]
   watchlistEntries     WatchlistPlayer[]
   watchlistAlerts      WatchlistAlert[]
+  injuryFeedEvents     InjuryFeedEvent[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -614,6 +616,34 @@ model PlayerAvailability {
 // ============================================================
 // COMPUTED / CACHED STATE
 // ============================================================
+
+model InjuryFeedEvent {
+  id                  Int      @id @default(autoincrement())
+  playerId            Int      @map("player_id")
+  teamId              Int      @map("team_id")
+  leagueApiId         Int      @map("league_api_id")
+  season              Int
+  eventType           String   @map("event_type")
+  eventTime           DateTime @map("event_time")
+  injuryStatusId      Int?     @map("injury_status_id")
+  availabilityFixtureId Int?   @map("availability_fixture_id")
+  recoverySignalId    Int?     @map("recovery_signal_id")
+  title               String
+  summary             String
+  metadata            Json
+  dedupeKey           String   @unique @map("dedupe_key")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  player Player @relation(fields: [playerId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+
+  @@index([season, eventTime])
+  @@index([leagueApiId, season, eventTime])
+  @@index([eventType, eventTime])
+  @@index([playerId, eventTime])
+  @@index([teamId, eventTime])
+  @@map("injury_feed_events")
+}
 
 // ============================================================
 // USER AUTH + WATCHLIST
