@@ -15,3 +15,15 @@ coverage/
 docs/
 
 prompt-to-roadmap
+
+# Portfolio documentation
+!README.md
+!packages/frontend/README.md
+!packages/api/README.md
+!packages/ingestion/README.md
+!packages/analysis/README.md
+!packages/database/README.md
+!docs/
+!docs/architecture.md
+!docs/screenshots/
+!docs/screenshots/README.md
