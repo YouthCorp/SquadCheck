@@ -125,12 +125,29 @@ frontend, API, ingestion, analysis, database를 독립 배포 단위에 가깝�
 
 ## Screenshots
 
-현재 저장소에는 포트폴리오용 화면 캡처가 포함되어 있지 않습니다. 실제 배포 또는 로컬 실행 화면을 아래 항목별로 캡처해 [docs/screenshots](docs/screenshots) 폴더에 추가하는 것을 권장합니다.
+### 홈 대시보드
 
-1. 홈 대시보드: 리그 순위와 부상 요약
-2. 팀 상세: 전력 손실 및 부상 선수 카드
-3. 예상 라인업: 피치 위 선발 배치
-4. 복귀 신호 또는 watchlist 화면
+리그 순위, 경기 일정, 부상·복귀 신호를 한 화면에서 확인합니다.
+
+![SquadCheck 홈 대시보드](docs/screenshots/01-home.png)
+
+### 팀 전력 분석
+
+부상 선수별 영향과 팀 전력 손실을 확인합니다.
+
+![팀 전력 분석](docs/screenshots/02-team-impact.png)
+
+### 예상 선발 라인업
+
+최근 라인업·포메이션·선수 가용성을 바탕으로 예상 선발을 피치 위에 표시합니다.
+
+![예상 선발 라인업](docs/screenshots/03-predicted-lineup.png)
+
+### 복귀 신호
+
+기사 기반 회복 신호와 예상 출전 가능성을 확인합니다.
+
+![복귀 신호](docs/screenshots/04-recovery-or-watchlist.png)
 
 ## Performance
 
